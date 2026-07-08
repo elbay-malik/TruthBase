@@ -8,8 +8,9 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
   Spec, golden Q&A set (30–50 pairs, see [docs/golden/](./docs/golden/README.md)), and wireframes committed.
 - [x] **Phase 1 — Repo and Nuxt 4 setup** *(~0.5 wk)*
   App builds, placeholder page deploys, TypeScript strict passes, secrets load from env. *(This bootstrap.)*
-- [ ] **Phase 2 — Database schema + pgvector**
+- [ ] **Phase 2 — Database schema + pgvector** — *code authored ([supabase/](./supabase/)), pending a Supabase project*
   RRF hybrid-search RPC returns sensibly fused results for a seeded row set. Keep-alive ping running.
+  <br>Done: migrations (schema + GIN/HNSW indexes + `hybrid_search` RRF RPC + keep-alive table), server-only Supabase client + typed `hybridSearch()` helper, `l2Normalize()`, keep-alive workflow. Remaining: create the project, run the migrations, seed rows, verify fused output, wire the two GitHub secrets.
 - [ ] **Phase 3 — Ingestion pipeline** *(~2 wk)*
   Upload → parse-with-positions → chunk → embed (768-dim, L2-normalized) → store; spot-checked rects match source passages.
 - [ ] **Phase 3.5 — Highlight spike (risk front-load)**
