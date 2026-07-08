@@ -1,0 +1,68 @@
+# Tech Notes — verified corrections to the execution plan
+
+Verified 2026-07-08 against npm and official docs (Nuxt, Nuxt UI, AI SDK, pnpm, Node). The [execution plan](./EXECUTION_PLAN.md) was researched against mid-2026 sources; these are the deltas discovered when bootstrapping the repo. Re-verify before each phase — versions drift.
+
+## 1. Vercel AI SDK is v7, not v6 (affects Phases 3, 4, 7, 8)
+
+`ai@7.0.17` went GA 2026-06-25. The brief was written against v6. Start all AI SDK code on v7.
+
+**Pinned versions** (companion packages keep independent majors — there is no `@ai-sdk/vue@7`):
+
+| Package | Version |
+|---|---|
+| `ai` | 7.0.17 |
+| `@ai-sdk/vue` | 4.0.17 |
+| `@ai-sdk/google` | 4.0.9 |
+| `@ai-sdk/groq` | 4.0.5 |
+
+**v6 → v7 deltas relevant to this project:**
+
+- The `@ai-sdk/vue` **`Chat` class is deprecated** (removal in v8). v7 is back to a **`useChat` composable**: `const { messages, sendMessage } = useChat()`.
+- Renames (old names are deprecated aliases in v7, gone in v8): `system` → `instructions`, `onFinish` → `onEnd`, `result.fullStream` → `result.stream`.
+- Server streaming pattern: `result.toUIMessageStreamResponse({ sendSources: true })` is deprecated. Use:
+  ```ts
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream({ stream: result.stream, sendSources: true }),
+  })
+  ```
+- Unchanged and still current: `streamText` / `generateObject` / `streamObject` / `embed` / `embedMany`; UI part types `source-url` and `source-document`; `createUIMessageStream` + `writer.write({ type: 'data-*', ... })` for custom RAG citation parts; SSE `DefaultChatTransport`.
+- Multi-step results restructured: top-level `usage`/`content`/`toolCalls`/`sources` accumulate across steps; final-step-only data moved under `finalStep` (matters if we add tool calls).
+- OpenTelemetry moved out of core into `@ai-sdk/otel` (`experimental_telemetry` → `telemetry`) — relevant to Phase 10 Langfuse wiring.
+- v7 is **ESM-only** and requires **Node ≥ 22** — non-issue for Nuxt, matters for standalone ingest/eval scripts.
+
+## 2. Gemini embeddings: truncated vectors are NOT normalized (affects Phases 2, 3, 6)
+
+Per Google's model docs, only the full 3072-dim `gemini-embedding-001` output is L2-normalized. When truncating via `providerOptions.google.outputDimensionality: 768`, **normalize the vectors ourselves before storing/cosine-comparing** — the SDK does not do it. Also set `taskType`: `RETRIEVAL_DOCUMENT` for chunks, `RETRIEVAL_QUERY` for queries.
+
+```ts
+const { embeddings } = await embedMany({
+  model: google.textEmbedding('gemini-embedding-001'),
+  values: chunks,
+  providerOptions: { google: { outputDimensionality: 768, taskType: 'RETRIEVAL_DOCUMENT' } },
+})
+// then: v.map(x => x / l2norm(v)) before insert
+```
+
+Note: the AI SDK docs now showcase `gemini-embedding-2`; `gemini-embedding-001` remains available. Pin the model ID explicitly and record the dimension in the schema (ADR when we get to Phase 2).
+
+## 3. @nuxt/ui v4 does not bundle Tailwind (corrects Phase 1 wording)
+
+`tailwindcss@^4` is a **peerDependency** of `@nuxt/ui`, not bundled — install it explicitly (`pnpm add @nuxt/ui tailwindcss`; required under pnpm's strict `node_modules`). The brief's decision stands (no `@nuxtjs/tailwindcss` module — that's Tailwind v3-era and conflicts). `@nuxt/ui` auto-registers `@nuxt/icon`, `@nuxt/fonts`, `@nuxtjs/color-mode` — do not add them to `modules`. `<UApp>` must wrap the app for toasts/tooltips/overlays.
+
+## 4. Corepack is going away (affects CI)
+
+Node TSC removed Corepack from Node 25+; it is experimental-but-bundled in Node 24. CI uses `pnpm/action-setup@v6` (reads the `packageManager` field from `package.json` — do **not** also pass a `version` input) followed by `actions/setup-node@v6` with `cache: pnpm` — order matters. Locally on Node 24 corepack still works.
+
+## 5. nuxt-security 2.6 defaults worth knowing (affects Phases 5, 11, 14)
+
+- Rate limiter is **on by default**: 150 tokens / 5 min per IP, in-memory `lruCache` driver, which does not share state across serverless instances. For production (Phase 11/14) switch to an unstorage driver or platform-level limiting.
+- Default CSP (per-request nonces in SSR, meta-tag hashes for static), COEP `credentialless`, and `X-Frame-Options: SAMEORIGIN` can break embeds/third-party scripts — and the PDF.js worker may need CSP tuning in Phase 5. Test headers in the real deployment target, not just `nuxt dev`.
+- Request size limiter caps uploads at 8MB by default — will need a per-route override for the Phase 3 ingest route.
+
+## 6. Misc Nuxt 4 facts baked into this repo
+
+- `typescript.strict` is **true by default** in Nuxt 4 (we set it explicitly anyway). `nuxt typecheck` runs `vue-tsc`, which must be a devDependency (`nuxi` is the legacy CLI alias).
+- Root `tsconfig.json` is generated project-references into `.nuxt/` — never hand-edit; customize via `typescript.tsConfig` / `nitro.typescript.tsConfig`.
+- `runtimeConfig` env override only works for keys **declared** in `nuxt.config.ts` (mapping: `supabaseServiceKey` → `NUXT_SUPABASE_SERVICE_KEY`). `.env` is read only at dev/build time; deployed servers need real env vars.
+- `@nuxt/test-utils` v4 requires Vitest 4; the Nuxt test environment initializes in `beforeAll`, so composables must not be called at the top level of `describe` blocks.
+- pnpm 11 blocks dependency postinstall scripts by default — approve via `pnpm approve-builds` when a dep (esbuild etc.) needs it. The project's own `postinstall: nuxt prepare` runs normally.
