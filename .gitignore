@@ -1,0 +1,24 @@
+# Nuxt
+.nuxt
+.output
+.data
+dist
+
+# Node
+node_modules
+logs
+*.log
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Testing
+coverage
+playwright-report
+test-results
+
+# OS / editor
+.DS_Store
+.idea
