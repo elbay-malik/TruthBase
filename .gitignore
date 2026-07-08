@@ -1,24 +1,29 @@
-# Nuxt
-.nuxt
+# Nuxt dev/build outputs
 .output
 .data
+.nuxt
+.nitro
+.cache
 dist
 
-# Node
+# Node dependencies
 node_modules
+
+# Logs
 logs
 *.log
-
-# Env
-.env
-.env.*
-!.env.example
 
 # Testing
 coverage
 playwright-report
 test-results
 
-# OS / editor
+# Misc
 .DS_Store
+.fleet
 .idea
+
+# Local env files
+.env
+.env.*
+!.env.example
