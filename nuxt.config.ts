@@ -23,7 +23,18 @@ export default defineNuxtConfig({
     geminiApiKey: '', // NUXT_GEMINI_API_KEY
     supabaseUrl: '', // NUXT_SUPABASE_URL
     supabaseServiceKey: '', // NUXT_SUPABASE_SERVICE_KEY
+    ingestToken: '', // NUXT_INGEST_TOKEN — operator-only ingestion until Phase 11
     public: {},
+  },
+
+  routeRules: {
+    // PDF uploads exceed nuxt-security's 8 MB default; matches the 20 MB
+    // `documents` bucket limit enforced in server/api/ingest.post.ts.
+    '/api/ingest': {
+      security: {
+        requestSizeLimiter: { maxUploadFileRequestInBytes: 20 * 1024 * 1024, maxRequestSizeInBytes: 21 * 1024 * 1024 },
+      },
+    },
   },
 
   // nuxt-security runs with OWASP defaults, including an in-memory

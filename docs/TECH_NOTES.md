@@ -66,3 +66,14 @@ Node TSC removed Corepack from Node 25+; it is experimental-but-bundled in Node 
 - `runtimeConfig` env override only works for keys **declared** in `nuxt.config.ts` (mapping: `supabaseServiceKey` → `NUXT_SUPABASE_SERVICE_KEY`). `.env` is read only at dev/build time; deployed servers need real env vars.
 - `@nuxt/test-utils` v4 requires Vitest 4; the Nuxt test environment initializes in `beforeAll`, so composables must not be called at the top level of `describe` blocks.
 - pnpm 11 blocks dependency postinstall scripts by default — approve via `pnpm approve-builds` when a dep (esbuild etc.) needs it. The project's own `postinstall: nuxt prepare` runs normally.
+
+## 7. PDF.js / unpdf / AI SDK API deltas found in Phase 3 (affects Phases 3, 5)
+
+Verified against `unpdf@1.9.0` (bundled serverless PDF.js) and `@ai-sdk/google@4.0.9`, 2026-10-16:
+
+- **`viewport.convertToViewportRectangle` is gone.** The bundled PDF.js `PageViewport` only has `convertToViewportPoint` / `convertToPdfPoint`. Convert a rect's two corners and take min/max (see `scripts/render-highlights.ts`). The execution plan, `shared/types` and earlier notes still name the old method; the Phase 5 viewer must use the point form.
+- **No `PDFDocumentProxy#destroy`** in the serverless build. Release documents with `pdf.loadingTask.destroy()`, as unpdf does internally.
+- **unpdf may detach the input buffer** (it hands it to PDF.js). Pass `bytes.slice()` when the same bytes are needed afterwards (e.g. upload to Storage).
+- **`extractTextItems`** returns positioned items in the same order and filter as `extractText`, so text rebuilt from items matches the golden contract exactly (`test/unit/ingest-extract.test.ts`).
+- **`google.textEmbedding()` is deprecated** in `@ai-sdk/google` 4.x. Use `google.embedding('gemini-embedding-001')` (§2's snippet predates this).
+- The `/api/ingest` size override from §5 is in `nuxt.config.ts` `routeRules` (20 MB, matching the `documents` bucket limit).

@@ -12,8 +12,9 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 - [x] **Phase 2 — Database schema + pgvector** *(hosted project `ezgfuoaukozwylgkdtft`)*
   RRF hybrid-search RPC returns sensibly fused results for a seeded row set. Keep-alive ping running.
   <br>Done: migrations (schema + GIN/HNSW indexes + RLS + `hybrid_search` RRF RPC + keep-alive table) applied to the hosted project; the [acceptance check](./supabase/tests/hybrid_search.sql) (fused order, exact RRF scores, weights, filter, stemming, access control) passes there and in the CI `db` job; server-only Supabase client + typed `hybridSearch()`; keep-alive secrets set and first ping green.
-- [ ] **Phase 3 — Ingestion pipeline** *(~2 wk)*
+- [x] **Phase 3 — Ingestion pipeline** *(~2 wk)*
   Upload → parse-with-positions → chunk → embed (768-dim, L2-normalized) → store; spot-checked rects match source passages.
+  <br>Done: extraction with char→item map ([ADR-0004](./docs/adr/0004-extraction-and-highlights.md)), page-bounded 800-char sentence chunking measured on the golden set ([ADR-0003](./docs/adr/0003-chunking.md)), per-line PDF-space rects (visually verified via `pnpm render:highlights`), Gemini embedder, compensating-rollback store + private `documents` bucket, token-gated `POST /api/ingest` with SSE progress, `pnpm ingest:golden`. Demo corpus ingested: 4 PDFs, 133 pages, 566 chunks (all 768-dim, unit norm, rects on the right page; 60/60 golden spans inside a stored chunk). Untuned smoke baseline on the hosted DB: recall@10 hybrid 0.78 / dense 0.76 / keyword 0.71 — formal numbers come in Phases 4 and 6.
 - [ ] **Phase 3.5 — Highlight spike (risk front-load)**
   Throwaway overlay of one hard-coded chunk's rects in PDF.js — validate the rect math before building retrieval.
 - [ ] **Phase 4 — Basic retrieval + grounded generation with citations** *(~1.5 wk)*

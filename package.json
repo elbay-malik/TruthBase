@@ -14,13 +14,17 @@
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "render:highlights": "tsx scripts/render-highlights.ts",
+    "ingest:golden": "tsx --env-file=.env scripts/ingest-golden.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "4.0.9",
     "@nuxt/ui": "^4.9.0",
     "@supabase/supabase-js": "^2.110.1",
     "@vueuse/core": "^14.3.0",
     "@vueuse/nuxt": "^14.3.0",
+    "ai": "7.0.17",
     "nuxt": "^4.4.8",
     "nuxt-security": "^2.6.0",
     "tailwindcss": "^4.3.2",
@@ -30,12 +34,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.11",
     "@nuxt/eslint": "^1.16.0",
     "@nuxt/test-utils": "^4.0.3",
     "@vue/test-utils": "^2.4.11",
     "eslint": "^10.6.0",
     "happy-dom": "^20.10.6",
     "playwright-core": "^1.61.1",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10",
     "vue-tsc": "^3.3.6"
