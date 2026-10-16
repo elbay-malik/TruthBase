@@ -3,7 +3,7 @@ name: Supabase Keep-Alive
 # Free-tier Supabase projects pause after ~7 days without user DB activity.
 # This reads a tiny RLS-protected table with the ANON key twice a week to keep
 # the project active. Set up the DB side with
-# supabase/migrations/20260708153200_keep_alive.sql.
+# supabase/migrations/20261016203929_keep_alive.sql.
 
 on:
   schedule:

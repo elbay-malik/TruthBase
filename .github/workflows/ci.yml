@@ -27,3 +27,41 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+
+  # Applies supabase/migrations to the same Postgres image Supabase hosts
+  # (pgvector, anon/authenticated/service_role roles) and runs the
+  # hybrid_search acceptance check. Connects as non-superuser `postgres`,
+  # like the hosted SQL Editor.
+  db:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v6
+
+      # The image finishes its own init (roles, extensions schema) after the
+      # server first accepts connections, so wait for the Supabase roles.
+      - name: Wait for Supabase roles
+        run: |
+          for i in $(seq 1 60); do
+            psql -tAc "select 1 from pg_roles where rolname = 'service_role'" 2>/dev/null | grep -q 1 && exit 0
+            sleep 2
+          done
+          echo "Supabase Postgres did not become ready" >&2
+          exit 1
+
+      - name: Apply migrations
+        run: for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
+
+      - name: hybrid_search acceptance check
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/hybrid_search.sql

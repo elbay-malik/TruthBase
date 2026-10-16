@@ -51,8 +51,14 @@ pgvector guides (July 2026).
 ## Consequences
 
 - Ingestion (Phase 3) must L2-normalize before insert, or cosine ranking degrades.
-- The `hybrid_search` RPC returns `setof chunks`, so a `ChunkRow` type mirrors
-  the table (`server/utils/retrieval.ts`).
+- The `hybrid_search` RPC returns the chunk columns callers need plus the
+  fused RRF `score` (not the embedding or tsvector, which would bloat every
+  response); `hybridSearch()` maps the snake_case rows to `SearchHit`
+  (`server/utils/retrieval.ts`).
+- `documents` and `chunks` have RLS enabled with no policies, and
+  `hybrid_search` is executable by `service_role` only: the anon key (which
+  the keep-alive ping uses) cannot read or write the corpus. The public demo
+  goes through Nitro routes, not direct client queries.
 - Highlight data must be captured at ingestion into `highlight jsonb`;
   retrofitting positions later means re-parsing every PDF.
 - Free-tier pausing is mitigated by the keep-alive table + scheduled ping, not

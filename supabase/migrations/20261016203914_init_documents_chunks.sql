@@ -38,6 +38,14 @@ create table chunks (
   created_at  timestamptz not null default now()
 );
 
+-- ── row level security ──────────────────────────────────────────────────────
+-- Tables in `public` are exposed through PostgREST to anyone holding the anon
+-- key. RLS with no policies denies anon/authenticated entirely; the server
+-- uses the service_role key, which bypasses RLS. Read policies for the public
+-- demo workspace arrive with Phase 11 if the client ever queries directly.
+alter table documents enable row level security;
+alter table chunks enable row level security;
+
 -- ── indexes ─────────────────────────────────────────────────────────────────
 -- Keyword arm: GIN over the generated tsvector.
 create index chunks_fts_idx on chunks using gin (fts);

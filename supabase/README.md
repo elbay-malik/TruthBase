@@ -10,15 +10,18 @@ Applied in filename (timestamp) order:
 
 | File | What it does |
 |---|---|
-| `migrations/20260708153000_init_documents_chunks.sql` | `vector` extension, `documents` + `chunks` tables, GIN + HNSW(cosine) + FK indexes |
-| `migrations/20260708153100_hybrid_search.sql` | `hybrid_search(...)` RPC — RRF fusion of the two arms, optional single-document filter |
-| `migrations/20260708153200_keep_alive.sql` | `keep_alive` table + RLS read policy for the anti-pause ping |
+| `migrations/20261016203914_init_documents_chunks.sql` | `vector` extension, `documents` + `chunks` tables (RLS on, no policies), GIN + HNSW(cosine) + FK indexes |
+| `migrations/20261016203928_hybrid_search.sql` | `hybrid_search(...)` RPC — RRF fusion of the two arms, optional single-document filter, returns the fused `score`; executable by `service_role` only |
+| `migrations/20261016203929_keep_alive.sql` | `keep_alive` table + RLS read policy for the anti-pause ping |
 
 ## How to apply
 
 **Now (no CLI needed):** create a Supabase project, open the **SQL Editor**, and
-run each migration file in order. That's enough to satisfy the Phase 2
-acceptance criterion (the RPC returns fused results for a seeded row set).
+run each migration file in order.
+
+**Hosted project** (`ezgfuoaukozwylgkdtft`): all three migrations were applied
+on 2026-10-16 via the Supabase MCP server; the filenames above are the versions
+recorded in its migration history, so the CLI sees them as already applied.
 
 **Later (CLI):** once you `supabase link` this repo to the hosted project,
 `supabase db push` applies the not-yet-run migrations in timestamp order.
@@ -27,6 +30,28 @@ acceptance criterion (the RPC returns fused results for a seeded row set).
 > **not** also make ad-hoc schema edits in the SQL/Table editor — that bypasses
 > the migration history and makes the next `db push` fail. Manual SQL-editor
 > mode is fine only while you have not yet linked/pushed.
+
+## Verify (Phase 2 acceptance)
+
+[`tests/hybrid_search.sql`](./tests/hybrid_search.sql) seeds a 5-row corpus whose
+keyword and semantic rankings are known by construction, asserts the fused
+order, the exact RRF score, both weights, the document filter, English stemming,
+and access control (anon: no rows via RLS, no RPC execute, keep_alive readable),
+prints the fused ranking, and **rolls back**. Run it on an empty database:
+
+- **Hosted:** paste it into the SQL Editor and run. Expect two `NOTICE … all
+  assertions passed` lines and labels `1, 2, 3, 4` with scores
+  `0.038839, 0.038476, 0.019231, 0.018519`.
+- **CI:** the `db` job in [`ci.yml`](../.github/workflows/ci.yml) applies the
+  migrations to `supabase/postgres` (the image Supabase hosts) and runs it on
+  every push.
+- **Locally (OrbStack/Docker):**
+
+  ```bash
+  docker run -d --name tb-pg -e POSTGRES_PASSWORD=postgres supabase/postgres:17.11.0.004
+  for f in supabase/migrations/*.sql; do docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 -q < "$f"; done
+  docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 < supabase/tests/hybrid_search.sql
+  ```
 
 ## Configuration
 

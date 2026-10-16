@@ -9,9 +9,9 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
   <br>Done: [SPEC.md](./docs/SPEC.md) (scope, acceptance metrics, ADR backlog), [WIREFRAMES.md](./docs/WIREFRAMES.md), 4 demo PDFs + 50-record [golden.json](./docs/golden/golden.json), with every quote verified against `unpdf` page text in CI.
 - [x] **Phase 1 — Repo and Nuxt 4 setup** *(~0.5 wk)*
   App builds, placeholder page deploys, TypeScript strict passes, secrets load from env. *(This bootstrap.)*
-- [ ] **Phase 2 — Database schema + pgvector** — *code authored ([supabase/](./supabase/)), pending a Supabase project*
+- [x] **Phase 2 — Database schema + pgvector** *(hosted project `ezgfuoaukozwylgkdtft`)*
   RRF hybrid-search RPC returns sensibly fused results for a seeded row set. Keep-alive ping running.
-  <br>Done: migrations (schema + GIN/HNSW indexes + `hybrid_search` RRF RPC + keep-alive table), server-only Supabase client + typed `hybridSearch()` helper, `l2Normalize()`, keep-alive workflow. Remaining: create the project, run the migrations, seed rows, verify fused output, wire the two GitHub secrets.
+  <br>Done: migrations (schema + GIN/HNSW indexes + RLS + `hybrid_search` RRF RPC + keep-alive table) applied to the hosted project; the [acceptance check](./supabase/tests/hybrid_search.sql) (fused order, exact RRF scores, weights, filter, stemming, access control) passes there and in the CI `db` job; server-only Supabase client + typed `hybridSearch()`; keep-alive secrets set and first ping green.
 - [ ] **Phase 3 — Ingestion pipeline** *(~2 wk)*
   Upload → parse-with-positions → chunk → embed (768-dim, L2-normalized) → store; spot-checked rects match source passages.
 - [ ] **Phase 3.5 — Highlight spike (risk front-load)**

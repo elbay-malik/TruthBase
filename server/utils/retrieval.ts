@@ -1,7 +1,7 @@
-import type { ChunkRecord } from '#shared/types'
+import type { ChunkHighlight } from '#shared/types'
 
 // Typed wrapper around the `hybrid_search` SQL RPC (see
-// supabase/migrations/20260708153100_hybrid_search.sql). Auto-imported by Nitro.
+// supabase/migrations/20261016203928_hybrid_search.sql). Auto-imported by Nitro.
 //
 // Phase 4/6 call this after embedding the query. The query embedding is passed
 // as a raw number[] — supabase-js serializes it to the JSON array pgvector's
@@ -18,12 +18,43 @@ export interface HybridSearchParams {
   documentId?: string
 }
 
-/** A row returned by hybrid_search, mirroring the `chunks` table. */
-export interface ChunkRow extends Omit<ChunkRecord, 'embedding'> {
-  createdAt: string
+/** A row exactly as `hybrid_search` returns it (Postgres snake_case). */
+export interface HybridSearchRow {
+  id: string
+  document_id: string
+  page_number: number | null
+  content: string
+  highlight: ChunkHighlight | null
+  created_at: string
+  score: number
 }
 
-export async function hybridSearch(params: HybridSearchParams): Promise<ChunkRow[]> {
+/** A fused search hit in app (camelCase) shape. */
+export interface SearchHit {
+  id: string
+  documentId: string
+  pageNumber: number | null
+  content: string
+  /** Null until ingestion (Phase 3) has captured positions for the chunk. */
+  highlight: ChunkHighlight | null
+  createdAt: string
+  /** RRF score: Σ weight / (rrfK + rank) over the keyword and semantic arms. */
+  score: number
+}
+
+export function toSearchHit(row: HybridSearchRow): SearchHit {
+  return {
+    id: row.id,
+    documentId: row.document_id,
+    pageNumber: row.page_number,
+    content: row.content,
+    highlight: row.highlight,
+    createdAt: row.created_at,
+    score: row.score,
+  }
+}
+
+export async function hybridSearch(params: HybridSearchParams): Promise<SearchHit[]> {
   const supabase = serverSupabase()
 
   const { data, error } = await supabase.rpc('hybrid_search', {
@@ -44,5 +75,5 @@ export async function hybridSearch(params: HybridSearchParams): Promise<ChunkRow
     })
   }
 
-  return (data ?? []) as ChunkRow[]
+  return ((data ?? []) as HybridSearchRow[]).map(toSearchHit)
 }

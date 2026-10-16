@@ -1,6 +1,6 @@
 # TruthBase
 
-> 🚧 **Status: Phase 2 — database layer authored** (awaiting a Supabase project). See [ROADMAP.md](./ROADMAP.md) for progress.
+> 🚧 **Status: Phases 0–2 complete** (spec + golden set, Nuxt scaffold, hosted database layer). Next: Phase 3, ingestion. See [ROADMAP.md](./ROADMAP.md) for progress.
 
 **TruthBase** is a verifiable, advanced-RAG knowledge base built on Nuxt 4. Upload PDFs, ask questions, and get grounded answers with inline citations — where **clicking a citation scrolls the PDF viewer to the exact page and highlights the exact supporting passage**.
 
