@@ -4,8 +4,9 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 
 ## Phases
 
-- [ ] **Phase 0 — Scoping, golden dataset, mockups** *(~1 wk)*
+- [x] **Phase 0 — Scoping, golden dataset, mockups** *(~1 wk)*
   Spec, golden Q&A set (30–50 pairs, see [docs/golden/](./docs/golden/README.md)), and wireframes committed.
+  <br>Done: [SPEC.md](./docs/SPEC.md) (scope, acceptance metrics, ADR backlog), [WIREFRAMES.md](./docs/WIREFRAMES.md), 4 demo PDFs + 50-record [golden.json](./docs/golden/golden.json), with every quote verified against `unpdf` page text in CI.
 - [x] **Phase 1 — Repo and Nuxt 4 setup** *(~0.5 wk)*
   App builds, placeholder page deploys, TypeScript strict passes, secrets load from env. *(This bootstrap.)*
 - [ ] **Phase 2 — Database schema + pgvector** — *code authored ([supabase/](./supabase/)), pending a Supabase project*

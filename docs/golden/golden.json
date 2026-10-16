@@ -1,0 +1,697 @@
+[
+  {
+    "id": "g-001",
+    "question": "What are the four functions of the AI RMF Core?",
+    "answer": "The AI RMF Core is composed of four functions: GOVERN, MAP, MEASURE, and MANAGE.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 25,
+        "text": "the Core is composed of four functions: GOVERN, MAP, MEASURE, and MANAGE."
+      }
+    ],
+    "tags": ["list"]
+  },
+  {
+    "id": "g-002",
+    "question": "How does the AI RMF define risk?",
+    "answer": "Risk is the composite measure of an event's probability of occurring and the magnitude or degree of the consequences of that event.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 9,
+        "text": "risk refers to the composite measure of an event’s probability of occurring and the magnitude or degree of the consequences of the corresponding event."
+      }
+    ],
+    "tags": ["definition"]
+  },
+  {
+    "id": "g-003",
+    "question": "Which trustworthiness characteristic is the foundation for all the others in the AI RMF?",
+    "answer": "Valid & Reliable. It is a necessary condition of trustworthiness and is shown as the base for the other characteristics.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 17,
+        "text": "Valid & Reliable is a necessary condition of trustworthiness and is shown as the base for other trustworthiness characteristics."
+      }
+    ],
+    "tags": ["factoid", "figure-caption"]
+  },
+  {
+    "id": "g-004",
+    "question": "What are the three major categories of AI bias identified by NIST?",
+    "answer": "Systemic, computational and statistical, and human-cognitive bias.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 23,
+        "text": "NIST has identified three major categories of AI bias to be considered and managed: systemic, computational and statistical, and human-cognitive."
+      }
+    ],
+    "tags": ["list"]
+  },
+  {
+    "id": "g-005",
+    "question": "When should an organization stop building or rolling out an AI system?",
+    "answer": "When the system presents unacceptable negative risk levels (significant negative impacts are imminent, severe harms are occurring, or catastrophic risks are present), development and deployment should cease in a safe manner until the risks can be sufficiently managed.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 13,
+        "text": "In cases where an AI system presents unacceptable negative risk levels – such as where significant negative impacts are imminent, severe harms are actually occurring, or catastrophic risks are present – development and deployment should cease in a safe manner until risks can be sufficiently managed."
+      }
+    ],
+    "tags": ["paraphrase"]
+  },
+  {
+    "id": "g-006",
+    "question": "How do transparency, explainability, and interpretability differ in the AI RMF?",
+    "answer": "Transparency answers \"what happened\" in the system, explainability answers \"how\" a decision was made, and interpretability answers \"why\" a decision was made and what it means to the user.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 22,
+        "text": "Transparency can answer the question of “what happened” in the system."
+      },
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 22,
+        "text": "can answer the question of “how” a decision was made in the system."
+      },
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 22,
+        "text": "can answer the question of “why” a decision was made by the system and its meaning or context to the user."
+      }
+    ],
+    "tags": ["comparison", "multi-span"]
+  },
+  {
+    "id": "g-007",
+    "question": "Does the AI RMF prescribe a risk tolerance?",
+    "answer": "No. The AI RMF can be used to prioritize risk, but it does not prescribe risk tolerance.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 12,
+        "text": "While the AI RMF can be used to prioritize risk, it does not prescribe risk tolerance."
+      }
+    ],
+    "tags": ["yes-no"]
+  },
+  {
+    "id": "g-008",
+    "question": "By when is a formal review of the AI RMF with input from the AI community expected?",
+    "answer": "No later than 2028.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 3,
+        "text": "a review with formal input from the AI community is expected to take place no later than 2028."
+      }
+    ],
+    "tags": ["numeric", "front-matter"]
+  },
+  {
+    "id": "g-009",
+    "question": "Which law directed the development of the AI RMF?",
+    "answer": "The National Artificial Intelligence Initiative Act of 2020 (P.L. 116-283).",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 7,
+        "text": "As directed by the National Artificial Intelligence Initiative Act of 2020 (P.L. 116-283)"
+      }
+    ],
+    "tags": ["factoid"]
+  },
+  {
+    "id": "g-010",
+    "question": "What does GOVERN 1.6 require?",
+    "answer": "Mechanisms are in place to inventory AI systems, resourced according to organizational risk priorities.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 28,
+        "text": "GOVERN 1.6: Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities."
+      }
+    ],
+    "tags": ["keyword", "table"]
+  },
+  {
+    "id": "g-011",
+    "question": "Which MEASURE subcategory covers documenting the test sets and metrics used during TEVV?",
+    "answer": "MEASURE 2.1: test sets, metrics, and details about the tools used during TEVV are documented.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 34,
+        "text": "MEASURE 2.1: Test sets, metrics, and details about the tools used during TEVV are documented."
+      }
+    ],
+    "tags": ["keyword", "table", "reverse-lookup"]
+  },
+  {
+    "id": "g-012",
+    "question": "What is residual risk?",
+    "answer": "Risk remaining after risk treatment (ISO GUIDE 73). It directly impacts end users or affected individuals and communities.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 13,
+        "text": "Residual risk – defined as risk remaining after risk treatment (Source: ISO GUIDE 73) – directly impacts end users or affected individuals and communities."
+      }
+    ],
+    "tags": ["definition"]
+  },
+  {
+    "id": "g-013",
+    "question": "Which function should I start with?",
+    "answer": "It depends on the framework. In the AI RMF, after instituting the GOVERN outcomes most users start with MAP and continue to MEASURE or MANAGE. In the CSF, the Functions should be addressed concurrently.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 26,
+        "text": "After instituting the outcomes in GOVERN, most users of the AI RMF would start with the MAP function"
+      },
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 10,
+        "text": "The Functions should be addressed concurrently."
+      }
+    ],
+    "tags": ["ambiguous", "cross-document"]
+  },
+  {
+    "id": "g-014",
+    "question": "What's the difference between a current and a target profile?",
+    "answer": "In both NIST frameworks a Current Profile describes the outcomes being achieved today, while a Target Profile describes the desired outcomes. Comparing the two reveals gaps to address.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 38,
+        "text": "An AI RMF Current Profile indicates how AI is currently being managed and the related risks in terms of current outcomes. A Target Profile indicates the outcomes needed to achieve the desired or target AI risk management goals."
+      },
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 11,
+        "text": "A Current Profile specifies the Core outcomes that an organization is currently achieving (or attempting to achieve) and characterizes how or to what extent each outcome is being achieved."
+      },
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 11,
+        "text": "A Target Profile specifies the desired outcomes that an organization has selected and prioritized for achieving its cybersecurity risk management objectives."
+      }
+    ],
+    "tags": ["ambiguous", "cross-document", "comparison"]
+  },
+  {
+    "id": "g-015",
+    "question": "What are the six Functions of the NIST CSF 2.0?",
+    "answer": "Govern, Identify, Protect, Detect, Respond, and Recover.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 31,
+        "text": "There are six CSF Functions: Govern, Identify, Protect, Detect, Respond, and Recover."
+      }
+    ],
+    "tags": ["list"]
+  },
+  {
+    "id": "g-016",
+    "question": "What are the tiers?",
+    "answer": "The CSF Tiers are Partial (Tier 1), Risk Informed (Tier 2), Repeatable (Tier 3), and Adaptive (Tier 4). They characterize the rigor of an organization's cybersecurity risk governance and management practices.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 12,
+        "text": "Partial (Tier 1), Risk Informed (Tier 2), Repeatable (Tier 3), and Adaptive (Tier 4)."
+      }
+    ],
+    "tags": ["ambiguous", "list"]
+  },
+  {
+    "id": "g-017",
+    "question": "What was the Cybersecurity Framework called before version 2.0?",
+    "answer": "The \"Framework for Improving Critical Infrastructure Cybersecurity.\"",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 2,
+        "text": "Before version 2.0, the Cybersecurity Framework was called the “Framework for Improving Critical Infrastructure Cybersecurity.”"
+      }
+    ],
+    "tags": ["factoid", "front-matter"]
+  },
+  {
+    "id": "g-018",
+    "question": "Why is GOVERN placed at the center of the CSF Functions wheel?",
+    "answer": "Because it informs how an organization will implement the other five Functions.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 9,
+        "text": "GOVERN is in the center of the wheel because it informs how an organization will implement the other five Functions."
+      }
+    ],
+    "tags": ["factoid", "figure-reference"]
+  },
+  {
+    "id": "g-019",
+    "question": "What does PR.DS-11 require?",
+    "answer": "Backups of data are created, protected, maintained, and tested.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 25,
+        "text": "PR.DS-11: Backups of data are created, protected, maintained, and tested"
+      }
+    ],
+    "tags": ["keyword"]
+  },
+  {
+    "id": "g-020",
+    "question": "Which CSF subcategory says backups must be checked before they are used to restore systems?",
+    "answer": "RC.RP-03: the integrity of backups and other restoration assets is verified before using them for restoration.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 28,
+        "text": "RC.RP-03: The integrity of backups and other restoration assets is verified before using them for restoration"
+      }
+    ],
+    "tags": ["keyword", "reverse-lookup", "distractor"]
+  },
+  {
+    "id": "g-021",
+    "question": "Why are the CSF 2.0 Subcategory numbers not sequential?",
+    "answer": "The gaps are intentional. They mark CSF 1.1 Subcategories that were relocated in CSF 2.0.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 20,
+        "text": "The numbering of the Subcategories is intentionally not sequential; gaps in numbering indicate CSF 1.1 Subcategories that were relocated in CSF 2.0."
+      }
+    ],
+    "tags": ["factoid"]
+  },
+  {
+    "id": "g-022",
+    "question": "What are the steps for creating and using a CSF Organizational Profile?",
+    "answer": "(1) Scope the Organizational Profile; (2) gather the information needed to prepare it; (3) create the Profile; (4) analyze the gaps between the Current and Target Profiles and create an action plan; (5) implement the action plan and update the Profile.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 12,
+        "text": "1. Scope the Organizational Profile."
+      },
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 12,
+        "text": "2. Gather the information needed to prepare the Organizational Profile."
+      },
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 12,
+        "text": "3. Create the Organizational Profile."
+      },
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 12,
+        "text": "4. Analyze the gaps between the Current and Target Profiles, and create an action plan."
+      },
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 12,
+        "text": "5. Implement the action plan, and update the Organizational Profile."
+      }
+    ],
+    "tags": ["list", "multi-span"]
+  },
+  {
+    "id": "g-023",
+    "question": "What is a CSF Community Profile?",
+    "answer": "A baseline of CSF outcomes created and published to address shared interests and goals among a number of organizations, typically for a particular sector, subsector, technology, threat type, or other use case.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 11,
+        "text": "A Community Profile is a baseline of CSF outcomes that is created and published to address shared interests and goals among a number of organizations."
+      }
+    ],
+    "tags": ["definition", "duplicate-passage"]
+  },
+  {
+    "id": "g-024",
+    "question": "At the Adaptive tier, how do executives treat cybersecurity risks?",
+    "answer": "They monitor cybersecurity risks in the same context as financial and other organizational risks.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 30,
+        "text": "Executives monitor cybersecurity risks in the same context as financial and other organizational risks."
+      }
+    ],
+    "tags": ["table"]
+  },
+  {
+    "id": "g-025",
+    "question": "According to the CSF, what are the ways an organization can handle risk?",
+    "answer": "Negative risks can be mitigated, transferred, avoided, or accepted. Positive risks can be realized, shared, enhanced, or accepted.",
+    "evidence": [
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 15,
+        "text": "including mitigating, transferring, avoiding, or accepting negative risks and realizing, sharing, enhancing, or accepting positive risks"
+      }
+    ],
+    "tags": ["list"]
+  },
+  {
+    "id": "g-026",
+    "question": "What benefit do both NIST frameworks claim from treating AI risks together with other enterprise risks?",
+    "answer": "Both say it will yield a more integrated outcome and organizational efficiencies.",
+    "evidence": [
+      {
+        "document": "nist-ai-rmf-1.0.pdf",
+        "page": 13,
+        "text": "Treating AI risks along with other critical risks, such as cybersecurity and privacy, will yield a more integrated outcome and organizational efficiencies."
+      },
+      {
+        "document": "nist-csf-2.0.pdf",
+        "page": 19,
+        "text": "Treating AI risks alongside other enterprise risks (e.g., financial, cybersecurity, reputational, and privacy) will yield a more integrated outcome and organizational efficiencies."
+      }
+    ],
+    "tags": ["cross-document", "multi-hop"]
+  },
+  {
+    "id": "g-027",
+    "question": "What are the four types of reflection tokens in Self-RAG?",
+    "answer": "Retrieve, ISREL (relevance), ISSUP (support), and ISUSE (usefulness). The last three are critique tokens.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 4,
+        "text": "Four types of reflection tokens used in SELF-RAG. Each type uses several tokens to represent its output values. The bottom three rows are three types of Critique tokens"
+      }
+    ],
+    "tags": ["table", "list"]
+  },
+  {
+    "id": "g-028",
+    "question": "Which base language models does Self-RAG use for the generator and the critic?",
+    "answer": "Llama2 7B and 13B for the generator, and Llama2 7B for the critic.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 7,
+        "text": "We use Llama2 7B and 13B (Touvron et al., 2023) as our generator base LM, and we use Llama2 7B as our base critic LM."
+      }
+    ],
+    "tags": ["factoid"]
+  },
+  {
+    "id": "g-029",
+    "question": "How many training examples were used to train Self-RAG's generator?",
+    "answer": "About 150k instruction-output pairs. The appendix gives the exact total as 145,619 instances.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 7,
+        "text": "In total, we use 150k instruction-output pairs."
+      },
+      {
+        "document": "self-rag.pdf",
+        "page": 17,
+        "text": "in total, we use 145,619 instances."
+      }
+    ],
+    "tags": ["numeric", "multi-span", "multi-page"]
+  },
+  {
+    "id": "g-030",
+    "question": "What default weights does Self-RAG assign to the critique tokens at inference?",
+    "answer": "ISREL 1.0, ISSUP 1.0, and ISUSE 0.5.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 7,
+        "text": "As a default configuration, we assign the weight terms ISREL , ISSUP , ISUSE values of 1.0, 1.0 and 0.5, respectively."
+      }
+    ],
+    "tags": ["numeric"]
+  },
+  {
+    "id": "g-031",
+    "question": "Which retriever does Self-RAG use by default, and how many documents does it retrieve?",
+    "answer": "Off-the-shelf Contriever-MS MARCO, retrieving up to ten documents per input.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 7,
+        "text": "we use off-the-shelf Contriever-MS MARCO (Izacard et al., 2022a) by default and retrieve up to ten documents for each input."
+      }
+    ],
+    "tags": ["factoid", "numeric"]
+  },
+  {
+    "id": "g-032",
+    "question": "What accuracy does Self-RAG 13B reach on PopQA?",
+    "answer": "55.8.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 8,
+        "text": "Our SELF-RAG 13B 55.8 69.3 74.5 73.1 80.2 31.7 37.0 71.6 70.3 71.3"
+      }
+    ],
+    "tags": ["table", "numeric"]
+  },
+  {
+    "id": "g-033",
+    "question": "How does Self-RAG avoid running a critic model during generator training?",
+    "answer": "A trained critic inserts reflection tokens into the training corpus offline, so no critic has to be hosted during training. This reduces overhead.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 2,
+        "text": "are inserted offline into the original corpus by a trained critic model. This eliminates the need to host a critic model during training, reducing overhead."
+      }
+    ],
+    "tags": ["paraphrase"]
+  },
+  {
+    "id": "g-034",
+    "question": "How often does Self-RAG give correct answers that are not contained in the retrieved evidence?",
+    "answer": "Only 2% of the time, compared with 15–20% for the other evaluated models.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 20,
+        "text": "20% of the correct predictions are not included in the provided passages, followed by Llama2-chat 13B (18%) and Alpaca (15%), while it is only 2% in SELF-RAG."
+      }
+    ],
+    "tags": ["numeric", "paraphrase"]
+  },
+  {
+    "id": "g-035",
+    "question": "What hardware was used to train the Self-RAG models?",
+    "answer": "4 Nvidia A100 GPUs with 80GB memory.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 19,
+        "text": "We use 4 Nvidia A100 with 80GB memory to train our models."
+      }
+    ],
+    "tags": ["factoid"]
+  },
+  {
+    "id": "g-036",
+    "question": "On what scale does Self-RAG judge whether an output is supported by evidence?",
+    "answer": "A three-level scale: Fully supported, Partially supported, and No support / Contradictory.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 17,
+        "text": "We evaluate attributions in three scale, Fully supported, Partially supported, and No support / Contradictory"
+      }
+    ],
+    "tags": ["definition", "list"]
+  },
+  {
+    "id": "g-037",
+    "question": "How big are the chunks?",
+    "answer": "RAPTOR splits the corpus into contiguous chunks of 100 tokens. If a sentence would exceed the limit, the whole sentence moves to the next chunk instead of being cut.",
+    "evidence": [
+      {
+        "document": "raptor.pdf",
+        "page": 3,
+        "text": "segmenting the retrieval corpus into short, contiguous texts of length 100"
+      },
+      {
+        "document": "raptor.pdf",
+        "page": 3,
+        "text": "If a sentence exceeds the 100-token limit, we move the entire sentence to the next chunk, rather than cutting it mid-sentence."
+      }
+    ],
+    "tags": ["ambiguous", "numeric"]
+  },
+  {
+    "id": "g-038",
+    "question": "How does RAPTOR cluster text chunks?",
+    "answer": "With soft clustering based on Gaussian Mixture Models (GMMs), applied after reducing embedding dimensionality with UMAP.",
+    "evidence": [
+      {
+        "document": "raptor.pdf",
+        "page": 3,
+        "text": "Our clustering algorithm is based on Gaussian Mixture Models (GMMs)"
+      },
+      {
+        "document": "raptor.pdf",
+        "page": 4,
+        "text": "we employ Uniform Manifold Approximation and Projection (UMAP), a manifold learning technique for dimensionality reduction"
+      }
+    ],
+    "tags": ["multi-span", "multi-page"]
+  },
+  {
+    "id": "g-039",
+    "question": "How does RAPTOR choose the number of clusters?",
+    "answer": "It uses the Bayesian Information Criterion (BIC) for model selection.",
+    "evidence": [
+      {
+        "document": "raptor.pdf",
+        "page": 4,
+        "text": "To determine the optimal number of clusters, we employ the Bayesian Information Criterion (BIC) for model selection."
+      }
+    ],
+    "tags": ["factoid"]
+  },
+  {
+    "id": "g-040",
+    "question": "Which querying configuration does RAPTOR use for its main results?",
+    "answer": "The collapsed tree with a 2000-token maximum, roughly equal to retrieving the top-20 nodes.",
+    "evidence": [
+      {
+        "document": "raptor.pdf",
+        "page": 6,
+        "text": "Specifically, we use the collapsed tree with 2000 maximum tokens, which approximately equates to retrieving the top-20 nodes."
+      }
+    ],
+    "tags": ["numeric"]
+  },
+  {
+    "id": "g-041",
+    "question": "How many of RAPTOR's generated summaries contained hallucinations?",
+    "answer": "4% (6 of the 150 sampled nodes). The hallucinations did not propagate to parent nodes.",
+    "evidence": [
+      {
+        "document": "raptor.pdf",
+        "page": 17,
+        "text": "Out of the 150 nodes sampled, 4% (6 nodes) contained some form of hallucination."
+      }
+    ],
+    "tags": ["numeric"]
+  },
+  {
+    "id": "g-042",
+    "question": "How much does RAPTOR's summarization compress the child nodes?",
+    "answer": "The average summary-to-children length ratio is 0.28, a 72% compression rate.",
+    "evidence": [
+      {
+        "document": "raptor.pdf",
+        "page": 17,
+        "text": "The average ratio of the summary length to the sum of child node lengths across all datasets is 0.28, indicating a 72% compression rate."
+      }
+    ],
+    "tags": ["numeric"]
+  },
+  {
+    "id": "g-043",
+    "question": "What accuracy does RAPTOR with GPT-4 reach on QuALITY, and how large is the improvement?",
+    "answer": "82.6% on the test set (76.2% on the hard subset), improving the previous best by about 20% in absolute accuracy.",
+    "evidence": [
+      {
+        "document": "raptor.pdf",
+        "page": 1,
+        "text": "we can improve the best performance on the QuALITY benchmark by 20% in absolute accuracy."
+      },
+      {
+        "document": "raptor.pdf",
+        "page": 9,
+        "text": "RAPTOR + GPT-4 82.6 76.2"
+      }
+    ],
+    "tags": ["numeric", "table", "multi-page"]
+  },
+  {
+    "id": "g-044",
+    "question": "Which embedding model does RAPTOR use for its tree nodes?",
+    "answer": "SBERT, specifically the multi-qa-mpnet-base-cos-v1 encoder.",
+    "evidence": [
+      {
+        "document": "raptor.pdf",
+        "page": 3,
+        "text": "These texts are then embedded using SBERT, a BERT-based encoder (multi-qa-mpnet-base-cos-v1)"
+      }
+    ],
+    "tags": ["keyword"]
+  },
+  {
+    "id": "g-045",
+    "question": "How do Self-RAG and RAPTOR each use GPT-4?",
+    "answer": "Self-RAG prompts GPT-4 to generate reflection tokens and distills them into its own critic model. RAPTOR uses GPT-4 (with GPT-3) as a question-answering reader, and GPT-3.5-turbo for summarization.",
+    "evidence": [
+      {
+        "document": "self-rag.pdf",
+        "page": 5,
+        "text": "We create supervised data by prompting GPT-4 to generate reflection tokens and then distill their knowledge into an in-house C."
+      },
+      {
+        "document": "raptor.pdf",
+        "page": 10,
+        "text": "GPT-3 and GPT-4 for QA tasks, and GPT-3.5-turbo for summarization."
+      }
+    ],
+    "tags": ["cross-document", "multi-hop", "comparison"]
+  },
+  {
+    "id": "g-046",
+    "question": "What chunk overlap does the NIST AI RMF recommend for retrieval systems?",
+    "answer": null,
+    "evidence": [],
+    "tags": ["unanswerable"]
+  },
+  {
+    "id": "g-047",
+    "question": "What financial penalties does the NIST CSF 2.0 impose for non-compliance?",
+    "answer": null,
+    "evidence": [],
+    "tags": ["unanswerable", "near-miss"]
+  },
+  {
+    "id": "g-048",
+    "question": "What is Self-RAG's accuracy on the MMLU benchmark?",
+    "answer": null,
+    "evidence": [],
+    "tags": ["unanswerable", "near-miss"]
+  },
+  {
+    "id": "g-049",
+    "question": "Under which open-source license is RAPTOR's code released?",
+    "answer": null,
+    "evidence": [],
+    "tags": ["unanswerable", "near-miss"]
+  },
+  {
+    "id": "g-050",
+    "question": "What does Tier 5 of the CSF require?",
+    "answer": null,
+    "evidence": [],
+    "tags": ["unanswerable", "false-premise"]
+  }
+]

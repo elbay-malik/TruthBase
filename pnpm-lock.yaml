@@ -29,6 +29,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.2
         version: 4.3.2
+      unpdf:
+        specifier: ^1.9.0
+        version: 1.9.0
       vue:
         specifier: ^3.5.39
         version: 3.5.39(typescript@6.0.3)
@@ -5137,6 +5140,15 @@ packages:
       oxc-parser:
         optional: true
       rolldown:
+        optional: true
+
+  unpdf@1.9.0:
+    resolution: {integrity: sha512-YIXl+jZUBneP22IkRUwFA1b71l+Ad2uX7o7dMfxLSLuCOtaKAQvak7Sz3MtdVsWTsocblznSIGidfXyhnBgBMA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@napi-rs/canvas': ^0.1.69 || ^1.0.0
+    peerDependenciesMeta:
+      '@napi-rs/canvas':
         optional: true
 
   unplugin-auto-import@21.0.0:
@@ -11159,6 +11171,8 @@ snapshots:
       - unloader
       - vite
       - webpack
+
+  unpdf@1.9.0: {}
 
   unplugin-auto-import@21.0.0(@nuxt/kit@4.4.8(magicast@0.5.3))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3))):
     dependencies:
