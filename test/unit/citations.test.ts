@@ -15,6 +15,16 @@ describe('splitCitations', () => {
     ])
   })
 
+  it('accepts gpt-oss native markers 【n】 and 【n†…】', () => {
+    expect(splitCitations('GOVERN【6】 and DETECT【3†L4-L7】.', 6)).toEqual([
+      { type: 'text', text: 'GOVERN' },
+      { type: 'cite', index: 6 },
+      { type: 'text', text: ' and DETECT' },
+      { type: 'cite', index: 3 },
+      { type: 'text', text: '.' },
+    ])
+  })
+
   it('keeps out-of-range markers as plain text', () => {
     expect(splitCitations('See [9] and [0].', 3)).toEqual([{ type: 'text', text: 'See [9] and [0].' }])
   })
@@ -23,6 +33,7 @@ describe('splitCitations', () => {
 describe('parseCitations / isRefusal', () => {
   it('returns valid citation numbers in order of first use', () => {
     expect(parseCitations('x [3] y [1][3] z [1, 7]', 5)).toEqual([3, 1])
+    expect(parseCitations('a【2】 b【4†L1】', 5)).toEqual([2, 4])
   })
 
   it('recognizes the refusal token with stray whitespace or a period', () => {

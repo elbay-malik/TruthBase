@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   if (!config.geminiApiKey) {
     throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Query embeddings are not configured (set NUXT_GEMINI_API_KEY).' })
   }
-  const { model, id: modelId } = chatModel({ groqApiKey: config.groqApiKey, geminiApiKey: config.geminiApiKey })
+  const { model, id: modelId, providerOptions } = chatModel({ groqApiKey: config.groqApiKey, geminiApiKey: config.geminiApiKey })
   const supabase = serverSupabase()
 
   const stream = createUIMessageStream<ChatMessage>({
@@ -41,6 +41,7 @@ export default defineEventHandler(async (event) => {
         prompt: buildPrompt(question, sources),
         temperature: 0,
         maxOutputTokens: 700,
+        providerOptions,
       })
       writer.merge(toUIMessageStream({ stream: result.stream }))
     },

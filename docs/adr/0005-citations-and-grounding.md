@@ -5,14 +5,14 @@
 
 ## Context
 
-TruthBase's promise is that every claim is checkable: each citation must point at a stored chunk, which Phase 5 turns into a page plus highlight. The generator is a free-tier model (Groq Llama 3.3 70B, or Gemini Flash-Lite as a fallback), so the format has to be easy for a mid-size model to follow, cheap in tokens, and machine-checkable. When the documents don't contain the answer, the system must refuse instead of guessing.
+TruthBase's promise is that every claim is checkable: each citation must point at a stored chunk, which Phase 5 turns into a page plus highlight. The generator is a free-tier model (Groq `openai/gpt-oss-120b`, or Gemini Flash-Lite as a fallback; see TECH_NOTES §9), so the format has to be easy for a mid-size model to follow, cheap in tokens, and machine-checkable. When the documents don't contain the answer, the system must refuse instead of guessing.
 
 ## Decision
 
 1. **Numbered sources.** Retrieval returns the top 8 chunks (hybrid RRF, `server/rag/retrieve.ts`). They go into the prompt as `[1] file, page N` blocks, and the model cites them inline as `[n]`, `[1][4]` or `[1, 2]`. The server maps the numbers back to chunk ids. Before any answer text, the client receives a typed `data-sources` stream part with each source's chunk id, document, page, text and stored highlight rects (`shared/types/chat.ts`).
 2. **Grounding rules** (`server/rag/prompt.ts`): use only the sources, never outside knowledge; cite every factual sentence; answer partially and say what's missing; for ambiguous questions, answer each reading and name its document. Temperature 0, at most 700 output tokens.
 3. **Refusal is a token.** When the sources don't answer, the model replies with exactly `NO_ANSWER`. The UI renders a neutral "Not found in the documents" notice, never an error, plus "possibly related" pages that are explicitly not cited. With no indexed chunks at all, the server refuses without calling the LLM.
-4. **Rendering only trusts valid markers.** `splitCitations` turns only in-range numbers into chips. A hallucinated `[9]` stays plain text.
+4. **Rendering only trusts valid markers.** `splitCitations` turns only in-range numbers into chips; it accepts `[n]`, `[n, m]` and gpt-oss's native `【n】` / `【n†…】`. A hallucinated `[9]` stays plain text.
 5. **Single-turn retrieval.** `POST /api/chat` takes `{ question, documentId? }`. Each question is grounded only in what was retrieved for it. Conversation-aware query rewriting is Phase 8.
 
 ## Rationale
@@ -43,6 +43,24 @@ Manual review of the 8 answers that missed the golden evidence found **no fabric
 
 Retrieval is the bottleneck, which is what Phases 6–8 (hybrid tuning, reranking, query rewriting) address.
 
+### Model comparison (`docs/evals/phase-4-groq.json`)
+
+Same retrieval and prompt, so retrieval recall is identical:
+
+| Metric | Gemini 3.5 Flash-Lite | Groq gpt-oss-120b (low reasoning) |
+|---|---|---|
+| Answerable questions answered | 89% | 78% |
+| ≥1 correct citation, of answered | 83% | **86%** |
+| ≥1 correct citation, of answerable | **73%** | 67% |
+| Citation precision (lower bound) | **60%** | 54% |
+| Answered without any citation | 1 | **0** |
+| Refusal accuracy (unanswerable) | 5/5 | 5/5 |
+| Refused although the evidence was retrieved | **1** | 3 |
+
+gpt-oss is the stricter grounder. When retrieval misses the evidence it refuses (7 cases) where Gemini sometimes gave tangential partial answers, and it never answers uncited. Its three refusals with the evidence retrieved (g-024, g-027, g-032) are all **table content flattened into running text by extraction**; Gemini read two of the three.
+
+**Decision: Groq gpt-oss-120b is the primary model** (the plan's provider, stricter grounding, faster). Gemini stays the fallback. The table weakness belongs to extraction, not to the model: table-aware chunk text (row/column structure) is a candidate for Phase 6+. Free-tier note: Groq allows 8K tokens/min, about 3 answers/min across all users, so Phase 11 needs per-IP caps and a Gemini fallback on 429.
+
 ## Rejected alternatives
 
 - **Chunk UUIDs as markers:** copied unreliably by small models, and expensive in tokens.
@@ -54,4 +72,4 @@ Retrieval is the bottleneck, which is what Phases 6–8 (hybrid tuning, rerankin
 
 - Uncited sentences (g-036) aren't caught at runtime yet. Phase 9's faithfulness and citation checks measure them, and the UI could mark an uncited answer as unverified.
 - Tables flattened by extraction (g-032) are hard for the model to read even when retrieved.
-- `gemini-2.5-flash-lite`, the plan's fallback, is closed to new API users, so the fallback is `gemini-3.5-flash-lite` (TECH_NOTES §9). The numbers above are for that model. Re-run the eval when a Groq key is configured.
+- The plan's models moved: Groq no longer serves `llama-3.3-70b-versatile`, and `gemini-2.5-flash-lite` is closed to new users (TECH_NOTES §9). The primary is `openai/gpt-oss-120b`, the fallback `gemini-3.5-flash-lite`.

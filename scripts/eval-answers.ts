@@ -47,7 +47,7 @@ const env = (name: string) => {
 
 const supabase = createClient(env('NUXT_SUPABASE_URL'), env('NUXT_SUPABASE_SERVICE_KEY'), { auth: { persistSession: false } })
 const embed = geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_QUERY')
-const { model, id: modelId } = chatModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') })
+const { model, id: modelId, providerOptions } = chatModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') })
 
 let golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
 if (values.only) {
@@ -74,25 +74,40 @@ const fullCoverageRank = (hits: SearchHit[], evidence: Evidence[]) => {
   return worst
 }
 
+/** Retries transient failures (network blips to Supabase or the model API). */
+async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn()
+    }
+    catch (error) {
+      if (attempt >= attempts) throw error
+      console.log(`  retry ${label} (${attempt}/${attempts - 1}): ${String(error).slice(0, 100)}`)
+      await new Promise(r => setTimeout(r, 5000 * attempt))
+    }
+  }
+}
+
 console.log(`model ${modelId} · ${golden.length} questions · top-${DEFAULT_TOP_K} sources`)
-const embeddings = await embed(golden.map(r => r.question))
+const embeddings = await withRetry('embed questions', () => embed(golden.map(r => r.question)))
 
 const results = []
 for (const [i, record] of golden.entries()) {
   const search = (fullTextWeight: number, semanticWeight: number) => searchChunks(supabase, {
     queryText: record.question, queryEmbedding: embeddings[i]!, matchCount: 10, fullTextWeight, semanticWeight,
   })
-  const [hybrid, dense, keyword] = await Promise.all([search(1, 1), search(0, 1), search(1, 0)])
+  const [hybrid, dense, keyword] = await withRetry(`${record.id} search`, () => Promise.all([search(1, 1), search(0, 1), search(1, 0)]))
   const sources: SourceRef[] = toSources(hybrid.slice(0, DEFAULT_TOP_K), filenameById)
 
-  const { text } = await generateText({
+  const { text } = await withRetry(`${record.id} generate`, () => generateText({
     model,
     instructions: GROUNDING_INSTRUCTIONS,
     prompt: buildPrompt(record.question, sources),
     temperature: 0,
     maxOutputTokens: 700,
     maxRetries: 5,
-  })
+    providerOptions,
+  }))
   const refused = isRefusal(text)
   const cited = refused ? [] : parseCitations(text, sources.length)
   const supporting = cited.filter(n => record.evidence.some(e => contains(sources[n - 1]!, e)))

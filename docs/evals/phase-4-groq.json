@@ -1,0 +1,1531 @@
+{
+ "summary": {
+  "label": "phase-4-groq",
+  "model": "groq/openai/gpt-oss-120b",
+  "date": "2026-10-17",
+  "topK": 8,
+  "questions": 50,
+  "retrieval": {
+   "hybrid": {
+    "recall@5": 0.6222222222222222,
+    "recall@8": 0.7333333333333333,
+    "recall@10": 0.7777777777777778
+   },
+   "dense": {
+    "recall@5": 0.6,
+    "recall@8": 0.7333333333333333,
+    "recall@10": 0.7555555555555555
+   },
+   "keyword": {
+    "recall@5": 0.5777777777777777,
+    "recall@8": 0.6888888888888889,
+    "recall@10": 0.7111111111111111
+   }
+  },
+  "generation": {
+   "answerRate": 0.7777777777777778,
+   "correctCitation": 0.8571428571428571,
+   "correctCitationOverAnswerable": 0.6666666666666666,
+   "citationPrecision": 0.5409836065573771,
+   "answeredWithoutCitation": 0,
+   "refusalAccuracy": 1,
+   "refusedWithEvidenceRetrieved": 3,
+   "refusedWithEvidenceMissing": 7
+  }
+ },
+ "results": [
+  {
+   "id": "g-001",
+   "tags": [
+    "list"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 2,
+    "dense": 2,
+    "keyword": 2
+   },
+   "refused": false,
+   "cited": [
+    1,
+    2
+   ],
+   "supporting": [
+    2
+   ],
+   "answer": "The AI RMF Core is organized around four high‑level functions: **GOVERN, MAP, MEASURE, and MANAGE**【1】【2】.",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.8",
+    "nist-ai-rmf-1.0.pdf p.25",
+    "nist-csf-2.0.pdf p.19",
+    "nist-ai-rmf-1.0.pdf p.25",
+    "nist-ai-rmf-1.0.pdf p.38",
+    "nist-ai-rmf-1.0.pdf p.36",
+    "nist-ai-rmf-1.0.pdf p.26",
+    "nist-ai-rmf-1.0.pdf p.38"
+   ]
+  },
+  {
+   "id": "g-002",
+   "tags": [
+    "definition"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 5,
+    "dense": 2,
+    "keyword": null
+   },
+   "refused": false,
+   "cited": [
+    5,
+    4
+   ],
+   "supporting": [
+    5
+   ],
+   "answer": "The AI RMF defines risk as the composite measure of an event’s probability of occurring and the magnitude or degree of the consequences of that event [5]. It also describes risk as a function of (1) the negative impact or magnitude of harm that would arise if the circumstance or event occurs and (2) the likelihood of occurrence [4].",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.12",
+    "nist-ai-rmf-1.0.pdf p.12",
+    "nist-ai-rmf-1.0.pdf p.10",
+    "nist-ai-rmf-1.0.pdf p.9",
+    "nist-ai-rmf-1.0.pdf p.9",
+    "nist-ai-rmf-1.0.pdf p.6",
+    "nist-ai-rmf-1.0.pdf p.45",
+    "nist-csf-2.0.pdf p.19"
+   ]
+  },
+  {
+   "id": "g-003",
+   "tags": [
+    "factoid",
+    "figure-caption"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": false,
+   "cited": [
+    5
+   ],
+   "supporting": [],
+   "answer": "Accountable and Transparent is identified as the characteristic that underlies all the others, shown as a vertical box because it relates to every other trustworthiness characteristic【5†L1-L3】.",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.17",
+    "nist-ai-rmf-1.0.pdf p.8",
+    "nist-ai-rmf-1.0.pdf p.19",
+    "nist-ai-rmf-1.0.pdf p.47",
+    "nist-ai-rmf-1.0.pdf p.17",
+    "nist-ai-rmf-1.0.pdf p.4",
+    "nist-ai-rmf-1.0.pdf p.5",
+    "nist-ai-rmf-1.0.pdf p.17"
+   ]
+  },
+  {
+   "id": "g-004",
+   "tags": [
+    "list"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "NIST identifies three major categories of AI bias: systemic bias; computational and statistical bias; and human‑cognitive bias【1】.",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.23",
+    "nist-ai-rmf-1.0.pdf p.23",
+    "nist-ai-rmf-1.0.pdf p.23",
+    "nist-ai-rmf-1.0.pdf p.45",
+    "nist-ai-rmf-1.0.pdf p.22",
+    "nist-ai-rmf-1.0.pdf p.36",
+    "nist-ai-rmf-1.0.pdf p.48",
+    "nist-ai-rmf-1.0.pdf p.17"
+   ]
+  },
+  {
+   "id": "g-005",
+   "tags": [
+    "paraphrase"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 6,
+    "dense": 6,
+    "keyword": 6
+   },
+   "refused": false,
+   "cited": [
+    6
+   ],
+   "supporting": [
+    6
+   ],
+   "answer": "An organization should cease development, deployment, and use of an AI system—and halt its rollout—in a safe manner whenever the system presents “unacceptable negative risk levels,” such as when significant negative impacts are imminent, severe harms are actually occurring, or catastrophic risks are present【6】.",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.6",
+    "nist-ai-rmf-1.0.pdf p.45",
+    "nist-ai-rmf-1.0.pdf p.18",
+    "nist-ai-rmf-1.0.pdf p.44",
+    "nist-ai-rmf-1.0.pdf p.6",
+    "nist-ai-rmf-1.0.pdf p.13",
+    "nist-ai-rmf-1.0.pdf p.30",
+    "nist-ai-rmf-1.0.pdf p.29"
+   ]
+  },
+  {
+   "id": "g-006",
+   "tags": [
+    "comparison",
+    "multi-span"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    4,
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "Transparency answers “what happened” in the system, describing design decisions, training data, model structure, intended use, and deployment details【4】.  \nExplainability answers “how” a decision was made, providing information on the process or mechanisms that produced a particular output【1】.  \nInterpretability answers “why” a decision was made, conveying the meaning or context of the output to the user【1】.",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.22",
+    "nist-ai-rmf-1.0.pdf p.21",
+    "nist-ai-rmf-1.0.pdf p.21",
+    "nist-ai-rmf-1.0.pdf p.20",
+    "nist-csf-2.0.pdf p.19",
+    "nist-ai-rmf-1.0.pdf p.38",
+    "nist-ai-rmf-1.0.pdf p.17",
+    "nist-ai-rmf-1.0.pdf p.7"
+   ]
+  },
+  {
+   "id": "g-007",
+   "tags": [
+    "yes-no"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "No, the AI RMF does not prescribe a risk tolerance; it can be used to prioritize risk but leaves tolerance definition to the organization [1]",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.12",
+    "nist-ai-rmf-1.0.pdf p.12",
+    "nist-ai-rmf-1.0.pdf p.12",
+    "nist-ai-rmf-1.0.pdf p.12",
+    "nist-ai-rmf-1.0.pdf p.38",
+    "nist-ai-rmf-1.0.pdf p.13",
+    "nist-ai-rmf-1.0.pdf p.4",
+    "nist-csf-2.0.pdf p.19"
+   ]
+  },
+  {
+   "id": "g-008",
+   "tags": [
+    "numeric",
+    "front-matter"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "A formal review with input from the AI community is expected to take place no later than 2028【1】",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.3",
+    "nist-ai-rmf-1.0.pdf p.3",
+    "nist-ai-rmf-1.0.pdf p.8",
+    "nist-ai-rmf-1.0.pdf p.7",
+    "nist-ai-rmf-1.0.pdf p.3",
+    "nist-ai-rmf-1.0.pdf p.47",
+    "nist-ai-rmf-1.0.pdf p.24",
+    "nist-ai-rmf-1.0.pdf p.8"
+   ]
+  },
+  {
+   "id": "g-009",
+   "tags": [
+    "factoid"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "The AI Risk Management Framework was directed by the National Artificial Intelligence Initiative Act of 2020 (Public Law 116‑283)【1】.",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.7",
+    "nist-ai-rmf-1.0.pdf p.8",
+    "nist-ai-rmf-1.0.pdf p.7",
+    "nist-csf-2.0.pdf p.19",
+    "nist-ai-rmf-1.0.pdf p.2",
+    "nist-ai-rmf-1.0.pdf p.8",
+    "nist-ai-rmf-1.0.pdf p.47",
+    "nist-ai-rmf-1.0.pdf p.3"
+   ]
+  },
+  {
+   "id": "g-010",
+   "tags": [
+    "keyword",
+    "table"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.29",
+    "nist-csf-2.0.pdf p.21",
+    "nist-ai-rmf-1.0.pdf p.27",
+    "nist-ai-rmf-1.0.pdf p.27",
+    "nist-ai-rmf-1.0.pdf p.26",
+    "nist-csf-2.0.pdf p.8",
+    "nist-csf-2.0.pdf p.21",
+    "nist-ai-rmf-1.0.pdf p.27"
+   ]
+  },
+  {
+   "id": "g-011",
+   "tags": [
+    "keyword",
+    "table",
+    "reverse-lookup"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 2,
+    "dense": 2,
+    "keyword": 2
+   },
+   "refused": false,
+   "cited": [
+    2
+   ],
+   "supporting": [
+    2
+   ],
+   "answer": "MEASURE 2.1 covers documenting the test sets, metrics, and details about the tools used during TEVV【2】",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.33",
+    "nist-ai-rmf-1.0.pdf p.34",
+    "nist-ai-rmf-1.0.pdf p.35",
+    "nist-ai-rmf-1.0.pdf p.40",
+    "nist-ai-rmf-1.0.pdf p.33",
+    "nist-ai-rmf-1.0.pdf p.41",
+    "nist-ai-rmf-1.0.pdf p.24",
+    "nist-ai-rmf-1.0.pdf p.18"
+   ]
+  },
+  {
+   "id": "g-012",
+   "tags": [
+    "definition"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1,
+    2
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "Residual risk is “risk remaining after risk treatment”【1】. In the AI RMF it is further described as the “sum of all unmitigated risks” that constitute negative residual risks to downstream acquirers and end users【2】.",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.13",
+    "nist-ai-rmf-1.0.pdf p.37",
+    "nist-ai-rmf-1.0.pdf p.9",
+    "nist-csf-2.0.pdf p.9",
+    "nist-ai-rmf-1.0.pdf p.35",
+    "nist-ai-rmf-1.0.pdf p.36",
+    "nist-csf-2.0.pdf p.30",
+    "nist-ai-rmf-1.0.pdf p.12"
+   ]
+  },
+  {
+   "id": "g-013",
+   "tags": [
+    "ambiguous",
+    "cross-document"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": false,
+   "cited": [
+    1,
+    7
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "You should begin with the MAP function (after you have established outcomes in the GOVERN function) [1][7]",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.26",
+    "nist-csf-2.0.pdf p.7",
+    "nist-ai-rmf-1.0.pdf p.26",
+    "nist-ai-rmf-1.0.pdf p.5",
+    "nist-ai-rmf-1.0.pdf p.15",
+    "nist-ai-rmf-1.0.pdf p.34",
+    "nist-ai-rmf-1.0.pdf p.30",
+    "nist-csf-2.0.pdf p.9"
+   ]
+  },
+  {
+   "id": "g-014",
+   "tags": [
+    "ambiguous",
+    "cross-document",
+    "comparison"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 3,
+    "dense": 2,
+    "keyword": null
+   },
+   "refused": false,
+   "cited": [
+    2
+   ],
+   "supporting": [
+    2
+   ],
+   "answer": "A Current Profile “specifies the Core outcomes that an organization is currently achieving (or attempting to achieve) and characterizes how or to what extent each outcome is being achieved”【2】.  \nA Target Profile “specifies the desired outcomes that an organization has selected and prioritized for achieving its cybersecurity risk management objectives” and reflects anticipated changes such as new requirements, technology, or threat trends【2】.  \n\nThus, the Current Profile describes the organization’s present state, while the Target Profile describes the desired future state.",
+   "sources": [
+    "nist-csf-2.0.pdf p.12",
+    "nist-csf-2.0.pdf p.11",
+    "nist-ai-rmf-1.0.pdf p.38",
+    "nist-csf-2.0.pdf p.11",
+    "nist-csf-2.0.pdf p.31",
+    "nist-ai-rmf-1.0.pdf p.38",
+    "nist-csf-2.0.pdf p.16",
+    "nist-csf-2.0.pdf p.12"
+   ]
+  },
+  {
+   "id": "g-015",
+   "tags": [
+    "list"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 4,
+    "dense": 3,
+    "keyword": 3
+   },
+   "refused": false,
+   "cited": [
+    6,
+    8,
+    1,
+    3,
+    5
+   ],
+   "supporting": [],
+   "answer": "- GOVERN (GV) – establishes, communicates, and monitors the organization’s cybersecurity risk management strategy, expectations, and policy【6】  \n- IDENTIFY (ID) – categorizes assets and related cybersecurity risks【8】  \n- PROTECT (PR) – safeguards assets to prevent or lower the likelihood and impact of adverse cybersecurity events【1】  \n- DETECT (DE) – finds and analyzes possible cybersecurity attacks and compromises【3】  \n- RESPOND (RS) – takes actions regarding a detected cybersecurity incident, including containment, analysis, mitigation, reporting, and communication【5】  \n- RECOVER (RC) – restores assets and operations affected by a cybersecurity incident and supports timely restoration of normal operations【5】",
+   "sources": [
+    "nist-csf-2.0.pdf p.9",
+    "nist-csf-2.0.pdf p.10",
+    "nist-csf-2.0.pdf p.9",
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.9",
+    "nist-csf-2.0.pdf p.8",
+    "nist-csf-2.0.pdf p.20",
+    "nist-csf-2.0.pdf p.9"
+   ]
+  },
+  {
+   "id": "g-016",
+   "tags": [
+    "ambiguous",
+    "list"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 2,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    3,
+    7,
+    6,
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "- Tier 1: Partial – an ad‑hoc, informal approach to managing cybersecurity risk, with limited awareness and prioritization not formally based on objectives or threat environment【3†L1-L4】  \n- Tier 2: Risk Informed – risk‑management practices are approved by management but not yet organization‑wide policy; prioritization is directly informed by risk objectives, threat environment, or business/mission requirements【7†L2-L5】  \n- Tier 3: Repeatable – risk‑management practices are formally approved as policy, regularly updated, and applied organization‑wide; consistent methods and shared information support effective response to changes【6†L1-L5】  \n- Tier 4: Adaptive – an agile, risk‑informed approach that continuously improves and adapts to changing threats and business needs (described as the highest tier in the framework)【1†L1-L3】",
+   "sources": [
+    "nist-csf-2.0.pdf p.12",
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.29",
+    "nist-csf-2.0.pdf p.13",
+    "nist-csf-2.0.pdf p.13",
+    "nist-csf-2.0.pdf p.29",
+    "nist-csf-2.0.pdf p.29",
+    "nist-csf-2.0.pdf p.6"
+   ]
+  },
+  {
+   "id": "g-017",
+   "tags": [
+    "factoid",
+    "front-matter"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "The Cybersecurity Framework was previously called the “Framework for Improving Critical Infrastructure Cybersecurity.”[1]",
+   "sources": [
+    "nist-csf-2.0.pdf p.2",
+    "nist-csf-2.0.pdf p.6",
+    "nist-csf-2.0.pdf p.5",
+    "nist-csf-2.0.pdf p.4",
+    "nist-csf-2.0.pdf p.2",
+    "nist-csf-2.0.pdf p.20",
+    "nist-csf-2.0.pdf p.2",
+    "nist-csf-2.0.pdf p.7"
+   ]
+  },
+  {
+   "id": "g-018",
+   "tags": [
+    "factoid",
+    "figure-reference"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "GOVERN is positioned in the centre of the CSF Functions wheel because it “informs how an organization will implement the other five Functions” [1]. This central role lets the organization’s risk‑management strategy, expectations and policy guide the execution of IDENTIFY, PROTECT, DETECT, RESPOND and RECOVER.",
+   "sources": [
+    "nist-csf-2.0.pdf p.9",
+    "nist-csf-2.0.pdf p.8",
+    "nist-csf-2.0.pdf p.16",
+    "nist-csf-2.0.pdf p.8",
+    "nist-csf-2.0.pdf p.31",
+    "nist-ai-rmf-1.0.pdf p.27",
+    "nist-csf-2.0.pdf p.21",
+    "nist-csf-2.0.pdf p.16"
+   ]
+  },
+  {
+   "id": "g-019",
+   "tags": [
+    "keyword"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "PR.DS-11 requires that backups of data are created, protected, maintained, and tested【1】",
+   "sources": [
+    "nist-csf-2.0.pdf p.25",
+    "self-rag.pdf p.27",
+    "self-rag.pdf p.26",
+    "nist-csf-2.0.pdf p.25",
+    "nist-csf-2.0.pdf p.25",
+    "self-rag.pdf p.28",
+    "nist-csf-2.0.pdf p.24",
+    "self-rag.pdf p.19"
+   ]
+  },
+  {
+   "id": "g-020",
+   "tags": [
+    "keyword",
+    "reverse-lookup",
+    "distractor"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 9,
+    "dense": 9,
+    "keyword": 9
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "nist-csf-2.0.pdf p.10",
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.20",
+    "nist-csf-2.0.pdf p.14",
+    "nist-csf-2.0.pdf p.7",
+    "nist-csf-2.0.pdf p.7",
+    "nist-csf-2.0.pdf p.18",
+    "nist-csf-2.0.pdf p.20"
+   ]
+  },
+  {
+   "id": "g-021",
+   "tags": [
+    "factoid"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": null,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "The CSF 2.0 Subcategory numbers contain gaps because some Subcategories from CSF 1.1 were moved to different locations in CSF 2.0, so the numbering was left non‑sequential to reflect those relocations【1】.",
+   "sources": [
+    "nist-csf-2.0.pdf p.20",
+    "nist-csf-2.0.pdf p.10",
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.7",
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.20",
+    "nist-csf-2.0.pdf p.14",
+    "nist-csf-2.0.pdf p.4"
+   ]
+  },
+  {
+   "id": "g-022",
+   "tags": [
+    "list",
+    "multi-span"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 9,
+    "dense": 8,
+    "keyword": null
+   },
+   "refused": false,
+   "cited": [
+    4,
+    3
+   ],
+   "supporting": [
+    4,
+    3
+   ],
+   "answer": "1. Scope the Organizational Profile – document the high‑level facts and assumptions that define its scope; an organization may have multiple profiles with different scopes (e.g., whole organization, specific systems, or threat‑specific)【4】.  \n2. Gather the information needed to prepare the Organizational Profile – collect policies, risk‑management priorities, resources, enterprise risk profiles, business impact analysis registers, cybersecurity requirements and standards, practices, tools, and work‑role information【3】【4】.  \n3. Create the Organizational Profile – decide what information the profile should include for the selected CSF outcomes, document that information, and consider the risk implications of the Current Profile to inform Target Profile planning and prioritization; also consider using a Community Profile as the basis for the Target Profile【3】.",
+   "sources": [
+    "nist-csf-2.0.pdf p.11",
+    "nist-csf-2.0.pdf p.4",
+    "nist-csf-2.0.pdf p.12",
+    "nist-csf-2.0.pdf p.12",
+    "nist-csf-2.0.pdf p.11",
+    "nist-csf-2.0.pdf p.6",
+    "nist-csf-2.0.pdf p.12",
+    "nist-csf-2.0.pdf p.31"
+   ]
+  },
+  {
+   "id": "g-023",
+   "tags": [
+    "definition",
+    "duplicate-passage"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 2,
+    "dense": 1,
+    "keyword": 4
+   },
+   "refused": false,
+   "cited": [
+    1,
+    2
+   ],
+   "supporting": [
+    2
+   ],
+   "answer": "A CSF Community Profile is “a baseline of CSF outcomes that is created and published to address shared interests and goals among a number of organizations” and is typically developed for a particular sector, subsector, technology, threat type, or other use case【1】. It can be used by an organization as the basis for its own Target Profile【2】.",
+   "sources": [
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.11",
+    "nist-csf-2.0.pdf p.11",
+    "nist-csf-2.0.pdf p.6",
+    "nist-csf-2.0.pdf p.12",
+    "nist-csf-2.0.pdf p.13",
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.2"
+   ]
+  },
+  {
+   "id": "g-024",
+   "tags": [
+    "table"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "nist-csf-2.0.pdf p.30",
+    "nist-csf-2.0.pdf p.16",
+    "nist-csf-2.0.pdf p.29",
+    "nist-csf-2.0.pdf p.16",
+    "nist-csf-2.0.pdf p.30",
+    "nist-csf-2.0.pdf p.12",
+    "nist-csf-2.0.pdf p.29",
+    "nist-csf-2.0.pdf p.16"
+   ]
+  },
+  {
+   "id": "g-025",
+   "tags": [
+    "list"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 3,
+    "dense": 3,
+    "keyword": 3
+   },
+   "refused": false,
+   "cited": [
+    3
+   ],
+   "supporting": [
+    3
+   ],
+   "answer": "The CSF says an organization may handle risk in one or more ways—including mitigating, transferring, avoiding, or accepting negative risks and realizing, sharing, enhancing, or accepting positive risks【3】.",
+   "sources": [
+    "nist-csf-2.0.pdf p.5",
+    "nist-csf-2.0.pdf p.15",
+    "nist-csf-2.0.pdf p.15",
+    "nist-csf-2.0.pdf p.7",
+    "nist-csf-2.0.pdf p.6",
+    "nist-csf-2.0.pdf p.5",
+    "nist-csf-2.0.pdf p.6",
+    "nist-csf-2.0.pdf p.7"
+   ]
+  },
+  {
+   "id": "g-026",
+   "tags": [
+    "cross-document",
+    "multi-hop"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 8,
+    "dense": 8,
+    "keyword": 8
+   },
+   "refused": false,
+   "cited": [
+    1,
+    8
+   ],
+   "supporting": [
+    1,
+    8
+   ],
+   "answer": "Treating AI risks alongside other enterprise risks “will yield a more integrated outcome and organizational efficiencies”【1†L1-L4】【8†L7-L9】",
+   "sources": [
+    "nist-ai-rmf-1.0.pdf p.13",
+    "nist-ai-rmf-1.0.pdf p.44",
+    "nist-ai-rmf-1.0.pdf p.43",
+    "nist-ai-rmf-1.0.pdf p.24",
+    "nist-ai-rmf-1.0.pdf p.9",
+    "nist-ai-rmf-1.0.pdf p.7",
+    "nist-ai-rmf-1.0.pdf p.44",
+    "nist-csf-2.0.pdf p.19"
+   ]
+  },
+  {
+   "id": "g-027",
+   "tags": [
+    "table",
+    "list"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "self-rag.pdf p.4",
+    "self-rag.pdf p.17",
+    "self-rag.pdf p.4",
+    "self-rag.pdf p.3",
+    "self-rag.pdf p.3",
+    "self-rag.pdf p.21",
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.1"
+   ]
+  },
+  {
+   "id": "g-028",
+   "tags": [
+    "factoid"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 7,
+    "dense": 7,
+    "keyword": 7
+   },
+   "refused": false,
+   "cited": [
+    7
+   ],
+   "supporting": [
+    7
+   ],
+   "answer": "Self‑RAG uses Llama 2 7B and Llama 2 13B as the base models for its generator, and Llama 2 7B as the base model for its critic [7]",
+   "sources": [
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.3",
+    "self-rag.pdf p.5",
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.4",
+    "self-rag.pdf p.7",
+    "self-rag.pdf p.4"
+   ]
+  },
+  {
+   "id": "g-029",
+   "tags": [
+    "numeric",
+    "multi-span",
+    "multi-page"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": false,
+   "cited": [
+    4,
+    7
+   ],
+   "supporting": [],
+   "answer": "Self‑RAG’s generator was trained on a dataset of 150 000 supervised training examples【4†page 10】【7†page 10】",
+   "sources": [
+    "self-rag.pdf p.5",
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.19",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.4",
+    "self-rag.pdf p.17",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.18"
+   ]
+  },
+  {
+   "id": "g-030",
+   "tags": [
+    "numeric"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.4",
+    "self-rag.pdf p.9",
+    "self-rag.pdf p.3",
+    "self-rag.pdf p.4",
+    "self-rag.pdf p.19",
+    "self-rag.pdf p.6"
+   ]
+  },
+  {
+   "id": "g-031",
+   "tags": [
+    "factoid",
+    "numeric"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 6,
+    "dense": 6,
+    "keyword": 6
+   },
+   "refused": false,
+   "cited": [
+    6
+   ],
+   "supporting": [
+    6
+   ],
+   "answer": "Self‑RAG uses the off‑the‑shelf Contriever‑MS MARCO retriever by default and retrieves up to ten documents for each input [6].",
+   "sources": [
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.1",
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.7",
+    "self-rag.pdf p.1",
+    "self-rag.pdf p.17"
+   ]
+  },
+  {
+   "id": "g-032",
+   "tags": [
+    "table",
+    "numeric"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "self-rag.pdf p.8",
+    "self-rag.pdf p.1",
+    "self-rag.pdf p.20",
+    "self-rag.pdf p.9",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.8"
+   ]
+  },
+  {
+   "id": "g-033",
+   "tags": [
+    "paraphrase"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 4,
+    "dense": 4,
+    "keyword": 4
+   },
+   "refused": false,
+   "cited": [
+    1,
+    4,
+    5,
+    6
+   ],
+   "supporting": [
+    4
+   ],
+   "answer": "Self‑RAG avoids running a critic model while training the generator by computing the critique tokens offline and inserting them directly into the training data. The reflection/critique tokens are generated beforehand (e.g., by prompting GPT‑4 or a pre‑trained critic) and then treated as ordinary next‑token targets for the generator LM, so the generator can be trained with a standard language‑model objective without invoking a critic at training time【1†L1-L3】【4†L1-L4】【5†L1-L4】【6†L5-L12】.",
+   "sources": [
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.5",
+    "self-rag.pdf p.4",
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.18",
+    "self-rag.pdf p.3",
+    "self-rag.pdf p.4"
+   ]
+  },
+  {
+   "id": "g-034",
+   "tags": [
+    "numeric",
+    "paraphrase"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "SELF‑RAG produces correct answers that are not present in the retrieved passages for only about 2 % of its correct predictions【1】.",
+   "sources": [
+    "self-rag.pdf p.20",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.17",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.21",
+    "self-rag.pdf p.1",
+    "self-rag.pdf p.9",
+    "self-rag.pdf p.6"
+   ]
+  },
+  {
+   "id": "g-035",
+   "tags": [
+    "factoid"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "self-rag.pdf p.4",
+    "self-rag.pdf p.1",
+    "self-rag.pdf p.19",
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.2",
+    "self-rag.pdf p.18",
+    "self-rag.pdf p.5",
+    "self-rag.pdf p.2"
+   ]
+  },
+  {
+   "id": "g-036",
+   "tags": [
+    "definition",
+    "list"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    3,
+    4
+   ],
+   "supporting": [],
+   "answer": "Self‑RAG judges support on a three‑point entailment scale: [Fully supported], [Partially supported] and [No support / Contradictory] [3][4]",
+   "sources": [
+    "self-rag.pdf p.17",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.29",
+    "self-rag.pdf p.29",
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.10",
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.21"
+   ]
+  },
+  {
+   "id": "g-037",
+   "tags": [
+    "ambiguous",
+    "numeric"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "The chunks are short, contiguous texts of length 100 tokens [1]",
+   "sources": [
+    "raptor.pdf p.3",
+    "raptor.pdf p.3",
+    "raptor.pdf p.1",
+    "raptor.pdf p.1",
+    "raptor.pdf p.16",
+    "raptor.pdf p.16",
+    "raptor.pdf p.3",
+    "self-rag.pdf p.19"
+   ]
+  },
+  {
+   "id": "g-038",
+   "tags": [
+    "multi-span",
+    "multi-page"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": false,
+   "cited": [
+    2,
+    7,
+    6
+   ],
+   "supporting": [],
+   "answer": "RAPTOR first embeds each 100‑token text chunk with SBERT (the multi‑qa‑mpnet‑base‑cos‑v1 encoder) and then groups the resulting vectors with a clustering algorithm that operates on those embeddings【2】.  The clustering is performed recursively: chunks that are close in embedding space are clustered together, a language model summarizes each cluster, the summaries are re‑embedded, and the process repeats to build higher‑level nodes【7】.  RAPTOR’s clustering uses a soft‑clustering approach, allowing a node to belong to multiple clusters rather than fixing a single cluster assignment【6】.",
+   "sources": [
+    "raptor.pdf p.1",
+    "raptor.pdf p.3",
+    "raptor.pdf p.16",
+    "raptor.pdf p.2",
+    "raptor.pdf p.16",
+    "raptor.pdf p.3",
+    "raptor.pdf p.3",
+    "raptor.pdf p.1"
+   ]
+  },
+  {
+   "id": "g-039",
+   "tags": [
+    "factoid"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "raptor.pdf p.3",
+    "raptor.pdf p.3",
+    "raptor.pdf p.16",
+    "raptor.pdf p.3",
+    "raptor.pdf p.9",
+    "raptor.pdf p.2",
+    "raptor.pdf p.4",
+    "raptor.pdf p.1"
+   ]
+  },
+  {
+   "id": "g-040",
+   "tags": [
+    "numeric"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "raptor.pdf p.4",
+    "raptor.pdf p.21",
+    "raptor.pdf p.22",
+    "raptor.pdf p.3",
+    "raptor.pdf p.7",
+    "raptor.pdf p.9",
+    "raptor.pdf p.3",
+    "raptor.pdf p.8"
+   ]
+  },
+  {
+   "id": "g-041",
+   "tags": [
+    "numeric"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 4,
+    "dense": 4,
+    "keyword": 4
+   },
+   "refused": false,
+   "cited": [
+    4,
+    5
+   ],
+   "supporting": [
+    4,
+    5
+   ],
+   "answer": "Six of the generated summaries contained hallucinations [4][5]",
+   "sources": [
+    "raptor.pdf p.17",
+    "raptor.pdf p.18",
+    "raptor.pdf p.18",
+    "raptor.pdf p.17",
+    "raptor.pdf p.17",
+    "raptor.pdf p.4",
+    "raptor.pdf p.9",
+    "raptor.pdf p.7"
+   ]
+  },
+  {
+   "id": "g-042",
+   "tags": [
+    "numeric"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 2,
+    "dense": 2,
+    "keyword": 2
+   },
+   "refused": false,
+   "cited": [
+    2,
+    3
+   ],
+   "supporting": [
+    2
+   ],
+   "answer": "RAPTOR’s summarization reduces the total length of child‑node text to roughly 28 % of its original size, which corresponds to about a 72 % compression rate on average【2】【3】",
+   "sources": [
+    "raptor.pdf p.16",
+    "raptor.pdf p.17",
+    "raptor.pdf p.17",
+    "raptor.pdf p.9",
+    "raptor.pdf p.16",
+    "raptor.pdf p.3",
+    "raptor.pdf p.21",
+    "raptor.pdf p.16"
+   ]
+  },
+  {
+   "id": "g-043",
+   "tags": [
+    "numeric",
+    "table",
+    "multi-page"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 7,
+    "dense": 7,
+    "keyword": 7
+   },
+   "refused": false,
+   "cited": [
+    1,
+    7
+   ],
+   "supporting": [
+    7
+   ],
+   "answer": "RAPTOR combined with GPT‑4 attains an accuracy of 82.6 % on the QuALITY benchmark [1].  This represents an absolute gain of roughly 20 percentage points over the prior best result of 62.3 % (about 20.3 points) [1][7].",
+   "sources": [
+    "raptor.pdf p.8",
+    "raptor.pdf p.9",
+    "raptor.pdf p.8",
+    "raptor.pdf p.8",
+    "raptor.pdf p.8",
+    "raptor.pdf p.7",
+    "raptor.pdf p.1",
+    "raptor.pdf p.7"
+   ]
+  },
+  {
+   "id": "g-044",
+   "tags": [
+    "keyword"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": 1,
+    "dense": 1,
+    "keyword": 1
+   },
+   "refused": false,
+   "cited": [
+    1,
+    4
+   ],
+   "supporting": [
+    1
+   ],
+   "answer": "RAPTOR embeds all tree nodes with SBERT, specifically the “multi‑qa‑mpnet‑base‑cos‑v1” model [1][4]",
+   "sources": [
+    "raptor.pdf p.3",
+    "raptor.pdf p.3",
+    "raptor.pdf p.5",
+    "raptor.pdf p.4",
+    "raptor.pdf p.4",
+    "raptor.pdf p.8",
+    "raptor.pdf p.22",
+    "raptor.pdf p.9"
+   ]
+  },
+  {
+   "id": "g-045",
+   "tags": [
+    "cross-document",
+    "multi-hop",
+    "comparison"
+   ],
+   "answerable": true,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "raptor.pdf p.2",
+    "raptor.pdf p.1",
+    "raptor.pdf p.8",
+    "raptor.pdf p.7",
+    "raptor.pdf p.7",
+    "raptor.pdf p.8",
+    "raptor.pdf p.10",
+    "raptor.pdf p.9"
+   ]
+  },
+  {
+   "id": "g-046",
+   "tags": [
+    "unanswerable"
+   ],
+   "answerable": false,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "raptor.pdf p.3",
+    "raptor.pdf p.3",
+    "raptor.pdf p.1",
+    "raptor.pdf p.2",
+    "raptor.pdf p.16",
+    "raptor.pdf p.2",
+    "raptor.pdf p.3",
+    "raptor.pdf p.2"
+   ]
+  },
+  {
+   "id": "g-047",
+   "tags": [
+    "unanswerable",
+    "near-miss"
+   ],
+   "answerable": false,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "nist-csf-2.0.pdf p.2",
+    "nist-csf-2.0.pdf p.1",
+    "nist-csf-2.0.pdf p.32",
+    "nist-csf-2.0.pdf p.22",
+    "nist-csf-2.0.pdf p.6",
+    "nist-csf-2.0.pdf p.5",
+    "nist-csf-2.0.pdf p.7",
+    "nist-csf-2.0.pdf p.15"
+   ]
+  },
+  {
+   "id": "g-048",
+   "tags": [
+    "unanswerable",
+    "near-miss"
+   ],
+   "answerable": false,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "self-rag.pdf p.8",
+    "self-rag.pdf p.1",
+    "self-rag.pdf p.6",
+    "self-rag.pdf p.9",
+    "self-rag.pdf p.20",
+    "self-rag.pdf p.1",
+    "self-rag.pdf p.20",
+    "self-rag.pdf p.8"
+   ]
+  },
+  {
+   "id": "g-049",
+   "tags": [
+    "unanswerable",
+    "near-miss"
+   ],
+   "answerable": false,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "raptor.pdf p.10",
+    "raptor.pdf p.21",
+    "raptor.pdf p.22",
+    "raptor.pdf p.16",
+    "raptor.pdf p.2",
+    "raptor.pdf p.4",
+    "raptor.pdf p.1",
+    "raptor.pdf p.7"
+   ]
+  },
+  {
+   "id": "g-050",
+   "tags": [
+    "unanswerable",
+    "false-premise"
+   ],
+   "answerable": false,
+   "rank": {
+    "hybrid": null,
+    "dense": null,
+    "keyword": null
+   },
+   "refused": true,
+   "cited": [],
+   "supporting": [],
+   "answer": "NO_ANSWER",
+   "sources": [
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.7",
+    "nist-csf-2.0.pdf p.12",
+    "nist-csf-2.0.pdf p.31",
+    "nist-csf-2.0.pdf p.6",
+    "nist-csf-2.0.pdf p.29",
+    "nist-csf-2.0.pdf p.6",
+    "nist-csf-2.0.pdf p.30"
+   ]
+  }
+ ]
+}
