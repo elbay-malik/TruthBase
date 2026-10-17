@@ -77,3 +77,20 @@ Verified against `unpdf@1.9.0` (bundled serverless PDF.js) and `@ai-sdk/google@4
 - **`extractTextItems`** returns positioned items in the same order and filter as `extractText`, so text rebuilt from items matches the golden contract exactly (`test/unit/ingest-extract.test.ts`).
 - **`google.textEmbedding()` is deprecated** in `@ai-sdk/google` 4.x. Use `google.embedding('gemini-embedding-001')` (§2's snippet predates this).
 - The `/api/ingest` size override from §5 is in `nuxt.config.ts` `routeRules` (20 MB, matching the `documents` bucket limit).
+
+## 8. Phase 3.5 spike findings: PDF.js in the browser (affects Phase 5)
+
+Verified in headless Chromium 149 with `pdfjs-dist@6.4.299`, the same version unpdf bundles server-side. Keep the two pinned together.
+
+- **Setup:**
+  - Import `pdfjs-dist` lazily on the client only (`import('pdfjs-dist')`); in Node it warns and needs canvas.
+  - Worker: `import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'` → `GlobalWorkerOptions.workerSrc`. Same-origin, so no blob: wrapper.
+  - Release documents with `loadingTask.destroy()`; there's no `PDFDocumentProxy#destroy`.
+  - `getDocument({ data })` detaches the caller's buffer.
+- **CSP:** nuxt-security's default `script-src` has `'strict-dynamic'` and no `worker-src`. Add `worker-src 'self' blob:` per route. Route-rule arrays *replace* a directive's defaults, so never override `script-src`. A blocked worker silently falls back to a main-thread "fake worker" that is sticky for the page, so check for it.
+- **Text layer:**
+  - Needs the `.textLayer` CSS (copied in `app/assets/css/pdf-text-layer.css`) and the `--scale-factor` / `--total-scale-factor` / `--scale-round-x/y` variables on the page wrapper. Without them it lays out at the wrong size with no error.
+  - It is **not** glyph truth: spans use a substitute font (sans-serif or monospace) scaled to each item's width, and its vertical box is that font's em box rounded to whole CSS px.
+- **Supabase Storage signed URLs** answer `Access-Control-Allow-Origin: *`, allow the `Range` header in preflight and serve `206`. `Accept-Ranges` isn't readable cross-origin, so PDF.js downloads the whole file instead of using ranges (fine at 1–2.5 MB). An invalid or expired token returns `400`, which PDF.js reports as `ResponseException`; re-fetch `/api/documents/:id/file` and reload.
+- **Exact glyph positions** come from replaying `page.getOperatorList()` (`server/ingest/glyphs.ts`). It needs `getDocumentProxy(data, { fontExtraProperties: true })` for `fontMatrix`/`vertical`.
+- **Modern-build requirement:** `pdfjs-dist`'s modern build uses `Map.prototype.getOrInsertComputed`, `Math.sumPrecise` and `URL.parse` unpolyfilled. They're fine in Chromium 149; if older browsers matter, switch both imports to `pdfjs-dist/legacy/build/`.

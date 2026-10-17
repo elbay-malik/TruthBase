@@ -1,14 +1,18 @@
 import type { ChunkHighlight, HighlightRect } from '#shared/types'
+import { itemRanges } from '../../shared/utils/page-text'
 import type { ChunkSpan } from './chunk'
 import type { PageLayout } from './extract'
 
 // Phase 3, step 3: chunk character range → per-line highlight rects in PDF
-// space (bottom-left origin, scale 1). The viewer converts them with
-// `viewport.convertToViewportRectangle` at draw time (shared/types).
+// space (bottom-left origin, scale 1). The viewer converts both corners with
+// `viewport.convertToViewportPoint` at draw time (TECH_NOTES §7).
 //
-// Approximations, checked visually by `pnpm render:highlights`:
-// - A partially covered item is cut proportionally to its character count
-//   (fine for proportional fonts at line scale; off by a glyph at worst).
+// Horizontal edges come from exact per-character glyph positions when the
+// glyph replay aligned the item (./glyphs.ts; checked against MuPDF by
+// test/unit/ingest-glyphs.test.ts). Otherwise a partially covered item is cut
+// proportionally to its character count (off by up to ~3 glyphs).
+// Vertical extent is a fixed em-box approximation (checked in the Phase 3.5
+// spike; better ink coverage than the PDF.js text layer's box):
 // - Glyph boxes span baseline − 0.25·fontSize to baseline + 0.8·fontSize,
 //   because PDF.js item.height is often 0 or the full line advance.
 
@@ -16,16 +20,7 @@ const DESCENT = 0.25
 const ASCENT = 0.8
 
 export function chunkHighlight(page: PageLayout, span: ChunkSpan): ChunkHighlight {
-  // Covered character range inside each item touched by the span.
-  const covered = new Map<number, { from: number, to: number }>()
-  for (let i = span.start; i < span.end; i++) {
-    const itemIndex = page.charItem[i]!
-    if (itemIndex === -1) continue
-    const offset = page.charOffset[i]!
-    const range = covered.get(itemIndex)
-    if (range) range.to = offset
-    else covered.set(itemIndex, { from: offset, to: offset })
-  }
+  const covered = itemRanges(page, span.start, span.end)
 
   const rects: HighlightRect[] = []
   let lineY = Number.NaN
@@ -35,10 +30,12 @@ export function chunkHighlight(page: PageLayout, span: ChunkSpan): ChunkHighligh
     if (item.width <= 0 || size <= 0) continue
 
     const length = item.str.length
+    const exactX1 = item.charX0?.[from]
+    const exactX2 = item.charX1?.[to]
     const rect: HighlightRect = {
-      x1: item.x + item.width * (from / length),
+      x1: exactX1 !== undefined && !Number.isNaN(exactX1) ? exactX1 : item.x + item.width * (from / length),
       y1: item.y - DESCENT * size,
-      x2: item.x + item.width * ((to + 1) / length),
+      x2: exactX2 !== undefined && !Number.isNaN(exactX2) ? exactX2 : item.x + item.width * ((to + 1) / length),
       y2: item.y + ASCENT * size,
     }
 

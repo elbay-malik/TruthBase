@@ -28,6 +28,16 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    // Phase 3.5 highlight spike: client-only (PDF.js needs window/canvas), and
+    // an explicit worker-src so the PDF.js module worker does not depend on
+    // how browsers apply 'strict-dynamic' in script-src (TECH_NOTES §7).
+    // Only worker-src is set: route-rule arrays replace defaults per directive.
+    '/spike/**': {
+      ssr: false,
+      security: {
+        headers: { contentSecurityPolicy: { 'worker-src': ['\'self\'', 'blob:'] } },
+      },
+    },
     // PDF uploads exceed nuxt-security's 8 MB default; matches the 20 MB
     // `documents` bucket limit enforced in server/api/ingest.post.ts.
     '/api/ingest': {

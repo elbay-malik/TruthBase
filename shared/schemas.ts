@@ -23,3 +23,10 @@ export const searchRequestSchema = z.object({
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>
 export type SearchRequest = z.infer<typeof searchRequestSchema>
+
+/** Route params for /api/documents/:id/* — validated before any DB query. */
+export const documentParamsSchema = z.object({
+  id: z.uuid(),
+})
+
+export type DocumentParams = z.infer<typeof documentParamsSchema>

@@ -1,0 +1,426 @@
+{
+ "engine": "PyMuPDF 1.26.5",
+ "edges": [
+  {
+   "id": "g-001#1",
+   "startX": 182.521,
+   "endX": 159.825,
+   "startBaseline": 615.172,
+   "endBaseline": 600.726
+  },
+  {
+   "id": "g-002#1",
+   "startX": 232.777,
+   "endX": 522.001,
+   "startBaseline": 550.496,
+   "endBaseline": 536.05
+  },
+  {
+   "id": "g-003#1",
+   "startX": 309.142,
+   "endX": 443.695,
+   "startBaseline": 413.862,
+   "endBaseline": 400.313
+  },
+  {
+   "id": "g-004#1",
+   "startX": 428.715,
+   "endX": 266.339,
+   "startBaseline": 709.176,
+   "endBaseline": 680.284
+  },
+  {
+   "id": "g-005#1",
+   "startX": 270.308,
+   "endX": 431.381,
+   "startBaseline": 680.284,
+   "endBaseline": 636.946
+  },
+  {
+   "id": "g-006#1",
+   "startX": 146.883,
+   "endX": 499.992,
+   "startBaseline": 626.652,
+   "endBaseline": 626.652
+  },
+  {
+   "id": "g-006#2",
+   "startX": 148.246,
+   "endX": 489.614,
+   "startBaseline": 612.206,
+   "endBaseline": 612.206
+  },
+  {
+   "id": "g-006#3",
+   "startX": 143.033,
+   "endX": 237.252,
+   "startBaseline": 597.76,
+   "endBaseline": 583.314
+  },
+  {
+   "id": "g-007#1",
+   "startX": 90.0,
+   "endX": 496.895,
+   "startBaseline": 684.435,
+   "endBaseline": 684.435
+  },
+  {
+   "id": "g-008#1",
+   "startX": 118.325,
+   "endX": 502.668,
+   "startBaseline": 204.772,
+   "endBaseline": 204.772
+  },
+  {
+   "id": "g-009#1",
+   "startX": 90.0,
+   "endX": 519.012,
+   "startBaseline": 514.59,
+   "endBaseline": 514.59
+  },
+  {
+   "id": "g-010#1",
+   "startX": 207.444,
+   "endX": 495.05,
+   "startBaseline": 609.59,
+   "endBaseline": 595.144
+  },
+  {
+   "id": "g-011#1",
+   "startX": 207.444,
+   "endX": 355.222,
+   "startBaseline": 410.651,
+   "endBaseline": 396.205
+  },
+  {
+   "id": "g-012#1",
+   "startX": 90.0,
+   "endX": 412.384,
+   "startBaseline": 443.007,
+   "endBaseline": 428.561
+  },
+  {
+   "id": "g-013#1",
+   "startX": 348.777,
+   "endX": 460.106,
+   "startBaseline": 466.931,
+   "endBaseline": 452.485
+  },
+  {
+   "id": "g-013#2",
+   "startX": 72.0,
+   "endX": 311.182,
+   "startBaseline": 495.12,
+   "endBaseline": 495.12
+  },
+  {
+   "id": "g-014#1",
+   "startX": 206.563,
+   "endX": 453.857,
+   "startBaseline": 249.438,
+   "endBaseline": 220.546
+  },
+  {
+   "id": "g-014#2",
+   "startX": 108.0,
+   "endX": 184.343,
+   "startBaseline": 512.16,
+   "endBaseline": 482.76
+  },
+  {
+   "id": "g-014#3",
+   "startX": 108.0,
+   "endX": 448.823,
+   "startBaseline": 462.12,
+   "endBaseline": 447.48
+  },
+  {
+   "id": "g-015#1",
+   "startX": 322.2,
+   "endX": 231.359,
+   "startBaseline": 477.492,
+   "endBaseline": 465.251
+  },
+  {
+   "id": "g-016#1",
+   "startX": 480.24,
+   "endX": 401.904,
+   "startBaseline": 116.28,
+   "endBaseline": 101.64
+  },
+  {
+   "id": "g-017#1",
+   "startX": 72.0,
+   "endX": 253.656,
+   "startBaseline": 153.48,
+   "endBaseline": 138.84
+  },
+  {
+   "id": "g-018#1",
+   "startX": 165.6,
+   "endX": 267.022,
+   "startBaseline": 130.56,
+   "endBaseline": 115.92
+  },
+  {
+   "id": "g-019#1",
+   "startX": 108.0,
+   "endX": 468.298,
+   "startBaseline": 381.0,
+   "endBaseline": 381.0
+  },
+  {
+   "id": "g-020#1",
+   "startX": 108.0,
+   "endX": 208.139,
+   "startBaseline": 687.36,
+   "endBaseline": 672.72
+  },
+  {
+   "id": "g-021#1",
+   "startX": 476.4,
+   "endX": 310.58,
+   "startBaseline": 611.76,
+   "endBaseline": 582.48
+  },
+  {
+   "id": "g-022#1",
+   "startX": 90.0,
+   "endX": 271.404,
+   "startBaseline": 708.6,
+   "endBaseline": 708.6
+  },
+  {
+   "id": "g-022#2",
+   "startX": 90.0,
+   "endX": 453.564,
+   "startBaseline": 614.76,
+   "endBaseline": 614.76
+  },
+  {
+   "id": "g-022#3",
+   "startX": 90.0,
+   "endX": 274.644,
+   "startBaseline": 535.44,
+   "endBaseline": 535.44
+  },
+  {
+   "id": "g-022#4",
+   "startX": 90.0,
+   "endX": 530.723,
+   "startBaseline": 456.24,
+   "endBaseline": 456.24
+  },
+  {
+   "id": "g-022#5",
+   "startX": 90.0,
+   "endX": 436.884,
+   "startBaseline": 391.68,
+   "endBaseline": 391.68
+  },
+  {
+   "id": "g-023#1",
+   "startX": 79.56,
+   "endX": 377.304,
+   "startBaseline": 384.12,
+   "endBaseline": 369.48
+  },
+  {
+   "id": "g-024#1",
+   "startX": 237.859,
+   "endX": 219.855,
+   "startBaseline": 479.873,
+   "endBaseline": 443.151
+  },
+  {
+   "id": "g-025#1",
+   "startX": 154.92,
+   "endX": 341.649,
+   "startBaseline": 626.4,
+   "endBaseline": 611.76
+  },
+  {
+   "id": "g-026#1",
+   "startX": 295.307,
+   "endX": 147.134,
+   "startBaseline": 290.413,
+   "endBaseline": 261.521
+  },
+  {
+   "id": "g-026#2",
+   "startX": 347.4,
+   "endX": 358.821,
+   "startBaseline": 614.04,
+   "endBaseline": 584.76
+  },
+  {
+   "id": "g-027#1",
+   "startX": 141.892,
+   "endX": 393.785,
+   "startBaseline": 621.189,
+   "endBaseline": 610.23
+  },
+  {
+   "id": "g-028#1",
+   "startX": 286.452,
+   "endX": 383.13,
+   "startBaseline": 229.519,
+   "endBaseline": 218.56
+  },
+  {
+   "id": "g-029#1",
+   "startX": 495.682,
+   "endX": 282.835,
+   "startBaseline": 240.478,
+   "endBaseline": 229.519
+  },
+  {
+   "id": "g-029#2",
+   "startX": 344.143,
+   "endX": 480.84,
+   "startBaseline": 119.135,
+   "endBaseline": 119.135
+  },
+  {
+   "id": "g-030#1",
+   "startX": 188.103,
+   "endX": 260.299,
+   "startBaseline": 179.706,
+   "endBaseline": 168.747
+  },
+  {
+   "id": "g-031#1",
+   "startX": 492.464,
+   "endX": 211.482,
+   "startBaseline": 218.56,
+   "endBaseline": 196.643
+  },
+  {
+   "id": "g-032#1",
+   "startX": 117.058,
+   "endX": 494.939,
+   "startBaseline": 368.619,
+   "endBaseline": 368.619
+  },
+  {
+   "id": "g-033#1",
+   "startX": 491.59,
+   "endX": 298.512,
+   "startBaseline": 356.602,
+   "endBaseline": 334.685
+  },
+  {
+   "id": "g-034#1",
+   "startX": 213.866,
+   "endX": 476.647,
+   "startBaseline": 134.428,
+   "endBaseline": 123.47
+  },
+  {
+   "id": "g-035#1",
+   "startX": 300.075,
+   "endX": 154.246,
+   "startBaseline": 138.851,
+   "endBaseline": 127.892
+  },
+  {
+   "id": "g-036#1",
+   "startX": 315.021,
+   "endX": 469.779,
+   "startBaseline": 483.156,
+   "endBaseline": 472.197
+  },
+  {
+   "id": "g-037#1",
+   "startX": 292.378,
+   "endX": 180.896,
+   "startBaseline": 395.798,
+   "endBaseline": 384.839
+  },
+  {
+   "id": "g-037#2",
+   "startX": 406.978,
+   "endX": 504.003,
+   "startBaseline": 384.839,
+   "endBaseline": 373.88
+  },
+  {
+   "id": "g-038#1",
+   "startX": 108.0,
+   "endX": 404.318,
+   "startBaseline": 84.056,
+   "endBaseline": 84.056
+  },
+  {
+   "id": "g-038#2",
+   "startX": 259.182,
+   "endX": 387.889,
+   "startBaseline": 626.142,
+   "endBaseline": 615.183
+  },
+  {
+   "id": "g-039#1",
+   "startX": 108.0,
+   "endX": 189.783,
+   "startBaseline": 504.598,
+   "endBaseline": 493.639
+  },
+  {
+   "id": "g-040#1",
+   "startX": 315.963,
+   "endX": 469.417,
+   "startBaseline": 617.486,
+   "endBaseline": 595.568
+  },
+  {
+   "id": "g-041#1",
+   "startX": 108.0,
+   "endX": 434.066,
+   "startBaseline": 95.015,
+   "endBaseline": 95.015
+  },
+  {
+   "id": "g-042#1",
+   "startX": 108.0,
+   "endX": 248.532,
+   "startBaseline": 591.985,
+   "endBaseline": 581.026
+  },
+  {
+   "id": "g-043#1",
+   "startX": 404.297,
+   "endX": 464.551,
+   "startBaseline": 439.308,
+   "endBaseline": 428.349
+  },
+  {
+   "id": "g-043#2",
+   "startX": 217.8,
+   "endX": 429.882,
+   "startBaseline": 464.305,
+   "endBaseline": 464.305
+  },
+  {
+   "id": "g-044#1",
+   "startX": 458.215,
+   "endX": 504.0,
+   "startBaseline": 362.921,
+   "endBaseline": 351.963
+  },
+  {
+   "id": "g-045#1",
+   "startX": 386.629,
+   "endX": 505.743,
+   "startBaseline": 545.896,
+   "endBaseline": 534.938
+  },
+  {
+   "id": "g-045#2",
+   "startX": 163.033,
+   "endX": 449.299,
+   "startBaseline": 665.396,
+   "endBaseline": 665.396
+  }
+ ],
+ "skipped": []
+}

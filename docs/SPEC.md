@@ -59,7 +59,7 @@ All metrics are computed on [`docs/golden/golden.json`](./golden/golden.json) (5
 | **Faithfulness** | Share of answer claims that the cited chunks support (LLM-as-judge, spot-checked by hand) | Phase 9 | ≥ 0.90 |
 | **Citation precision** | Share of emitted citations whose chunk actually supports the claim it is attached to | Phase 4 → 9 | ≥ 0.90 |
 | **Refusal accuracy** | Unanswerable records refused, **and** answerable records not refused | Phase 4 → 9 | 5/5 refused; ≤ 1 false refusal |
-| **Highlight accuracy** | Share of golden evidence spans whose highlight overlay lands on the correct page and overlaps the passage's text-layer box at zoom levels 50%, 100% and 200% | Phase 5 → 13 (E2E) | 100% of spans on the right page; ≥ 95% overlap |
+| **Highlight accuracy** | For every golden evidence span at zoom 50%, 100% and 200%: overlay on the correct page; start/end edges vs **MuPDF glyph positions** (independent engine) and vs the text layer at item boundaries; vertical **ink coverage** of each line on the rendered canvas. The text layer is *not* ground truth inside items or vertically (ADR-0004) | Phase 3.5 (measured) → 5 → 13 (E2E) | 100% on the right page; edges ≤ 0.05 pt vs MuPDF and ≤ 1 pt on screen; ink coverage ≥ 0.99 at zoom ≥ 100% |
 
 Each Phase 6–8 technique must beat the previous configuration on its target tag slice (`keyword`/`paraphrase` for hybrid, `distractor`/`reverse-lookup` for rerank, `ambiguous` for multi-query) without lowering overall precision.
 

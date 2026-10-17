@@ -3,7 +3,8 @@
  * (docs/EXECUTION_PLAN.md, Phases 2–5).
  *
  * Coordinates are scale-independent: PDF-space (bottom-left origin) at
- * scale 1, converted at view time with `viewport.convertToViewportRectangle`
+ * scale 1, converted at view time by passing both corners through
+ * `viewport.convertToViewportPoint` (PDF.js 6 has no convertToViewportRectangle)
  * and re-drawn as overlay divs on zoom/rotation. Never store pixels.
  */
 

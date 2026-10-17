@@ -1,13 +1,17 @@
-import { extractTextItems, getDocumentProxy } from 'unpdf'
+import { getDocumentProxy } from 'unpdf'
+import type { PDFPageProxy } from 'unpdf/pdfjs'
+import { normalizePageText } from '../../shared/utils/page-text'
+import { attachGlyphPositions } from './glyphs'
 
 // Phase 3, step 1: PDF → per-page normalized text with a character→item map.
 //
-// Page text is built exactly like unpdf's extractText (each item's `str`, plus
-// "\n" when `hasEOL`), then whitespace runs collapse to one space and the
-// result is trimmed — the matching contract in docs/golden/README.md. Because
-// we build it ourselves we know, for every normalized character, which text
+// Page text comes from shared/utils/page-text.ts (the golden matching
+// contract), which also records, for every normalized character, which text
 // item (and which character inside it) it came from. That map is what turns a
-// chunk's character range into highlight rects (./highlight.ts).
+// chunk's character range into highlight rects (./highlight.ts), and the
+// browser viewer rebuilds the same map over the PDF.js text layer.
+
+type TextItem = Extract<Awaited<ReturnType<PDFPageProxy['getTextContent']>>['items'][number], { str: string }>
 
 /** One PDF.js text item, positioned in PDF space (bottom-left origin, scale 1). */
 export interface PositionedItem {
@@ -20,6 +24,13 @@ export interface PositionedItem {
   height: number
   fontSize: number
   hasEOL: boolean
+  /**
+   * Exact x-extent of each character of `str` (PDF space), when the glyph
+   * replay aligned this item (./glyphs.ts). NaN for whitespace. Absent →
+   * highlights cut the item proportionally by character count.
+   */
+  charX0?: Float64Array
+  charX1?: Float64Array
 }
 
 export interface PageLayout {
@@ -38,26 +49,37 @@ export interface PageLayout {
   charItem: Int32Array
   /** For each character of `text`: offset inside `items[charItem[i]].str`. */
   charOffset: Int32Array
+  /** Items with exact per-character positions (the rest use the proportional cut). */
+  glyphAlignedItems: number
 }
 
 export async function extractPages(data: Uint8Array): Promise<PageLayout[]> {
-  const pdf = await getDocumentProxy(data)
+  // fontExtraProperties exposes each font's fontMatrix/vertical to the glyph replay.
+  const pdf = await getDocumentProxy(data, { fontExtraProperties: true, ...pdfjsAssets() })
   try {
-    const { items } = await extractTextItems(pdf)
     const pages: PageLayout[] = []
     for (let i = 0; i < pdf.numPages; i++) {
       const page = await pdf.getPage(i + 1)
       const viewport = page.getViewport({ scale: 1 })
-      const pageItems: PositionedItem[] = (items[i] ?? []).map(item => ({
-        str: item.str,
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
-        fontSize: item.fontSize,
-        hasEOL: Boolean(item.hasEOL),
+      // Same call, order and filter (`str` present) as unpdf's extractTextItems,
+      // plus fontName, which the glyph alignment needs.
+      const textItems = (await page.getTextContent()).items.filter((item): item is TextItem => 'str' in item)
+      const pageItems: PositionedItem[] = textItems.map(({ str, transform, width, height, hasEOL }) => ({
+        str,
+        x: transform[4],
+        y: transform[5],
+        width,
+        height,
+        fontSize: Math.hypot(transform[2], transform[3]),
+        hasEOL: Boolean(hasEOL),
       }))
-      pages.push({ pageNumber: i + 1, width: viewport.width, height: viewport.height, ...normalizePage(pageItems) })
+      // The replay needs the operator list, which also decodes every image on
+      // the page: skip it on pages without text (e.g. scans, rejected later).
+      const glyphAlignedItems = pageItems.some(item => item.str.trim())
+        ? await attachGlyphPositions(page, pageItems, textItems.map(item => item.fontName))
+        : 0
+      pages.push({ pageNumber: i + 1, width: viewport.width, height: viewport.height, ...normalizePage(pageItems), glyphAlignedItems })
+      page.cleanup()
     }
     return pages
   }
@@ -68,41 +90,29 @@ export async function extractPages(data: Uint8Array): Promise<PageLayout[]> {
   }
 }
 
+/**
+ * CMap and standard-font data for PDF.js, resolved from our own pdfjs-dist
+ * dependency (pinned to the version unpdf bundles). unpdf only finds these when
+ * pdfjs-dist happens to be resolvable from its own install, so pass them
+ * explicitly to keep extraction identical across dev, tests and scripts.
+ * The browser viewer must use the same assets (TECH_NOTES §8). Without them
+ * (e.g. a bundle that cannot resolve the package), CMap-encoded fonts fail.
+ */
+function pdfjsAssets(): { cMapUrl?: string, cMapPacked?: boolean, standardFontDataUrl?: string } {
+  try {
+    const base = import.meta.resolve('pdfjs-dist/package.json')
+    return {
+      cMapUrl: new URL('./cmaps/', base).href,
+      cMapPacked: true,
+      standardFontDataUrl: new URL('./standard_fonts/', base).href,
+    }
+  }
+  catch {
+    return {}
+  }
+}
+
 /** Builds normalized text plus the char→item maps from a page's items. */
 export function normalizePage(items: PositionedItem[]): Pick<PageLayout, 'items' | 'text' | 'charItem' | 'charOffset'> {
-  const chars: string[] = []
-  const charItem: number[] = []
-  const charOffset: number[] = []
-  let pendingSpace = false
-
-  const pushWhitespace = () => {
-    if (chars.length > 0) pendingSpace = true // leading whitespace is trimmed
-  }
-
-  items.forEach((item, itemIndex) => {
-    for (let offset = 0; offset < item.str.length; offset++) {
-      const ch = item.str[offset]!
-      if (/\s/.test(ch)) {
-        pushWhitespace()
-        continue
-      }
-      if (pendingSpace) {
-        chars.push(' ')
-        charItem.push(-1)
-        charOffset.push(-1)
-        pendingSpace = false
-      }
-      chars.push(ch)
-      charItem.push(itemIndex)
-      charOffset.push(offset)
-    }
-    if (item.hasEOL) pushWhitespace()
-  })
-
-  return {
-    items,
-    text: chars.join(''),
-    charItem: Int32Array.from(charItem),
-    charOffset: Int32Array.from(charOffset),
-  }
+  return { items, ...normalizePageText(items) }
 }

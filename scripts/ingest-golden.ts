@@ -3,6 +3,10 @@
 //
 //   pnpm ingest:golden               # skips PDFs already ingested (by filename)
 //   pnpm ingest:golden --replace     # deletes and re-ingests them
+//   pnpm ingest:golden --highlights-only
+//                                    # recomputes stored highlight rects from each
+//                                    # chunk's offsets (after highlight-math changes;
+//                                    # no re-embedding, text must be unchanged)
 //
 // Needs NUXT_SUPABASE_URL, NUXT_SUPABASE_SERVICE_KEY and NUXT_GEMINI_API_KEY.
 
@@ -11,11 +15,13 @@ import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
 import { geminiEmbedder } from '../server/ingest/embed'
+import { extractPages } from '../server/ingest/extract'
+import { chunkHighlight } from '../server/ingest/highlight'
 import { ingestPdf } from '../server/ingest/pipeline'
 import { DOCUMENTS_BUCKET, storeDocument } from '../server/ingest/store'
 
 const PDFS = resolve(import.meta.dirname, '../docs/golden/pdfs')
-const { values } = parseArgs({ options: { replace: { type: 'boolean', default: false } } })
+const { values } = parseArgs({ options: { 'replace': { type: 'boolean', default: false }, 'highlights-only': { type: 'boolean', default: false } } })
 
 const env = (name: string) => {
   const value = process.env[name]
@@ -26,6 +32,12 @@ const env = (name: string) => {
 const supabase = createClient(env('NUXT_SUPABASE_URL'), env('NUXT_SUPABASE_SERVICE_KEY'), {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 })
+
+if (values['highlights-only']) {
+  await refreshHighlights()
+  process.exit(0)
+}
+
 const embed = geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_DOCUMENT')
 
 for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sort()) {
@@ -47,4 +59,37 @@ for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sor
     onProgress: p => process.stdout.write(`\r${p.stage.padEnd(8)} ${filename} ${p.done}/${p.total}   `),
   })
   console.log(`\rdone     ${filename}: ${result.pageCount} pages, ${result.chunkCount} chunks in ${((Date.now() - started) / 1000).toFixed(1)}s → ${result.documentId}`)
+}
+
+async function refreshHighlights() {
+  for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sort()) {
+    // filename is not unique (no constraint; uploads can repeat it): refresh every copy.
+    const { data: docs, error } = await supabase.from('documents').select('id').eq('filename', filename)
+    if (error) throw new Error(`lookup failed: ${error.message}`)
+    if (docs.length === 0) {
+      console.log(`skip     ${filename} (not ingested)`)
+      continue
+    }
+    const pages = await extractPages(new Uint8Array(await readFile(join(PDFS, filename))))
+    for (const doc of docs) {
+      const { data: chunks, error: chunksError } = await supabase.from('chunks')
+        .select('id, page_number, content, highlight').eq('document_id', doc.id)
+      if (chunksError) throw new Error(`chunk read failed: ${chunksError.message}`)
+
+      // Validate every chunk before writing any, so a mismatch leaves the document untouched.
+      const updates = chunks.map((chunk) => {
+        const page = pages[chunk.page_number - 1]
+        const { startOffset: start, endOffset: end } = chunk.highlight as { startOffset: number, endOffset: number }
+        if (!page || page.text.slice(start, end) !== chunk.content) {
+          throw new Error(`${filename} (${doc.id}) chunk ${chunk.id}: stored text no longer matches page ${chunk.page_number} — re-ingest with --replace`)
+        }
+        return { id: chunk.id, highlight: chunkHighlight(page, { start, end }) }
+      })
+      for (const { id, highlight } of updates) {
+        const { error: updateError } = await supabase.from('chunks').update({ highlight }).eq('id', id)
+        if (updateError) throw new Error(`update failed for ${id}: ${updateError.message}`)
+      }
+      console.log(`updated  ${filename} (${doc.id}): ${updates.length} chunk highlights`)
+    }
+  }
 }
