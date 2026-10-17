@@ -97,7 +97,17 @@ Verified in headless Chromium 149 with `pdfjs-dist@6.4.299`, the same version un
 
 ## 9. Generation models (Phase 4)
 
+- **Groq no longer serves `llama-3.3-70b-versatile`** (the plan's primary). As of 2026-10-17 its text models are `openai/gpt-oss-120b`, `openai/gpt-oss-20b` and `qwen/qwen3.8-27b`. We use `openai/gpt-oss-120b` with `providerOptions.groq = { reasoningEffort: 'low', reasoningFormat: 'hidden' }`. Free tier: **8,000 tokens/min, 1,000 requests/day** (from the `x-ratelimit-*` headers). A grounded answer is ~1.7–2.5k tokens, so about 3 answers/min across all users; throttle evals (~25 s/question) and add a Gemini fallback on 429 in Phase 11.
+- **gpt-oss cites as `【n】`** (also `【n†L3-L5】`), its native format, and likes Markdown bold. The citation parser accepts both bracket styles (`shared/utils/citations.ts`), and the prompt asks for ASCII brackets and plain text.
 - **`gemini-2.5-flash-lite` is closed to new API users** (the API answers "no longer available to new users … use models/gemini-3.5-flash-lite"), even though it still shows in `models.list`. The Gemini fallback is therefore `gemini-3.5-flash-lite` (`server/rag/model.ts`). Verify a model with a real call, not just the listing.
 - AI SDK v7 server pattern as used in `server/api/chat.post.ts`: `createUIMessageStream({ execute: ({ writer }) => { writer.write({ type: 'data-sources', data }); writer.merge(toUIMessageStream({ stream: streamText(...).stream })) } })` → `createUIMessageStreamResponse({ stream })`. `streamText` takes `instructions` (not `system`) and `maxOutputTokens`.
 - Custom data parts need the message type's data map to be a **type alias**, not an interface, so it satisfies `UIMessage`'s `Record<string, unknown>` constraint (`shared/types/chat.ts`). Narrow parts with a type guard; `Array.find` doesn't narrow unions.
 - nuxt-security's `xssValidator` rejects bodies containing `<`/`>`; it's disabled on `/api/chat`, because questions are treated as data and never rendered as HTML.
+
+## 10. Viewer (Phase 5)
+
+- **Nuxt UI v4 has no `UButtonGroup`; it's `UFieldGroup`.** An unknown component compiles as a custom element without a typecheck error, so watch the browser console for "Failed to resolve component".
+- **Don't branch on `useMediaQuery` outside `<ClientOnly>`.** It's `false` during SSR, so `v-if="isDesktop"` hydrates differently. The pane-vs-sheet decision lives inside `<ClientOnly>`, which is fine because the viewer is browser-only anyway.
+- **Guard async document loads with a token.** Opening the default document and then a deep-linked one let the slower first load win, rendering the wrong PDF under the right highlights. Every `await` in `PdfViewer.open()` now re-checks the token and destroys superseded `loadingTask`s.
+- **Scripts that pass functions to `page.evaluate`** under `tsx` need `globalThis.__name = (fn) => fn` in the page (esbuild `keepNames` wraps functions in a `__name()` helper that doesn't exist in the browser).
+- **Local verification vs. the rate limiter:** `scripts/check-viewer.ts` makes ~200 page loads, so start the dev server with `NUXT_DISABLE_RATE_LIMIT=1` (read in `nuxt.config.ts`). Never set it in deployed environments.

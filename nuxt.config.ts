@@ -28,16 +28,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    // Phase 3.5 highlight spike: client-only (PDF.js needs window/canvas), and
-    // an explicit worker-src so the PDF.js module worker does not depend on
-    // how browsers apply 'strict-dynamic' in script-src (TECH_NOTES §7).
-    // Only worker-src is set: route-rule arrays replace defaults per directive.
-    '/spike/**': {
-      ssr: false,
-      security: {
-        headers: { contentSecurityPolicy: { 'worker-src': ['\'self\'', 'blob:'] } },
-      },
-    },
+    // Phase 3.5 highlight spike: client-only (PDF.js needs window/canvas).
+    '/spike/**': { ssr: false },
     // Questions are data, never rendered as HTML; the XSS validator would 400
     // on harmless text like "Tier 2 < Tier 3".
     '/api/chat': {
@@ -58,4 +50,18 @@ export default defineNuxtConfig({
   // nuxt-security runs with OWASP defaults, including an in-memory
   // per-IP rate limiter (150 req / 5 min). Route-specific overrides and a
   // shared-storage driver come with Phase 11 (docs/EXECUTION_PLAN.md).
+  security: {
+    // Local verification runs (scripts/check-viewer.ts) make hundreds of page
+    // loads; NUXT_DISABLE_RATE_LIMIT=1 at dev/build start turns the in-memory
+    // limiter off for them. Never set it in deployed environments (Phase 11).
+    rateLimiter: process.env.NUXT_DISABLE_RATE_LIMIT === '1' ? false : undefined,
+    headers: {
+      contentSecurityPolicy: {
+        // The PDF.js viewer's module worker: explicit, so it does not depend on
+        // how browsers apply 'strict-dynamic' in script-src (TECH_NOTES §8).
+        // Only this directive is set; the other defaults stay in place.
+        'worker-src': ['\'self\'', 'blob:'],
+      },
+    },
+  },
 })

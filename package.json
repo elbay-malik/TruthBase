@@ -19,7 +19,8 @@
     "ingest:golden": "tsx --env-file=.env scripts/ingest-golden.ts",
     "fixtures:highlights": "tsx scripts/build-highlight-fixtures.ts",
     "spike:highlight": "tsx scripts/spike-highlight.ts",
-    "eval:answers": "tsx --env-file=.env scripts/eval-answers.ts"
+    "eval:answers": "tsx --env-file=.env scripts/eval-answers.ts",
+    "check:viewer": "tsx --env-file=.env scripts/check-viewer.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.9",
