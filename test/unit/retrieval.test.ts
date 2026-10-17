@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toSearchHit } from '../../server/utils/retrieval'
+import { toSearchHit } from '../../server/rag/search'
 
 describe('toSearchHit', () => {
   it('maps a hybrid_search row from snake_case to the app shape', () => {

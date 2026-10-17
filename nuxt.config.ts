@@ -38,6 +38,14 @@ export default defineNuxtConfig({
         headers: { contentSecurityPolicy: { 'worker-src': ['\'self\'', 'blob:'] } },
       },
     },
+    // Questions are data, never rendered as HTML; the XSS validator would 400
+    // on harmless text like "Tier 2 < Tier 3".
+    '/api/chat': {
+      security: { xssValidator: false },
+    },
+    '/api/search': {
+      security: { xssValidator: false },
+    },
     // PDF uploads exceed nuxt-security's 8 MB default; matches the 20 MB
     // `documents` bucket limit enforced in server/api/ingest.post.ts.
     '/api/ingest': {

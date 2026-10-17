@@ -1,6 +1,6 @@
 # TruthBase
 
-> 🚧 **Status: Phases 0–3 complete** (spec + golden set, Nuxt scaffold, hosted database layer, ingestion with highlight geometry). Next: Phase 3.5 highlight spike, then Phase 4 retrieval + grounded answers. See [ROADMAP.md](./ROADMAP.md) for progress.
+> 🚧 **Status: Phases 0–4 complete**: golden set, hosted hybrid search, glyph-exact highlight geometry, and grounded chat with citations (baseline recall@8 73%, refusal accuracy 5/5). Next: Phase 5, the PDF viewer with citation-click-to-highlight. See [ROADMAP.md](./ROADMAP.md) for progress.
 
 **TruthBase** is a verifiable, advanced-RAG knowledge base built on Nuxt 4. Upload PDFs, ask questions, and get grounded answers with inline citations — where **clicking a citation scrolls the PDF viewer to the exact page and highlights the exact supporting passage**.
 

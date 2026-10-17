@@ -17,21 +17,20 @@ describe('searchRequestSchema', () => {
 })
 
 describe('chatRequestSchema', () => {
-  it('requires at least one message', () => {
-    expect(chatRequestSchema.safeParse({ messages: [] }).success).toBe(false)
+  it('accepts a question and trims it', () => {
+    expect(chatRequestSchema.parse({ question: '  What is RRF?  ' })).toEqual({ question: 'What is RRF?' })
   })
 
-  it('accepts a valid user message', () => {
-    const result = chatRequestSchema.safeParse({
-      messages: [{ role: 'user', content: 'hi' }],
-    })
-    expect(result.success).toBe(true)
+  it('rejects an empty or whitespace-only question', () => {
+    expect(chatRequestSchema.safeParse({ question: '   ' }).success).toBe(false)
   })
 
-  it('rejects unknown roles', () => {
-    const result = chatRequestSchema.safeParse({
-      messages: [{ role: 'tool', content: 'hi' }],
-    })
-    expect(result.success).toBe(false)
+  it('caps the question length', () => {
+    expect(chatRequestSchema.safeParse({ question: 'x'.repeat(1001) }).success).toBe(false)
+  })
+
+  it('only accepts a uuid documentId', () => {
+    expect(chatRequestSchema.safeParse({ question: 'q', documentId: 'nope' }).success).toBe(false)
+    expect(chatRequestSchema.safeParse({ question: 'q', documentId: '0b2a3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d' }).success).toBe(true)
   })
 })

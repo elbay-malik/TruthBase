@@ -3,21 +3,19 @@ import { z } from 'zod'
 // API request contracts. Server routes validate against these; the client
 // can reuse them for form validation. Import via the #shared alias.
 
+/**
+ * POST /api/chat. Single-turn by design (Phase 4): every question is answered
+ * only from the sources retrieved for it, so the client sends the question,
+ * not the conversation.
+ */
 export const chatRequestSchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        role: z.enum(['system', 'user', 'assistant']),
-        content: z.string().min(1),
-      }),
-    )
-    .min(1),
-  documentId: z.string().optional(),
+  question: z.string().trim().min(1).max(1000),
+  documentId: z.uuid().optional(),
 })
 
 export const searchRequestSchema = z.object({
-  query: z.string().min(1),
-  documentId: z.string().optional(),
+  query: z.string().trim().min(1).max(1000),
+  documentId: z.uuid().optional(),
   topK: z.number().int().positive().max(50).default(10),
 })
 

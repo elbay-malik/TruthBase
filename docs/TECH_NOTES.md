@@ -94,3 +94,10 @@ Verified in headless Chromium 149 with `pdfjs-dist@6.4.299`, the same version un
 - **Supabase Storage signed URLs** answer `Access-Control-Allow-Origin: *`, allow the `Range` header in preflight and serve `206`. `Accept-Ranges` isn't readable cross-origin, so PDF.js downloads the whole file instead of using ranges (fine at 1–2.5 MB). An invalid or expired token returns `400`, which PDF.js reports as `ResponseException`; re-fetch `/api/documents/:id/file` and reload.
 - **Exact glyph positions** come from replaying `page.getOperatorList()` (`server/ingest/glyphs.ts`). It needs `getDocumentProxy(data, { fontExtraProperties: true })` for `fontMatrix`/`vertical`.
 - **Modern-build requirement:** `pdfjs-dist`'s modern build uses `Map.prototype.getOrInsertComputed`, `Math.sumPrecise` and `URL.parse` unpolyfilled. They're fine in Chromium 149; if older browsers matter, switch both imports to `pdfjs-dist/legacy/build/`.
+
+## 9. Generation models (Phase 4)
+
+- **`gemini-2.5-flash-lite` is closed to new API users** (the API answers "no longer available to new users … use models/gemini-3.5-flash-lite"), even though it still shows in `models.list`. The Gemini fallback is therefore `gemini-3.5-flash-lite` (`server/rag/model.ts`). Verify a model with a real call, not just the listing.
+- AI SDK v7 server pattern as used in `server/api/chat.post.ts`: `createUIMessageStream({ execute: ({ writer }) => { writer.write({ type: 'data-sources', data }); writer.merge(toUIMessageStream({ stream: streamText(...).stream })) } })` → `createUIMessageStreamResponse({ stream })`. `streamText` takes `instructions` (not `system`) and `maxOutputTokens`.
+- Custom data parts need the message type's data map to be a **type alias**, not an interface, so it satisfies `UIMessage`'s `Record<string, unknown>` constraint (`shared/types/chat.ts`). Narrow parts with a type guard; `Array.find` doesn't narrow unions.
+- nuxt-security's `xssValidator` rejects bodies containing `<`/`>`; it's disabled on `/api/chat`, because questions are treated as data and never rendered as HTML.
