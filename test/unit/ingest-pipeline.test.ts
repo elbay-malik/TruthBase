@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { ingestPdf, type IngestProgress } from '../../server/ingest/pipeline'
-import type { ChunkInsert } from '../../server/ingest/store'
+import { storeDocument, type ChunkInsert } from '../../server/ingest/store'
 
 const PDF = resolve(__dirname, '../../docs/golden/pdfs/nist-csf-2.0.pdf')
 
@@ -54,5 +55,50 @@ describe('ingestPdf (offline: fake embedder and store)', () => {
     await expect(ingestPdf(blank, 'scan.pdf', { embed, store: vi.fn() }))
       .rejects.toMatchObject({ stage: 'parse' })
     expect(embed).not.toHaveBeenCalled()
+  })
+
+  it('stops embedding and never stores once the client is gone', async () => {
+    const pdf = new Uint8Array(await readFile(PDF))
+    const abort = new AbortController()
+    const embed = vi.fn(async (texts: string[]) => {
+      abort.abort() // client disconnects during the first batch
+      return texts.map(() => [1, 0, 0])
+    })
+    const store = vi.fn()
+    await expect(ingestPdf(pdf, 'x.pdf', { embed, store, signal: abort.signal, embedBatchSize: 10 }))
+      .rejects.toMatchObject({ stage: 'embed', message: 'Ingestion cancelled.' })
+    expect(embed).toHaveBeenCalledTimes(1)
+    expect(store).not.toHaveBeenCalled()
+  }, 30_000)
+})
+
+describe('storeDocument', () => {
+  /** Minimal supabase-js stand-in that records calls; aborts after the first chunk batch. */
+  function fakeSupabase(onChunkInsert: () => void) {
+    const calls: string[] = []
+    const client = {
+      storage: { from: () => ({
+        upload: async () => (calls.push('upload'), { error: null }),
+        remove: async () => (calls.push('remove'), { error: null }),
+      }) },
+      from: (table: string) => ({
+        insert: async () => {
+          calls.push(`insert ${table}`)
+          if (table === 'chunks') onChunkInsert()
+          return { error: null }
+        },
+        delete: () => ({ eq: async () => (calls.push(`delete ${table}`), { error: null }) }),
+      }),
+    }
+    return { client: client as unknown as SupabaseClient, calls }
+  }
+
+  it('rolls back the row and the upload when aborted between chunk batches', async () => {
+    const abort = new AbortController()
+    const { client, calls } = fakeSupabase(() => abort.abort())
+    const chunk: ChunkInsert = { pageNumber: 1, content: 'x', embedding: [1], highlight: {} as ChunkInsert['highlight'] }
+    await expect(storeDocument(client, { id: 'd', filename: 'f.pdf', pageCount: 1 }, new Uint8Array(1), Array.from({ length: 150 }, () => chunk), undefined, abort.signal))
+      .rejects.toThrow()
+    expect(calls).toEqual(['upload', 'insert documents', 'insert chunks', 'delete documents', 'remove'])
   })
 })

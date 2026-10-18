@@ -11,8 +11,9 @@ describe('searchRequestSchema', () => {
     expect(searchRequestSchema.safeParse({ query: '' }).success).toBe(false)
   })
 
-  it('caps topK at 50', () => {
-    expect(searchRequestSchema.safeParse({ query: 'x', topK: 51 }).success).toBe(false)
+  it('caps topK at the RPC\'s 30 rows', () => {
+    expect(searchRequestSchema.safeParse({ query: 'x', topK: 30 }).success).toBe(true)
+    expect(searchRequestSchema.safeParse({ query: 'x', topK: 31 }).success).toBe(false)
   })
 })
 

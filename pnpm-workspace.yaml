@@ -3,3 +3,16 @@ allowBuilds:
   esbuild: true
   unrs-resolver: true
   vue-demi: true
+
+# Patch-level security fixes for transitive deps pinned exactly upstream
+# (pnpm audit). Not overridden, accepted (TECH_NOTES §11):
+# - @tiptap/core (via @nuxt/ui's rich-text editor): pinned in lockstep with a
+#   dozen @tiptap packages; the editor components are unused and not bundled.
+# - node-forge (via listhen, the dev server's HTTPS helper) and braces (via
+#   fast-glob, build tooling): the advisories name patched versions that are
+#   not published yet (1.4.1 / 3.0.4); neither reaches the production bundle.
+# - esbuild 0.27.7 (via @nuxt/fonts > fontless, which pins <0.28; low): an
+#   arbitrary file read through esbuild's own dev server, which nothing here runs.
+# Re-check with `pnpm audit` on every dependency bump; CI fails on critical ones.
+overrides:
+  prosemirror-view: ^1.42.3

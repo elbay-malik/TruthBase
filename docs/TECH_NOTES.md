@@ -56,7 +56,7 @@ Node TSC removed Corepack from Node 25+; it is experimental-but-bundled in Node 
 ## 5. nuxt-security 2.6 defaults worth knowing (affects Phases 5, 11, 14)
 
 - Rate limiter is **on by default**: 150 tokens / 5 min per IP, in-memory `lruCache` driver, which does not share state across serverless instances. For production (Phase 11/14) switch to an unstorage driver or platform-level limiting.
-- Default CSP (per-request nonces in SSR, meta-tag hashes for static), COEP `credentialless`, and `X-Frame-Options: SAMEORIGIN` can break embeds/third-party scripts — and the PDF.js worker may need CSP tuning in Phase 5. Test headers in the real deployment target, not just `nuxt dev`.
+- Default CSP (per-request nonces in SSR, meta-tag hashes for static), COEP `credentialless`, and `X-Frame-Options: SAMEORIGIN` can break embeds/third-party scripts — and the PDF.js worker may need CSP tuning in Phase 5. Test headers in the real deployment target, not just `nuxt dev`. **COEP is now off** (§11): it stopped the PDF.js worker in production builds.
 - Request size limiter caps uploads at 8MB by default — will need a per-route override for the Phase 3 ingest route.
 
 ## 6. Misc Nuxt 4 facts baked into this repo
@@ -83,8 +83,8 @@ Verified against `unpdf@1.9.0` (bundled serverless PDF.js) and `@ai-sdk/google@4
 Verified in headless Chromium 149 with `pdfjs-dist@6.4.299`, the same version unpdf bundles server-side. Keep the two pinned together.
 
 - **Setup:**
-  - Import `pdfjs-dist` lazily on the client only (`import('pdfjs-dist')`); in Node it warns and needs canvas.
-  - Worker: `import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'` → `GlobalWorkerOptions.workerSrc`. Same-origin, so no blob: wrapper.
+  - Import `pdfjs-dist` lazily on the client only; in Node it warns and needs canvas. Since the audit (§11) it's the legacy build, `import('pdfjs-dist/legacy/build/pdf.mjs')`.
+  - Worker: a *dynamic* `import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')` → `GlobalWorkerOptions.workerSrc`. Same-origin, so no blob: wrapper. A static `?url` import put the 1.3 MB worker in every page's preload/prefetch hints; the `build:manifest` hook in `nuxt.config.ts` drops it.
   - Release documents with `loadingTask.destroy()`; there's no `PDFDocumentProxy#destroy`.
   - `getDocument({ data })` detaches the caller's buffer.
 - **CSP:** nuxt-security's default `script-src` has `'strict-dynamic'` and no `worker-src`. Add `worker-src 'self' blob:` per route. Route-rule arrays *replace* a directive's defaults, so never override `script-src`. A blocked worker silently falls back to a main-thread "fake worker" that is sticky for the page, so check for it.
@@ -93,7 +93,7 @@ Verified in headless Chromium 149 with `pdfjs-dist@6.4.299`, the same version un
   - It is **not** glyph truth: spans use a substitute font (sans-serif or monospace) scaled to each item's width, and its vertical box is that font's em box rounded to whole CSS px.
 - **Supabase Storage signed URLs** answer `Access-Control-Allow-Origin: *`, allow the `Range` header in preflight and serve `206`. `Accept-Ranges` isn't readable cross-origin, so PDF.js downloads the whole file instead of using ranges (fine at 1–2.5 MB). An invalid or expired token returns `400`, which PDF.js reports as `ResponseException`; re-fetch `/api/documents/:id/file` and reload.
 - **Exact glyph positions** come from replaying `page.getOperatorList()` (`server/ingest/glyphs.ts`). It needs `getDocumentProxy(data, { fontExtraProperties: true })` for `fontMatrix`/`vertical`.
-- **Modern-build requirement:** `pdfjs-dist`'s modern build uses `Map.prototype.getOrInsertComputed`, `Math.sumPrecise` and `URL.parse` unpolyfilled. They're fine in Chromium 149; if older browsers matter, switch both imports to `pdfjs-dist/legacy/build/`.
+- **Modern-build requirement:** `pdfjs-dist`'s modern build uses `Map.prototype.getOrInsertComputed`, `Math.sumPrecise` and `URL.parse` unpolyfilled. They're fine in Chromium 149 but break current iOS Safari and Firefox ESR, so the viewer now uses `pdfjs-dist/legacy/build/` (§11).
 
 ## 9. Generation models (Phase 4)
 
@@ -108,6 +108,32 @@ Verified in headless Chromium 149 with `pdfjs-dist@6.4.299`, the same version un
 
 - **Nuxt UI v4 has no `UButtonGroup`; it's `UFieldGroup`.** An unknown component compiles as a custom element without a typecheck error, so watch the browser console for "Failed to resolve component".
 - **Don't branch on `useMediaQuery` outside `<ClientOnly>`.** It's `false` during SSR, so `v-if="isDesktop"` hydrates differently. The pane-vs-sheet decision lives inside `<ClientOnly>`, which is fine because the viewer is browser-only anyway.
-- **Guard async document loads with a token.** Opening the default document and then a deep-linked one let the slower first load win, rendering the wrong PDF under the right highlights. Every `await` in `PdfViewer.open()` now re-checks the token and destroys superseded `loadingTask`s.
+- **Guard async document loads with a token.** Opening the default document and then a deep-linked one let the slower first load win, rendering the wrong PDF under the right highlights. Every `await` in `PdfViewer.open()` re-checks the token, and unmounting bumps it. Loaded documents live in a one-entry cache outside the component (`app/utils/pdf-documents.ts`): the phone sheet unmounts the viewer on close and must not download the PDF again. The cache destroys the previous document's loading task when another document opens.
 - **Scripts that pass functions to `page.evaluate`** under `tsx` need `globalThis.__name = (fn) => fn` in the page (esbuild `keepNames` wraps functions in a `__name()` helper that doesn't exist in the browser).
-- **Local verification vs. the rate limiter:** `scripts/check-viewer.ts` makes ~200 page loads, so start the dev server with `NUXT_DISABLE_RATE_LIMIT=1` (read in `nuxt.config.ts`). Never set it in deployed environments.
+- **Local verification vs. the rate limiter:** `scripts/check-viewer.ts` makes ~200 page loads, so start the dev server with `NUXT_DISABLE_RATE_LIMIT=1` (read in `nuxt.config.ts`). It only works with `nuxt dev`: the config ignores it when `NODE_ENV=production`, so a production build always keeps the limiter.
+- **Playwright browser:** the scripts use `playwright-core`, which never downloads browsers. Run `pnpm exec playwright-core install chromium` once per machine.
+
+## 11. Post-Phase-5 audit (2026-10-18)
+
+A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several reported by more than one reviewer) and split on 3. All are fixed except the deferred items at the end of this section. The lessons worth keeping:
+
+- **Production builds differ from `nuxt dev` in ways only a built server shows.** CI now builds and smoke-tests the bundle (`build` job).
+  - **COEP blocked the PDF.js worker.** nuxt-security's `credentialless` COEP made the document cross-origin isolated. Chromium then refused the worker script, which has no COEP header, and PDF.js silently fell back to the main-thread "fake worker". Nothing needs isolation (no `SharedArrayBuffer`), so COEP is off. `check:viewer` fails on PDF.js's "Setting up fake worker" warning.
+  - **`import.meta.resolve` doesn't survive Nitro bundling**, and `pdfjs-dist` isn't traced into `.output`. Server extraction now reads CMaps and standard fonts through an injected reader (`server/ingest/pdf-assets.ts`): from Nitro server assets in the bundle, from `node_modules` elsewhere. Verified on the built server: a CJK PDF with predefined CMaps passes the `parse` stage.
+  - **`NUXT_DISABLE_RATE_LIMIT` is read when the config is evaluated**, so a build made with it set would ship without a limiter. It is now ignored when `NODE_ENV=production`.
+- **The browser viewer needs the same PDF.js data files as ingestion.** `/pdfjs/{cmaps,standard_fonts,wasm,iccs}/` are served as Nitro public assets and passed to `getDocument`. Otherwise CID-font pages render blank, or their text layer differs from what ingestion indexed.
+- **unpdf and pdfjs-dist are pinned exactly together** (`unpdf@1.9.0` bundles PDF.js 6.4.299). `test/unit/ingest-assets.test.ts` fails if they drift.
+- **nuxt-security's XSS validator buffers and stringifies the body before the route runs.** On `/api/ingest` that meant reading an unauthenticated upload of any size, and chunked bodies bypass the Content-Length size limiter. The validator is off for the binary route. The route checks the token, then requires a `Content-Length` (411 without one), before reading anything.
+- **Runtime config from env goes through `destr`**, so `NUXT_INGEST_TOKEN=12345` arrives as a number. Coerce with `String()` before hashing.
+- **Client disconnects:** the chat route aborts retrieval and generation when the response closes early (Stop button, closed tab). Ingestion checks the same signal between embedding batches and between the store's steps (upload, document row, each chunk batch), and an abort mid-store rolls back like any failure. An abandoned upload stops spending quota and leaves no document behind.
+- **Prompt injection:** sources are wrapped in `<source id="n">` tags, look-alike tags inside document text are neutralised, and the instructions say source text is never an instruction. That reduces the risk but doesn't remove it ([ADR-0005](./adr/0005-citations-and-grounding.md)).
+- **Eval hygiene:** a zero-weight RRF arm still returns rows with score 0, so single-arm recall must drop them. `hybrid_search`'s candidate pools scale with `match_count`, so the eval retrieves generation sources with the chat route's `matchCount` instead of truncating a top-10 list.
+- **Accepted advisories** (`pnpm audit`, none critical) are listed in `pnpm-workspace.yaml`. They're dev-only or unreachable from the app, and CI fails only on critical ones.
+
+**Deferred (tracked):**
+- RRF score ties have no tie-breaker in `hybrid_search` (Phase 6, needs a migration).
+- The keyword arm returns few rows for natural-language questions: `hybrid_search` uses `websearch_to_tsquery`, which ANDs every term, so keyword-only recall@10 is 27%. Phase 6 evaluates an OR'd query, or a strict query with an OR fallback.
+- The rate limiter trusts `X-Forwarded-For`; set `security.rateLimiter.ipHeader` to the host's trusted header and use a shared storage driver at deploy (Phases 11 and 14). `/api/chat` (10/min) and `/api/search` (30/min) now have tighter per-route limits.
+- A document row is listed while its chunks are still being inserted (a `status` column comes with Phase 11 uploads).
+- `check:viewer` drives the deep-link path. Clicking chips in a live answer is covered by the Phase 13 Playwright E2E.
+

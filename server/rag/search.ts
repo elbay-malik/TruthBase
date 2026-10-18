@@ -3,8 +3,7 @@ import type { ChunkHighlight } from '#shared/types'
 
 // Typed wrapper around the `hybrid_search` SQL RPC
 // (supabase/migrations/20261016203928_hybrid_search.sql). Framework-free so the
-// chat route and the golden-set eval run the same code; the Nitro-side
-// `hybridSearch()` (server/utils/retrieval.ts) adds HTTP error mapping.
+// chat route, the search route and the golden-set eval run the same code.
 //
 // The query embedding is passed as a raw number[]: supabase-js serializes it to
 // the JSON array pgvector's input parser accepts — do NOT pre-stringify it.

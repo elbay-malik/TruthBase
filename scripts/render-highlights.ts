@@ -1,4 +1,4 @@
-// Visual check for ingestion highlight rects (Phase 3 acceptance, Phase 3.5 spike).
+// Visual check for ingestion highlight rects (Phase 3 acceptance): server-side PNG previews.
 //
 //   pnpm render:highlights g-020 g-038        # golden record ids
 //   pnpm render:highlights g-020 --out ./tmp  # default: $TMPDIR/truthbase-highlights
@@ -6,7 +6,7 @@
 // For every evidence span of each record it renders the page and draws:
 //   blue fill   — the stored chunk that contains the span (what a citation highlights)
 //   red outline — rects computed for the exact evidence span
-// Coordinates go through viewport.convertToViewportRectangle, exactly like the viewer.
+// Rect corners go through viewport.convertToViewportPoint, exactly like the viewer.
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

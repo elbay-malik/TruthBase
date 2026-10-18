@@ -2,20 +2,33 @@
 // code as POST /api/chat (server/rag/*). Phase 4 baseline; Phase 9 moves the
 // metric definitions into promptfoo as a CI gate.
 //
-//   pnpm eval:answers                     # full run, writes docs/evals/<label>.json
-//   pnpm eval:answers --label phase-4 --delay 4000 --only g-020,g-046
+//   pnpm eval:answers --label phase-5-groq --model groq   # full run → docs/evals/<label>.json
+//   pnpm eval:answers --label phase-5-gemini --model gemini
+//   pnpm eval:answers --label x --only g-020,g-046         # subset: printed, not written
+//   … --force                                              # overwrite an existing <label>.json
+//
+// --model groq|gemini pins one provider (no fallback), so a run measures one
+// model; without it the run uses the app's chain (Groq → Gemini on 429/5xx),
+// and each result records the model that actually answered.
+//
+// Generation sees exactly what POST /api/chat retrieves: hybrid search with
+// matchCount = DEFAULT_TOP_K (the RPC's candidate pools depend on matchCount,
+// so a top-10 list cut to 8 is not the same list). Recall@k is measured on a
+// separate top-10 call per arm.
 //
 // Metrics (docs/SPEC.md):
 //   recall@k            all evidence spans of a record lie inside retrieved chunks
 //                       (same document + page, chunk text contains the span),
-//                       for hybrid, dense-only and keyword-only search
+//                       for hybrid, dense-only and keyword-only search (single-arm
+//                       runs drop the other arm's zero-score rows the RPC appends)
 //   answer rate         answerable records the model answered (did not refuse)
 //   correct citation    answered records citing ≥1 source that contains evidence
 //   citation precision  cited sources containing evidence / all cited sources
 //                       (a lower bound: other passages can support a claim too)
-//   refusal accuracy    unanswerable records answered with NO_ANSWER
+//   refusal accuracy    SPEC: unanswerable records refused AND answerable records
+//                       not refused (target 5/5 refused, ≤ 1 false refusal)
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
@@ -30,11 +43,23 @@ import { searchChunks, type SearchHit } from '../server/rag/search'
 const ROOT = resolve(import.meta.dirname, '..')
 const { values } = parseArgs({
   options: {
-    label: { type: 'string', default: 'phase-4-baseline' },
+    label: { type: 'string' },
+    model: { type: 'string' }, // groq | gemini; default: the app's fallback chain
     delay: { type: 'string', default: '4000' }, // ms between generations (free-tier RPM)
     only: { type: 'string' },
+    force: { type: 'boolean', default: false },
   },
 })
+if (!values.label || !/^[\w.-]+$/.test(values.label)) {
+  throw new Error('--label <name> is required (letters, digits, . _ -): it names docs/evals/<label>.json')
+}
+if (values.model !== undefined && values.model !== 'groq' && values.model !== 'gemini') {
+  throw new Error('--model must be groq or gemini')
+}
+const outFile = join(ROOT, 'docs/evals', `${values.label}.json`)
+if (!values.only && !values.force && await access(outFile).then(() => true, () => false)) {
+  throw new Error(`${outFile} exists: pick another --label or pass --force`)
+}
 
 interface Evidence { document: string, page: number, text: string }
 interface GoldenRecord { id: string, question: string, answer: string | null, evidence: Evidence[], tags: string[] }
@@ -47,7 +72,10 @@ const env = (name: string) => {
 
 const supabase = createClient(env('NUXT_SUPABASE_URL'), env('NUXT_SUPABASE_SERVICE_KEY'), { auth: { persistSession: false } })
 const embed = geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_QUERY')
-const { model, id: modelId, providerOptions } = chatModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') })
+const { model, id: modelId, providerOptions } = chatModel(
+  { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') },
+  values.model as 'groq' | 'gemini' | undefined,
+)
 
 let golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
 if (values.only) {
@@ -93,13 +121,19 @@ const embeddings = await withRetry('embed questions', () => embed(golden.map(r =
 
 const results = []
 for (const [i, record] of golden.entries()) {
-  const search = (fullTextWeight: number, semanticWeight: number) => searchChunks(supabase, {
-    queryText: record.question, queryEmbedding: embeddings[i]!, matchCount: 10, fullTextWeight, semanticWeight,
+  const search = (matchCount: number, fullTextWeight: number, semanticWeight: number) => searchChunks(supabase, {
+    queryText: record.question, queryEmbedding: embeddings[i]!, matchCount, fullTextWeight, semanticWeight,
   })
-  const [hybrid, dense, keyword] = await withRetry(`${record.id} search`, () => Promise.all([search(1, 1), search(0, 1), search(1, 0)]))
-  const sources: SourceRef[] = toSources(hybrid.slice(0, DEFAULT_TOP_K), filenameById)
+  const [generationHits, hybrid, dense, keyword] = await withRetry(`${record.id} search`, () => Promise.all([
+    search(DEFAULT_TOP_K, 1, 1), // what the chat route retrieves
+    search(10, 1, 1),
+    // A zero-weight arm still contributes rows, with score 0: not that arm's hits.
+    search(10, 0, 1).then(hits => hits.filter(h => h.score > 0)),
+    search(10, 1, 0).then(hits => hits.filter(h => h.score > 0)),
+  ]))
+  const sources: SourceRef[] = toSources(generationHits, filenameById)
 
-  const { text } = await withRetry(`${record.id} generate`, () => generateText({
+  const { text, response } = await withRetry(`${record.id} generate`, () => generateText({
     model,
     instructions: GROUNDING_INSTRUCTIONS,
     prompt: buildPrompt(record.question, sources),
@@ -108,7 +142,7 @@ for (const [i, record] of golden.entries()) {
     maxRetries: 5,
     providerOptions,
   }))
-  const refused = isRefusal(text)
+  const refused = isRefusal(text, sources.length)
   const cited = refused ? [] : parseCitations(text, sources.length)
   const supporting = cited.filter(n => record.evidence.some(e => contains(sources[n - 1]!, e)))
 
@@ -117,10 +151,14 @@ for (const [i, record] of golden.entries()) {
     tags: record.tags,
     answerable: record.answer !== null,
     rank: { hybrid: fullCoverageRank(hybrid, record.evidence), dense: fullCoverageRank(dense, record.evidence), keyword: fullCoverageRank(keyword, record.evidence) },
+    /** All evidence inside the sources the model actually saw. */
+    evidenceInSources: record.evidence.length > 0 && record.evidence.every(e => sources.some(s => contains(s, e))),
     refused,
     cited,
     supporting,
     answer: text.trim(),
+    /** The model that answered (differs from the summary's chain after a fallback). */
+    answeredBy: response.modelId,
     sources: sources.map(s => `${s.filename} p.${s.pageNumber}`),
   }
   results.push(result)
@@ -136,9 +174,12 @@ const recall = (arm: 'hybrid' | 'dense' | 'keyword', k: number) =>
   answerable.filter(r => r.rank[arm] !== null && r.rank[arm]! <= k).length / answerable.length
 const answered = answerable.filter(r => !r.refused)
 const allCited = answered.flatMap(r => r.cited.map(n => r.supporting.includes(n)))
+const correctlyRefused = unanswerable.filter(r => r.refused).length
+const falseRefusals = answerable.filter(r => r.refused).length
 const summary = {
   label: values.label,
   model: modelId,
+  only: values.only ?? null,
   date: new Date().toISOString().slice(0, 10),
   topK: DEFAULT_TOP_K,
   questions: results.length,
@@ -150,10 +191,14 @@ const summary = {
     correctCitationOverAnswerable: answerable.filter(r => r.supporting.length > 0).length / answerable.length,
     citationPrecision: allCited.filter(Boolean).length / Math.max(1, allCited.length),
     answeredWithoutCitation: answered.filter(r => r.cited.length === 0).length,
-    refusalAccuracy: unanswerable.filter(r => r.refused).length / Math.max(1, unanswerable.length),
+    // SPEC "refusal accuracy": both halves, with the gate (5/5 refused, ≤ 1 false refusal).
+    refusalAccuracy: (correctlyRefused + answerable.length - falseRefusals) / Math.max(1, results.length),
+    unanswerableRefused: `${correctlyRefused}/${unanswerable.length}`,
+    falseRefusals,
+    refusalGatePassed: correctlyRefused === unanswerable.length && falseRefusals <= 1,
     // Refusing because retrieval missed the evidence is the grounded behaviour.
-    refusedWithEvidenceRetrieved: answerable.filter(r => r.refused && r.rank.hybrid !== null && r.rank.hybrid <= DEFAULT_TOP_K).length,
-    refusedWithEvidenceMissing: answerable.filter(r => r.refused && (r.rank.hybrid === null || r.rank.hybrid > DEFAULT_TOP_K)).length,
+    refusedWithEvidenceRetrieved: answerable.filter(r => r.refused && r.evidenceInSources).length,
+    refusedWithEvidenceMissing: answerable.filter(r => r.refused && !r.evidenceInSources).length,
   },
 }
 
@@ -165,12 +210,12 @@ for (const arm of ['hybrid', 'dense', 'keyword'] as const) {
 }
 const g = summary.generation
 console.log(`generation: answered ${pct(g.answerRate)} of answerable · ≥1 correct citation ${pct(g.correctCitation)} of answered (${pct(g.correctCitationOverAnswerable)} of answerable)`)
-console.log(`            citation precision ${pct(g.citationPrecision)} · answered without citation ${g.answeredWithoutCitation} · refusal accuracy ${pct(g.refusalAccuracy)} (${unanswerable.filter(r => r.refused).length}/${unanswerable.length})`)
+console.log(`            citation precision ${pct(g.citationPrecision)} · answered without citation ${g.answeredWithoutCitation}`)
+console.log(`            refusal accuracy ${pct(g.refusalAccuracy)} · unanswerable refused ${g.unanswerableRefused} · false refusals ${g.falseRefusals} · SPEC gate ${g.refusalGatePassed ? 'passed' : 'FAILED'}`)
 console.log(`            refusals on answerable: ${g.refusedWithEvidenceMissing} with evidence not retrieved (grounded), ${g.refusedWithEvidenceRetrieved} with evidence retrieved`)
 
 if (!values.only) {
-  const out = join(ROOT, 'docs/evals', `${values.label}.json`)
   await mkdir(join(ROOT, 'docs/evals'), { recursive: true })
-  await writeFile(out, `${JSON.stringify({ summary, results }, null, 1)}\n`)
-  console.log(`\n→ ${out}`)
+  await writeFile(outFile, `${JSON.stringify({ summary, results }, null, 1)}\n`)
+  console.log(`\n→ ${outFile}`)
 }

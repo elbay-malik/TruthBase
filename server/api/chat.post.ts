@@ -2,7 +2,7 @@ import { createUIMessageStream, createUIMessageStreamResponse, streamText, toUIM
 import { chatRequestSchema } from '#shared/schemas'
 import { NO_ANSWER, type ChatMessage } from '#shared/types/chat'
 import { geminiEmbedder } from '../ingest/embed'
-import { chatModel } from '../rag/model'
+import { chatModel, isFallbackError } from '../rag/model'
 import { buildPrompt, GROUNDING_INSTRUCTIONS } from '../rag/prompt'
 import { retrieveSources } from '../rag/retrieve'
 
@@ -11,7 +11,8 @@ import { retrieveSources } from '../rag/retrieve'
 //                 stored highlight rects (citation chips; Phase 5 highlights)
 //   text          grounded answer citing [n], or exactly NO_ANSWER
 // Retrieval: Gemini query embedding → hybrid RRF search (top 8). Generation:
-// Groq or Gemini (server/rag/model.ts), temperature 0, grounding prompt.
+// Groq gpt-oss-120b with Gemini fallback (server/rag/model.ts), temperature 0.
+// A client disconnect (Stop, closed tab) aborts the embedding and LLM calls.
 
 export default defineEventHandler(async (event) => {
   const { question, documentId } = await readValidatedBody(event, chatRequestSchema.parse)
@@ -22,9 +23,29 @@ export default defineEventHandler(async (event) => {
   const { model, id: modelId, providerOptions } = chatModel({ groqApiKey: config.groqApiKey, geminiApiKey: config.geminiApiKey })
   const supabase = serverSupabase()
 
+  // The request body is already consumed, so watch the response side: it
+  // closes early when the client goes away.
+  const abort = new AbortController()
+  event.node.res.on('close', () => {
+    if (!event.node.res.writableFinished) abort.abort()
+  })
+
+  const onError = (error: unknown) => {
+    if (abort.signal.aborted) return 'Answer cancelled.'
+    console.error(`[chat] ${modelId}`, error)
+    return isFallbackError(error)
+      ? 'The answer service is busy right now. Please try again in a minute.'
+      : 'Something went wrong while answering. Please try again.'
+  }
+
   const stream = createUIMessageStream<ChatMessage>({
     execute: async ({ writer }) => {
-      const sources = await retrieveSources(supabase, geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_QUERY'), question, { documentId })
+      const sources = await retrieveSources(
+        supabase,
+        geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_QUERY', abort.signal),
+        question,
+        { documentId },
+      )
       writer.write({ type: 'data-sources', data: { sources } })
 
       if (sources.length === 0) {
@@ -41,14 +62,16 @@ export default defineEventHandler(async (event) => {
         prompt: buildPrompt(question, sources),
         temperature: 0,
         maxOutputTokens: 700,
+        // withFallback already switches provider on 429/5xx; one more round
+        // after the SDK's backoff is enough before telling the user.
+        maxRetries: 1,
         providerOptions,
+        abortSignal: abort.signal,
       })
-      writer.merge(toUIMessageStream({ stream: result.stream }))
+      // Generation errors surface here, not in createUIMessageStream's onError.
+      writer.merge(toUIMessageStream({ stream: result.stream, onError }))
     },
-    onError: (error) => {
-      console.error(`[chat] ${modelId}`, error)
-      return 'Something went wrong while answering. Please try again.'
-    },
+    onError,
   })
   return createUIMessageStreamResponse({ stream })
 })

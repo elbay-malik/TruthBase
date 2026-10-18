@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useChat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
-import { NO_ANSWER, type ChatMessage, type SourceRef } from '#shared/types/chat'
-import { splitCitations } from '#shared/utils/citations'
+import type { ChatMessage, SourceRef } from '#shared/types/chat'
+import { isRefusal, looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '#shared/utils/citations'
+import { chatRequestSchema } from '#shared/schemas'
 
 // Chat + PDF viewer (docs/WIREFRAMES.md §1–6). A citation chip (or source
 // card) opens the cited chunk in the viewer: scrolled to the page, passage
@@ -27,8 +28,10 @@ const documentItems = computed(() => [
   ...documents.value.map(d => ({ label: d.filename, value: d.id })),
 ])
 
+const MAX_QUESTION = chatRequestSchema.shape.question.maxLength ?? 1000
 const input = ref('')
-const { messages, sendMessage, status, stop, error } = useChat<ChatMessage>({
+const lastQuestion = ref('')
+const { messages, sendMessage, regenerate, status, stop, error, clearError } = useChat<ChatMessage>({
   transport: new DefaultChatTransport({
     api: '/api/chat',
     // Single-turn by design: send only the latest question (server/api/chat.post.ts).
@@ -45,11 +48,43 @@ const busy = computed(() => status.value === 'submitted' || status.value === 'st
 function ask(question: string) {
   const text = question.trim()
   if (!text || busy.value) return
+  if (error.value) {
+    // Re-sending after a failure replaces the failed turn instead of leaving
+    // it unanswered above the new one.
+    const failed = messages.value.findLastIndex(m => m.role === 'user')
+    if (failed >= 0) messages.value = messages.value.slice(0, failed)
+  }
   input.value = ''
+  lastQuestion.value = text
+  clearError()
   sendMessage({ text })
 }
 
+function retry() {
+  if (busy.value) return
+  if (input.value === lastQuestion.value) input.value = ''
+  clearError()
+  void regenerate()
+}
+
+// A failed question goes back into the box, so it can be edited or re-sent.
+watch(error, (failed) => {
+  if (failed && !input.value) input.value = lastQuestion.value
+})
+
+/** What the reader sees for a failed request; server detail stays in the console. */
+const errorMessage = computed(() => {
+  const raw = error.value?.message ?? ''
+  if (/\b429\b|too many requests/i.test(raw)) return 'Too many questions in a short time. Wait a minute, then try again.'
+  if (/\b400\b|bad request/i.test(raw)) return `Questions must be 1–${MAX_QUESTION} characters.`
+  // Messages written by the chat route's onError are already meant for readers.
+  if (raw && raw.length < 200 && !raw.trimStart().startsWith('{') && !/<html/i.test(raw)) return raw
+  return 'Please try again in a moment.'
+})
+
 function onKeydown(event: KeyboardEvent) {
+  // Enter while an IME is composing (Japanese, Chinese, …) confirms the candidate.
+  if (event.isComposing || event.keyCode === 229) return
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     ask(input.value)
@@ -61,14 +96,33 @@ const sourcesOf = (message: ChatMessage): SourceRef[] =>
   message.parts.find((p): p is SourcesPart => p.type === 'data-sources')?.data.sources ?? []
 const textOf = (message: ChatMessage) =>
   message.parts.map(p => (p.type === 'text' ? p.text : '')).join('')
-const isRefusalText = (text: string) => text.trim().replace(/[.!]+$/, '') === NO_ANSWER
-/** Hide a partially streamed refusal token ("NO_ANS…") instead of flashing it. */
-const looksLikeRefusalPrefix = (text: string) => text.length > 0 && NO_ANSWER.startsWith(text.trim())
+/** Answer text as shown: plain text (the prompt asks for it; stray **bold** is unwrapped). */
+const answerOf = (message: ChatMessage) => stripEmphasis(textOf(message))
+const refused = (message: ChatMessage) => isRefusal(textOf(message), sourcesOf(message).length)
+const segmentsOf = (message: ChatMessage) => splitCitations(answerOf(message), sourcesOf(message).length)
 
 function citedIndexes(message: ChatMessage): Set<number> {
-  const sources = sourcesOf(message)
-  return new Set(splitCitations(textOf(message), sources.length).flatMap(s => (s.type === 'cite' ? [s.index] : [])))
+  return new Set(segmentsOf(message).flatMap(s => (s.type === 'cite' ? [s.index] : [])))
 }
+
+/** Tooltip for a citation chip: where it points, and the start of the passage. */
+function citationTooltip(source: SourceRef | undefined): string {
+  if (!source) return ''
+  const excerpt = source.content.length > 140 ? `${source.content.slice(0, 140).trimEnd()}…` : source.content
+  return `${source.filename} · p. ${source.pageNumber ?? '?'} — “${excerpt}”`
+}
+
+// One status line for screen readers instead of announcing every streamed token.
+const liveStatus = computed(() => {
+  if (status.value === 'submitted') return 'Searching the documents…'
+  if (status.value === 'streaming') return 'Answering…'
+  if (error.value) return `The answer failed. ${errorMessage.value}`
+  const last = messages.value.at(-1)
+  if (last?.role !== 'assistant') return ''
+  if (refused(last)) return 'Not found in the documents.'
+  const n = citedIndexes(last).size
+  return `Answer ready, ${n} ${n === 1 ? 'source' : 'sources'}.`
+})
 
 // ── viewer ─────────────────────────────────────────────────────────────────
 const route = useRoute()
@@ -77,14 +131,21 @@ const viewer = ref<{ focus: () => void }>()
 const viewerOpen = ref(false) // small screens: the sheet
 const viewerDocumentId = ref<string>()
 const viewerTarget = ref<SourceRef>()
+/** Bumped on each open, so clicking the active citation scrolls back to it. */
+const targetNonce = ref(0)
+/** What the viewer shows: an answer's citation, a deep link, or a possibly related passage. */
+const targetKind = ref<'citation' | 'link' | 'related'>()
 const active = ref<{ messageId: string, index: number }>()
-const initialScale = Number(route.query.zoom) || undefined
+const zoomQuery = Number(route.query.zoom)
+/** Manual zoom, kept across viewer remounts (the phone sheet unmounts on close); undefined = fit width. */
+const viewerZoom = ref(Number.isFinite(zoomQuery) && zoomQuery > 0 ? Math.min(3, Math.max(0.5, zoomQuery)) : undefined)
 const viewerFilename = computed(() => documents.value.find(d => d.id === viewerDocumentId.value)?.filename)
 let returnFocusTo: HTMLElement | null = null
 
 watchEffect(() => {
-  // Before any citation is opened, show the filtered document (or the first one).
-  if (!viewerDocumentId.value && documents.value.length) {
+  // Until a citation is opened, the viewer follows the document filter (or
+  // shows the first document).
+  if (!viewerTarget.value && documents.value.length) {
     viewerDocumentId.value = documentId.value !== 'all' ? documentId.value : documents.value[0]!.id
   }
 })
@@ -95,22 +156,36 @@ function citationOrder(message: ChatMessage): number[] {
 }
 
 const activeMessage = computed(() => messages.value.find(m => m.id === active.value?.messageId))
+const canStep = computed(() => targetKind.value === 'citation' && !!activeMessage.value && citationOrder(activeMessage.value).length > 1)
 const citationLabel = computed(() => {
   if (!viewerTarget.value) return undefined
-  if (!activeMessage.value || !active.value) return 'Linked citation'
+  if (targetKind.value === 'related') return 'Possibly related, not a source'
+  if (targetKind.value !== 'citation' || !activeMessage.value || !active.value) return 'Linked citation'
   const order = citationOrder(activeMessage.value)
   return `Citation ${order.indexOf(active.value.index) + 1} of ${order.length}`
 })
 
+function showInViewer(source: SourceRef, kind: 'citation' | 'link' | 'related', from?: EventTarget | null) {
+  returnFocusTo = from instanceof HTMLElement ? from : null
+  targetKind.value = kind
+  viewerDocumentId.value = source.documentId
+  viewerTarget.value = source
+  targetNonce.value++
+  if (!isDesktop.value) viewerOpen.value = true
+  nextTick(() => viewer.value?.focus())
+}
+
 function openCitation(message: ChatMessage, index: number, from?: EventTarget | null) {
   const source = sourcesOf(message)[index - 1]
   if (!source) return
-  returnFocusTo = from instanceof HTMLElement ? from : null
   active.value = { messageId: message.id, index }
-  viewerDocumentId.value = source.documentId
-  viewerTarget.value = source
-  if (!isDesktop.value) viewerOpen.value = true
-  nextTick(() => viewer.value?.focus())
+  showInViewer(source, 'citation', from)
+}
+
+/** A refusal's "possibly related" passage: its page, but no highlight — it is not evidence. */
+function openRelated(source: SourceRef, from?: EventTarget | null) {
+  active.value = undefined
+  showInViewer({ ...source, highlight: null }, 'related', from)
 }
 
 function stepCitation(delta: 1 | -1) {
@@ -141,8 +216,10 @@ onMounted(async () => {
   if (typeof chunk !== 'string') return
   try {
     const source = await $fetch(`/api/chunks/${chunk}`)
+    targetKind.value = 'link'
     viewerDocumentId.value = source.documentId
     viewerTarget.value = source
+    targetNonce.value++
     if (!isDesktop.value) viewerOpen.value = true
   }
   catch {
@@ -192,9 +269,17 @@ onMounted(async () => {
           </UButton>
         </section>
 
+        <p
+          class="sr-only"
+          role="status"
+        >
+          {{ liveStatus }}
+        </p>
+
         <section
           class="flex flex-col gap-6"
-          aria-live="polite"
+          aria-label="Conversation"
+          :aria-busy="busy"
         >
           <article
             v-for="message in messages"
@@ -214,7 +299,7 @@ onMounted(async () => {
               </p>
 
               <!-- Grounded refusal: neutral, not an error (WIREFRAMES §4). -->
-              <template v-if="isRefusalText(textOf(message))">
+              <template v-if="refused(message)">
                 <UAlert
                   color="info"
                   variant="subtle"
@@ -232,7 +317,14 @@ onMounted(async () => {
                       v-for="source in sourcesOf(message).slice(0, 3)"
                       :key="source.chunkId"
                     >
-                      {{ source.filename }} · p. {{ source.pageNumber }}
+                      <button
+                        type="button"
+                        class="underline decoration-dotted underline-offset-2 hover:text-default"
+                        :aria-label="`Open ${source.filename}, page ${source.pageNumber ?? 'unknown'} (possibly related, not a source)`"
+                        @click="openRelated(source, $event.currentTarget)"
+                      >
+                        {{ source.filename }} · p. {{ source.pageNumber }}
+                      </button>
                     </li>
                   </ul>
                 </div>
@@ -244,13 +336,13 @@ onMounted(async () => {
                   class="leading-relaxed whitespace-pre-wrap"
                 >
                   <template
-                    v-for="(segment, i) in splitCitations(textOf(message), sourcesOf(message).length)"
+                    v-for="(segment, i) in segmentsOf(message)"
                     :key="i"
                   >
                     <span v-if="segment.type === 'text'">{{ segment.text }}</span>
                     <UTooltip
                       v-else
-                      :text="`${sourcesOf(message)[segment.index - 1]?.filename} · p. ${sourcesOf(message)[segment.index - 1]?.pageNumber}`"
+                      :text="citationTooltip(sourcesOf(message)[segment.index - 1])"
                     >
                       <UButton
                         size="xs"
@@ -304,8 +396,9 @@ onMounted(async () => {
             v-if="error"
             color="error"
             variant="subtle"
-            title="The answer service is unavailable right now."
-            :description="error.message"
+            title="The answer didn't come through."
+            :description="errorMessage"
+            :actions="[{ label: 'Retry', color: 'error', variant: 'outline', onClick: retry }]"
           />
         </section>
       </div>
@@ -322,6 +415,7 @@ onMounted(async () => {
             class="flex-1"
             placeholder="Ask a question…"
             aria-label="Question"
+            :maxlength="MAX_QUESTION"
             @keydown="onKeydown"
           />
           <UButton
@@ -362,8 +456,11 @@ onMounted(async () => {
           :document-id="viewerDocumentId"
           :filename="viewerFilename"
           :target="viewerTarget"
+          :target-nonce="targetNonce"
           :citation-label="citationLabel"
-          :initial-scale="initialScale"
+          :can-step="canStep"
+          :initial-scale="viewerZoom"
+          @update:zoom="viewerZoom = $event"
           @prev="stepCitation(-1)"
           @next="stepCitation(1)"
         />
@@ -397,8 +494,11 @@ onMounted(async () => {
               :document-id="viewerDocumentId"
               :filename="viewerFilename"
               :target="viewerTarget"
+              :target-nonce="targetNonce"
               :citation-label="citationLabel"
-              :initial-scale="initialScale"
+              :can-step="canStep"
+              :initial-scale="viewerZoom"
+              @update:zoom="viewerZoom = $event"
               @prev="stepCitation(-1)"
               @next="stepCitation(1)"
             />

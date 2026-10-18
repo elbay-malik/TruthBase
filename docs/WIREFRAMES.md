@@ -94,12 +94,12 @@ Components map to Nuxt UI v4 where possible: `UButton`, `UBadge`, `UTextarea`, `
 Behavior:
 
 1. Clicking `[1]` (or its row in **Sources**) switches the viewer to the cited document if needed, then scrolls page 28 into view with the passage vertically centered.
-2. The highlight is one overlay rect **per line** (`rects[]`), not one bounding box. It is redrawn from PDF-space coordinates on every zoom or rotation (`viewport.convertToViewportRectangle`).
+2. The highlight is one overlay rect **per line** (`rects[]`), not one bounding box. It is redrawn from PDF-space coordinates on every zoom or rotation (`viewport.convertToViewportPoint` on both corners, since PDF.js 6 has no `convertToViewportRectangle`).
 3. The highlight flashes once (≤ 600 ms, disabled under `prefers-reduced-motion`), then stays tinted until another citation is chosen.
 4. Hovering a chip shows a `UTooltip` with the document, page and first ~120 characters of the chunk.
 5. `Prev` / `Next` step through this answer's citations in order.
 6. The active chip and its Sources row share a filled state. The viewer header shows `Citation n of m`.
-7. **Fallback:** if the stored rects fail the text-match check (risk register item 1), the viewer still jumps to the page and highlights by searching the text layer for the chunk text. A small "approximate highlight" badge says so.
+7. **Fallback:** if the stored rects fail the text-match check (risk register item 1: the rendered page text at the stored offsets differs from the chunk text, or the page size changed), the viewer still jumps to the page and highlights by searching the text layer for the chunk text. A small "approximate highlight" badge says so.
 
 ## 4. Desktop: grounded refusal
 
@@ -188,3 +188,17 @@ Behavior:
 - Chips are real `<button>`s labeled e.g. "Citation 1: nist-csf-2.0.pdf, page 28".
 - The highlight is not shown by color alone: it has a 2 px outline plus a tint, and meets the contrast requirement in both themes.
 - The PDF text layer stays selectable and readable by screen readers. The overlay is `aria-hidden`.
+
+## Implementation status (after Phase 5 and its audit, 2026-10-18)
+
+Built as specified in §1–4, §6, the keyboard table and the a11y notes. That includes the §3.4 tooltip excerpt, the §3.7 text-match fallback, §4's "possibly related" links that open the page without a highlight, and `Retry` with the question kept. Screen readers get one status line ("Searching…", "Answer ready, 2 sources") instead of every streamed token. Deferred:
+
+| Item | Where specified | Deferred to |
+|---|---|---|
+| Document switcher (`▾`) and `◀ n / N ▶` page buttons in the viewer header (the header shows `p. n / N`, and the chat's document filter picks the default document) | §1, §3 | Phase 12 |
+| `/` shortcut to focus the question input | Keyboard table | Phase 12 |
+| Rate-limit countdown with the input disabled (today: a "wait a minute" message) | §7 | Phase 11 |
+| `Retry` in the viewer when a PDF fails to load | §7 | Phase 12 |
+| Upload and ingestion UI | §5 | Phase 11 |
+
+The showcase questions still work: in the post-audit Groq eval, g-020 is answered with a correct citation (both Phase 4 runs refused it), and g-047 is still correctly refused.

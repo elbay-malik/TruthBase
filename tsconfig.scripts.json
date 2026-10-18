@@ -1,0 +1,13 @@
+{
+  // CLI scripts (tsx) and unit tests (vitest strips types without checking)
+  // sit outside the app/server/shared projects that `nuxt typecheck` covers. They import framework-free server/ and shared/
+  // modules directly, so the server project's settings and aliases apply.
+  "extends": "./.nuxt/tsconfig.server.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Node for the CLI; DOM for the functions check-viewer runs in the page.
+    "types": ["node"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "include": ["scripts/**/*.ts", "test/unit/**/*.ts"]
+}

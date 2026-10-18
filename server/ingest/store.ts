@@ -24,6 +24,13 @@ export interface ChunkInsert {
  * Uploads the PDF, then inserts the document row and its chunks. Chunk inserts
  * span several requests, so on any failure the document row is deleted
  * (chunks cascade) and the upload removed — no half-ingested documents.
+ * `signal` (client gone) is checked after the upload and before each insert;
+ * an abort rolls back like any other failure.
+ *
+ * Known gap: the document row is visible (GET /api/documents) while its chunk
+ * batches are still being inserted. Uploads are operator-only today; a
+ * `status` column filtering listing/search lands with Phase 11's
+ * bring-your-own-docs uploads.
  */
 export async function storeDocument(
   supabase: SupabaseClient,
@@ -31,6 +38,7 @@ export async function storeDocument(
   pdf: Uint8Array,
   chunks: ChunkInsert[],
   onBatch?: (stored: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const storagePath = `${document.id}.pdf`
   const upload = await supabase.storage.from(DOCUMENTS_BUCKET)
@@ -38,6 +46,7 @@ export async function storeDocument(
   if (upload.error) throw new Error(`PDF upload failed: ${upload.error.message}`)
 
   try {
+    signal?.throwIfAborted()
     const inserted = await supabase.from('documents').insert({
       id: document.id,
       filename: document.filename,
@@ -47,6 +56,7 @@ export async function storeDocument(
     if (inserted.error) throw new Error(`document insert failed: ${inserted.error.message}`)
 
     for (let i = 0; i < chunks.length; i += INSERT_BATCH) {
+      signal?.throwIfAborted()
       const batch = chunks.slice(i, i + INSERT_BATCH).map(chunk => ({
         document_id: document.id,
         page_number: chunk.pageNumber,
@@ -60,8 +70,12 @@ export async function storeDocument(
     }
   }
   catch (error) {
-    await supabase.from('documents').delete().eq('id', document.id)
-    await supabase.storage.from(DOCUMENTS_BUCKET).remove([storagePath])
+    // supabase-js reports failures as `{ error }` instead of throwing: check the
+    // compensating steps, log what is left behind, and keep the original error.
+    const removed = await supabase.from('documents').delete().eq('id', document.id)
+    if (removed.error) console.error(`[ingest] rollback: document ${document.id} (and its chunks) not deleted: ${removed.error.message}`)
+    const unlinked = await supabase.storage.from(DOCUMENTS_BUCKET).remove([storagePath])
+    if (unlinked.error) console.error(`[ingest] rollback: ${DOCUMENTS_BUCKET}/${storagePath} not removed: ${unlinked.error.message}`)
     throw error
   }
 }

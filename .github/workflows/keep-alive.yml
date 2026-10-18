@@ -21,9 +21,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          # Missing secrets must fail loudly: a silently skipped ping lets the
+          # free-tier project pause unnoticed.
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "Supabase secrets not set yet — skipping keep-alive ping."
-            exit 0
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY repo secrets are not set; the project will pause after 7 days."
+            exit 1
           fi
           # --fail: non-2xx fails the step (alerts you). -o /dev/null: never
           # print body/headers so the key cannot leak (GitHub also masks it).

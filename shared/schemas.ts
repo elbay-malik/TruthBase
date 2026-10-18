@@ -16,7 +16,8 @@ export const chatRequestSchema = z.object({
 export const searchRequestSchema = z.object({
   query: z.string().trim().min(1).max(1000),
   documentId: z.uuid().optional(),
-  topK: z.number().int().positive().max(50).default(10),
+  // hybrid_search returns at most 30 rows (its RRF candidate pool).
+  topK: z.number().int().positive().max(30).default(10),
 })
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>

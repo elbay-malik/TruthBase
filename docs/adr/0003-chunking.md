@@ -27,14 +27,16 @@ Measured on the 4 golden PDFs (133 pages) with no embeddings needed. The criteri
 
 | maxChars | overlap | spans in one chunk | records fully covered | chunks | avg chars |
 |---|---|---|---|---|---|
-| 600 | 15% | 57/60 (95%) | 42/45 | 757 | 487 |
-| **800** | **15%** | **60/60 (100%)** | **45/45** | **568** | **659** |
-| 1000 | 15% | 59/60 (98%) | 44/45 | 462 | 816 |
-| 1200 | 15% | 59/60 (98%) | 44/45 | 387 | 987 |
-| 1600 | 15% | 60/60 (100%) | 45/45 | 310 | 1241 |
-| 2000 | 15% | 60/60 (100%) | 45/45 | 258 | 1489 |
+| 600 | 15% | 57/60 (95%) | 42/45 | 746 | 494 |
+| **800** | **15%** | **60/60 (100%)** | **45/45** | **564** | **663** |
+| 1000 | 15% | 59/60 (98%) | 44/45 | 463 | 814 |
+| 1200 | 15% | 59/60 (98%) | 44/45 | 392 | 975 |
+| 1600 | 15% | 60/60 (100%) | 45/45 | 313 | 1230 |
+| 2000 | 15% | 60/60 (100%) | 45/45 | 264 | 1457 |
 
-800/15% is the smallest setting with full containment. Larger chunks don't improve containment but blunt the highlight, and the plan's 512-token default (~2,000 chars) would mark half a page. 568 chunks cost nothing in storage (~2 MB of vectors) or embedding quota.
+Re-measured 2026-10-18 after the fix that stops a chunk from being a strict subset of the previous one (when the overlap plus the next sentence would exceed `maxChars`, the overlap is cut instead); the first run gave 568 chunks at 800. Containment and the choice did not change.
+
+800/15% is the smallest setting with full containment. Larger chunks don't improve containment but blunt the highlight, and the plan's 512-token default (~2,000 chars) would mark half a page. 564 chunks cost nothing in storage (~2 MB of vectors) or embedding quota.
 
 Containment is a proxy, not retrieval quality. `test/unit/ingest-chunk.test.ts` locks in 100% containment; recall@k (Phase 6) decides whether to revisit.
 

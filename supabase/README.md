@@ -13,15 +13,18 @@ Applied in filename (timestamp) order:
 | `migrations/20261016203914_init_documents_chunks.sql` | `vector` extension, `documents` + `chunks` tables (RLS on, no policies), GIN + HNSW(cosine) + FK indexes |
 | `migrations/20261016203928_hybrid_search.sql` | `hybrid_search(...)` RPC — RRF fusion of the two arms, optional single-document filter, returns the fused `score`; executable by `service_role` only |
 | `migrations/20261016203929_keep_alive.sql` | `keep_alive` table + RLS read policy for the anti-pause ping |
+| `migrations/20261016205210_documents_bucket.sql` | Private `documents` Storage bucket (PDF only, 20 MB limit) for ingested PDFs; served through short-lived signed URLs (Phase 3) |
 
 ## How to apply
 
 **Now (no CLI needed):** create a Supabase project, open the **SQL Editor**, and
 run each migration file in order.
 
-**Hosted project** (`ezgfuoaukozwylgkdtft`): all three migrations were applied
-on 2026-10-16 via the Supabase MCP server; the filenames above are the versions
-recorded in its migration history, so the CLI sees them as already applied.
+**Hosted project** (`ezgfuoaukozwylgkdtft`): all four migrations were applied
+on 2026-10-16 with the Supabase MCP server's `apply_migration` (the first three
+in Phase 2, `documents_bucket` in Phase 3), so they are in its migration
+history and the CLI sees them as already applied. Check with
+`supabase migration list` after linking.
 
 **Later (CLI):** once you `supabase link` this repo to the hosted project,
 `supabase db push` applies the not-yet-run migrations in timestamp order.

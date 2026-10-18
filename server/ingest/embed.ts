@@ -14,7 +14,8 @@ export type Embedder = (texts: string[]) => Promise<number[][]>
 
 export type EmbeddingTask = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'
 
-export function geminiEmbedder(apiKey: string, taskType: EmbeddingTask): Embedder {
+/** @param abortSignal Cancels in-flight requests (client disconnected). */
+export function geminiEmbedder(apiKey: string, taskType: EmbeddingTask, abortSignal?: AbortSignal): Embedder {
   const google = createGoogle({ apiKey })
   const model = google.embedding(EMBEDDING_MODEL)
 
@@ -23,6 +24,7 @@ export function geminiEmbedder(apiKey: string, taskType: EmbeddingTask): Embedde
       model,
       values: texts,
       maxRetries: 5, // free-tier 429s back off and retry inside the SDK
+      abortSignal,
       providerOptions: { google: { outputDimensionality: EMBEDDING_DIMENSIONS, taskType } },
     })
     return embeddings.map((embedding) => {

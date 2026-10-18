@@ -23,6 +23,8 @@ interface Glyph {
   /** Baseline y in PDF space. */
   y: number
   font: string
+  /** Emission order in the content stream (alignment relies on it). */
+  seq: number
 }
 
 type Matrix = [number, number, number, number, number, number]
@@ -123,6 +125,7 @@ async function pageGlyphs(page: PDFPageProxy): Promise<Glyph[]> {
         const scale = st.fontScale * st.size // widthAdvanceScale
         const hScale = st.hScale * st.direction
         const spacingDir = st.vertical ? 1 : -1
+        const horizontal = Math.abs(m[1]) <= 1e-6 * Math.abs(m[0]) && Math.abs(m[2]) <= 1e-6 * Math.abs(m[3]) && m[0] * hScale > 0
         let advance = 0
         for (const g of args[0] as (number | { unicode?: string, width: number, isSpace?: boolean, vmetric?: number[] } | null)[]) {
           if (typeof g === 'number') {
@@ -137,9 +140,13 @@ async function pageGlyphs(page: PDFPageProxy): Promise<Glyph[]> {
             advance += -(g.vmetric?.[0] ?? -g.width) * scale - spacing
             continue
           }
-          const [x0, y] = apply(m, st.x + advance * hScale, st.y + st.rise)
-          const [x1] = apply(m, st.x + (advance + g.width * scale) * hScale, st.y + st.rise)
-          glyphs.push({ unicode: g.unicode ?? '', x0: Math.min(x0, x1), x1: Math.max(x0, x1), y, font: st.font })
+          // Only horizontal text has meaningful x-extents; rotated or mirrored
+          // runs still advance, but their items use the rotated box instead.
+          if (horizontal) {
+            const [x0, y] = apply(m, st.x + advance * hScale, st.y + st.rise)
+            const [x1] = apply(m, st.x + (advance + g.width * scale) * hScale, st.y + st.rise)
+            glyphs.push({ unicode: g.unicode ?? '', x0: Math.min(x0, x1), x1: Math.max(x0, x1), y, font: st.font, seq: glyphs.length })
+          }
           advance += g.width * scale + spacing
         }
         if (st.vertical) st.y -= advance
@@ -152,23 +159,58 @@ async function pageGlyphs(page: PDFPageProxy): Promise<Glyph[]> {
 }
 
 /**
+ * Glyph lookup by font + baseline + x-range. Buckets glyphs by font and
+ * integer baseline, each sorted by x0, so an item scans only nearby glyphs
+ * (was O(items × glyphs of the font) per page). Results come back in
+ * content-stream order, which the character alignment relies on.
+ */
+function indexGlyphs(glyphs: Glyph[]) {
+  const buckets = new Map<string, Glyph[]>()
+  for (const g of glyphs) {
+    if (g.unicode.trim() === '') continue
+    const key = `${g.font}|${Math.round(g.y)}`
+    const bucket = buckets.get(key)
+    if (bucket) bucket.push(g)
+    else buckets.set(key, [g])
+  }
+  for (const bucket of buckets.values()) bucket.sort((a, b) => a.x0 - b.x0)
+
+  return {
+    query(font: string, y: number, yTolerance: number, xFrom: number, xTo: number): Glyph[] {
+      const found: Glyph[] = []
+      for (let row = Math.round(y - yTolerance); row <= Math.round(y + yTolerance); row++) {
+        const bucket = buckets.get(`${font}|${row}`)
+        if (!bucket) continue
+        let lo = 0
+        let hi = bucket.length
+        while (lo < hi) { // first glyph with x0 >= xFrom
+          const mid = (lo + hi) >> 1
+          if (bucket[mid]!.x0 < xFrom) lo = mid + 1
+          else hi = mid
+        }
+        for (let k = lo; k < bucket.length && bucket[k]!.x0 <= xTo; k++) {
+          if (Math.abs(bucket[k]!.y - y) < yTolerance) found.push(bucket[k]!)
+        }
+      }
+      return found.sort((a, b) => a.seq - b.seq)
+    },
+  }
+}
+
+/**
  * Attaches `charX0`/`charX1` (per character of `item.str`) to every item whose
  * glyphs align exactly; other items are left untouched (proportional fallback).
  * Returns the number of items that received exact positions.
  */
 export async function attachGlyphPositions(page: PDFPageProxy, items: PositionedItem[], fontNames: string[]): Promise<number> {
   const glyphs = await pageGlyphs(page)
-  const byFont = Map.groupBy(glyphs, g => g.font)
+  const index = indexGlyphs(glyphs)
   let aligned = 0
 
-  items.forEach((item, index) => {
+  items.forEach((item, i) => {
     const size = item.fontSize || item.height
-    if (!item.str.trim() || size <= 0 || item.width <= 0) return
-    const candidates = (byFont.get(fontNames[index]!) ?? []).filter(g =>
-      Math.abs(g.y - item.y) < 0.3 * size
-      && g.x0 >= item.x - ALIGN_TOLERANCE
-      && g.x0 <= item.x + item.width + ALIGN_TOLERANCE
-      && g.unicode.trim() !== '')
+    if (!item.str.trim() || size <= 0 || item.width <= 0 || item.rotation) return
+    const candidates = index.query(fontNames[i]!, item.y, 0.3 * size, item.x - ALIGN_TOLERANCE, item.x + item.width + ALIGN_TOLERANCE)
 
     // Expand ligature glyphs ("fi") into per-character slices, in NFKC form so
     // they compare with the text item's characters.

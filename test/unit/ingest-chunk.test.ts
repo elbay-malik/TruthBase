@@ -15,6 +15,7 @@ function expectWellFormed(text: string, chunks: ChunkSpan[], maxLength: number) 
     expect(text[c.start]).not.toBe(' ')
     expect(text[c.end - 1]).not.toBe(' ')
     if (i > 0) expect(c.start).toBeGreaterThan(chunks[i - 1]!.start) // progress
+    if (i > 0) expect(c.end).toBeGreaterThan(chunks[i - 1]!.end) // never a subset of the previous chunk
     // No gap: the next chunk starts at or before the previous end (+ separator space).
     expect(c.start).toBeLessThanOrEqual(coveredUpTo + 1)
     coveredUpTo = Math.max(coveredUpTo, c.end)
@@ -54,6 +55,14 @@ describe('chunkPage', () => {
     const chunks = chunkPage(text, opts)
     expectWellFormed(text, chunks, opts.maxChars + opts.minChars)
     for (const c of chunks) expect(text.slice(c.start, c.end)).toMatch(/^word( word)*$/)
+  })
+
+  it('never emits a chunk contained in the previous one when overlap cannot fit', () => {
+    // Overlap would pull the next chunk back to "Bbbb…", but "Bbbb… Cccc…" exceeds maxChars.
+    const text = `${'A'.repeat(20)}. ${'B'.repeat(15)}. ${'C'.repeat(50)}.`
+    const chunks = chunkPage(text, { maxChars: 60, overlapChars: 20, minChars: 5 })
+    expectWellFormed(text, chunks, 60 + 5)
+    for (let i = 1; i < chunks.length; i++) expect(chunks[i]!.end).toBeGreaterThan(chunks[i - 1]!.end)
   })
 
   it('hard-cuts a token longer than maxChars instead of looping', () => {

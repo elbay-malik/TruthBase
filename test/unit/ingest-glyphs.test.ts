@@ -13,7 +13,7 @@ import { chunkHighlight } from '../../server/ingest/highlight'
 const ROOT = resolve(__dirname, '../..')
 
 interface Fixture { id: string, document: string, page: number, start: number, end: number }
-interface Edge { id: string, startX: number, endX: number }
+interface Edge { id: string, startX: number, endX: number, startBaseline: number, endBaseline: number }
 
 describe('highlight edges vs MuPDF glyph positions', () => {
   let fixtures: Fixture[]
@@ -41,6 +41,20 @@ describe('highlight edges vs MuPDF glyph positions', () => {
         { id: `${f.id} start`, err: rects[0]!.x1 - edge.startX },
         { id: `${f.id} end`, err: rects.at(-1)!.x2 - edge.endX },
       ].filter(e => Math.abs(e.err) > 0.05)
+    })
+    expect(off).toEqual([])
+  })
+
+  // The x checks above can't tell which line a rect is on: the first and last
+  // rects must span MuPDF's baseline of the span's first and last character.
+  it('puts the first and last line rects on the right baselines', () => {
+    const off = fixtures.flatMap((f) => {
+      const rects = chunkHighlight(pages.get(f.document)![f.page - 1]!, { start: f.start, end: f.end }).rects
+      const edge = edges.get(f.id)!
+      return [
+        { id: `${f.id} start`, rect: rects[0]!, baseline: edge.startBaseline },
+        { id: `${f.id} end`, rect: rects.at(-1)!, baseline: edge.endBaseline },
+      ].filter(({ rect, baseline }) => !(rect.y1 < baseline && baseline < rect.y2)).map(e => e.id)
     })
     expect(off).toEqual([])
   })

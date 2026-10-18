@@ -24,9 +24,46 @@ jobs:
       # eslint config that lint/typecheck depend on.
       - run: pnpm install --frozen-lockfile
 
+      # App/server/shared via nuxt typecheck, plus the CLI scripts and unit tests (tsconfig.scripts.json).
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      # Fails on critical advisories only; the accepted ones are listed, with
+      # reasons, in pnpm-workspace.yaml.
+      - run: pnpm audit --audit-level critical
+
+  # The production bundle: builds, boots without secrets, and serves what
+  # dev mode hides — bundled PDF.js data files, security headers, and the
+  # routes refusing politely when unconfigured.
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Smoke test the built server
+        shell: bash
+        run: |
+          PORT=3000 node .output/server/index.mjs > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3000/ && break; sleep 1; done
+          set -euxo pipefail
+          # Page renders, with no COEP header at all: any COEP (also nuxt-security's
+          # default `credentialless`) blocks the PDF.js worker (TECH_NOTES §11).
+          curl -sf -D headers.txt -o /dev/null http://localhost:3000/
+          if grep -qi '^cross-origin-embedder-policy:' headers.txt; then echo 'COEP header present' >&2; exit 1; fi
+          # PDF.js data files for the browser viewer.
+          curl -sf -o /dev/null http://localhost:3000/pdfjs/cmaps/UniJIS-UTF16-H.bcmap
+          curl -sf -o /dev/null http://localhost:3000/pdfjs/standard_fonts/FoxitSerif.pfb
+          curl -sf -o /dev/null http://localhost:3000/pdfjs/wasm/openjpeg.wasm
+          # Ingestion is disabled without a token: 503 before reading the body.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-length: 10' --data 0123456789 http://localhost:3000/api/ingest)" = 503
+      - if: failure()
+        run: cat server.log
 
   # Applies supabase/migrations to the same Postgres image Supabase hosts
   # (pgvector, anon/authenticated/service_role roles) and runs the

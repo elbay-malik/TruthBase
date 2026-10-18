@@ -18,7 +18,18 @@ const MAX_PDF_BYTES = 20 * 1024 * 1024 // matches the `documents` bucket limit
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  requireIngestToken(getHeader(event, 'authorization'), config.ingestToken)
+  // Everything before readMultipartFormData must not touch the body: an
+  // anonymous request is rejected on headers alone (token, declared length).
+  // Nitro parses env overrides, so a numeric-looking token arrives as a number.
+  requireIngestToken(getHeader(event, 'authorization'), String(config.ingestToken ?? ''))
+  const declaredLength = Number(getHeader(event, 'content-length'))
+  if (!Number.isFinite(declaredLength) || declaredLength <= 0) {
+    // Chunked bodies would bypass the size limiter, which reads Content-Length.
+    throw createError({ statusCode: 411, statusMessage: 'Length Required', message: 'Send the upload with a Content-Length header.' })
+  }
+  if (declaredLength > MAX_PDF_BYTES + 1024 * 1024) {
+    throw createError({ statusCode: 413, statusMessage: 'Payload Too Large', message: 'PDFs are limited to 20 MB.' })
+  }
   if (!config.geminiApiKey) {
     throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Embeddings are not configured (set NUXT_GEMINI_API_KEY).' })
   }
@@ -37,11 +48,19 @@ export default defineEventHandler(async (event) => {
   const stream = createEventStream(event)
   const send = (name: string, data: unknown) => stream.push({ event: name, data: JSON.stringify(data) })
   const supabase = serverSupabase()
+  // The body is consumed, so a client that goes away shows up as the response
+  // closing early: stop spending embedding quota and never store the document.
+  const abort = new AbortController()
+  event.node.res.on('close', () => {
+    if (!event.node.res.writableFinished) abort.abort()
+  })
 
   ingestPdf(new Uint8Array(file.data), file.filename, {
-    embed: geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_DOCUMENT'),
-    store: (document, pdf, chunks, onBatch) => storeDocument(supabase, document, pdf, chunks, onBatch),
+    embed: geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_DOCUMENT', abort.signal),
+    store: (document, pdf, chunks, onBatch, signal) => storeDocument(supabase, document, pdf, chunks, onBatch, signal),
     onProgress: (progress: IngestProgress) => void send('progress', progress),
+    assets: nitroPdfAssets(),
+    signal: abort.signal,
   })
     .then(result => send('done', result))
     .catch((error: unknown) => {

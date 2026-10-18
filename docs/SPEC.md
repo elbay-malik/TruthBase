@@ -89,3 +89,4 @@ The top five technical risks and their mitigations are in [EXECUTION_PLAN.md § 
 
 1. **Highlight mapping**, the highest risk. Phase 3.5 spikes it on one hard-coded chunk before any retrieval is built. Golden records tagged `table` and `figure-caption` are the hardest fixtures.
 2. **Free-tier LLM limits.** Per-IP caps and response caching keep a public demo alive.
+3. **Prompt injection through document text** (found in the post-Phase-5 audit). A PDF can carry instructions or persuasive claims that the model repeats with a citation to a different, genuine source. Sources are delimited and declared non-instructional ([ADR-0005](./adr/0005-citations-and-grounding.md) §6), which reduces but doesn't remove the risk. It must be re-assessed before Phase 11 opens uploads, with Phase 9's faithfulness check as the detection.

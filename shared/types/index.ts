@@ -32,19 +32,3 @@ export interface ChunkHighlight {
   endOffset: number
 }
 
-export interface DocumentRecord {
-  id: string
-  filename: string
-  storagePath: string
-  pageCount: number
-}
-
-export interface ChunkRecord {
-  id: string
-  documentId: string
-  pageNumber: number
-  content: string
-  /** 768-dim Gemini embedding, L2-normalized (docs/TECH_NOTES.md §2). */
-  embedding?: number[]
-  highlight: ChunkHighlight
-}

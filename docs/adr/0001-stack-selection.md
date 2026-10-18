@@ -1,6 +1,6 @@
 # ADR-0001: Overall stack selection
 
-- **Status:** Accepted
+- **Status:** Accepted. Amended: generation by [ADR-0005](./0005-citations-and-grounding.md) and [TECH_NOTES §9](../TECH_NOTES.md) (Groq `openai/gpt-oss-120b`, Gemini 3.5 Flash-Lite fallback); the viewer uses the `pdfjs-dist` legacy build directly, without a Vue wrapper ([ADR-0004](./0004-extraction-and-highlights.md)).
 - **Date:** 2026-07-08
 
 ## Context
@@ -16,10 +16,10 @@ One Nuxt 4 (4.4.x) project; all secret-bearing and compute-heavy work in Nitro s
 | Framework / UI | Nuxt 4, Nuxt UI v4 (Tailwind v4 as peer dep), `@vueuse/nuxt`, `nuxt-security`, `zod` |
 | Database + retrieval | Supabase Postgres free tier: pgvector (HNSW, cosine) + native `tsvector` FTS, fused via RRF (`k≈50–60`) in an SQL RPC |
 | Embeddings | Google `gemini-embedding-001`, Matryoshka-truncated to **768 dims**, manually L2-normalized (fallback: Jina) |
-| Generation | Groq `llama-3.3-70b-versatile` primary; Gemini 2.5 Flash-Lite fallback |
+| Generation | ~~Groq `llama-3.3-70b-versatile` primary; Gemini 2.5 Flash-Lite fallback~~ → Groq `openai/gpt-oss-120b` primary; Gemini `gemini-3.5-flash-lite` fallback on 429 / 5xx (llama-3.3 left Groq's free tier; 2.5 Flash-Lite is closed to new keys) |
 | Reranking | Listwise LLM-as-reranker on Groq |
 | PDF extraction | `unpdf` (serverless PDF.js) with position metadata (`getTextContent()` items) |
-| Viewer / highlight | `pdfjs-dist` in a client-only Vue wrapper; overlay-div model `{pageNumber, boundingRect, rects[], pageWidth/Height, char offsets}` |
+| Viewer / highlight | `pdfjs-dist` (legacy build, client-only component, no wrapper library); overlay-div model `{pageNumber, boundingRect, rects[], pageWidth/Height, char offsets}` |
 | AI SDK | Vercel AI SDK **v7** (`ai@7.x`, `@ai-sdk/vue@4.x` `useChat`, `@ai-sdk/groq@4.x`, `@ai-sdk/google@4.x`) — amended from the brief's v6; see [TECH_NOTES.md](../TECH_NOTES.md) |
 | Evals / tracing | promptfoo (offline, CI gate) + Langfuse Hobby (runtime traces) |
 | Deployment | Cloudflare Workers Paid ($5/mo) whole-app, OR CF free + ingestion offloaded to a Node host (decided in Phase 14) |

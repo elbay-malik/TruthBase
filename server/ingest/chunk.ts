@@ -49,9 +49,12 @@ export function chunkPage(text: string, options: ChunkOptions = DEFAULT_CHUNK_OP
     if (last === pieces.length - 1) break
 
     // Next chunk starts at the earliest trailing piece that fits in the overlap
-    // budget, but always after `first` so the loop makes progress.
+    // budget, but always after `first` so the loop makes progress — and only
+    // as far back as still lets it reach past `last`, otherwise it would be a
+    // strict subset of this chunk (a duplicate retrieval slot).
     let next = last + 1
     while (next - 1 > first && pieces[last]!.end - pieces[next - 1]!.start <= overlapChars) next--
+    while (next <= last && pieces[last + 1]!.end - pieces[next]!.start > maxChars) next++
     first = next
   }
 

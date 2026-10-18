@@ -2,6 +2,7 @@ import { getDocumentProxy } from 'unpdf'
 import type { PDFPageProxy } from 'unpdf/pdfjs'
 import { normalizePageText } from '../../shared/utils/page-text'
 import { attachGlyphPositions } from './glyphs'
+import { nodeAssetReader, pdfjsAssetOptions, type PdfAssetReader } from './pdf-assets'
 
 // Phase 3, step 1: PDF → per-page normalized text with a character→item map.
 //
@@ -31,6 +32,13 @@ export interface PositionedItem {
    */
   charX0?: Float64Array
   charX1?: Float64Array
+  /**
+   * Text direction when the item is not horizontal (rotated stamps, rotated
+   * figure captions): unit vector along the baseline (u) and towards the
+   * ascender (n), in PDF space. Highlights then follow the transform instead
+   * of drawing a horizontal bar (./highlight.ts).
+   */
+  rotation?: { ux: number, uy: number, nx: number, ny: number }
 }
 
 export interface PageLayout {
@@ -53,9 +61,17 @@ export interface PageLayout {
   glyphAlignedItems: number
 }
 
-export async function extractPages(data: Uint8Array): Promise<PageLayout[]> {
+export interface ExtractOptions {
+  /** PDF.js CMap / standard-font files (default: from node_modules). */
+  assets?: PdfAssetReader
+}
+
+export async function extractPages(data: Uint8Array, options: ExtractOptions = {}): Promise<PageLayout[]> {
   // fontExtraProperties exposes each font's fontMatrix/vertical to the glyph replay.
-  const pdf = await getDocumentProxy(data, { fontExtraProperties: true, ...pdfjsAssets() })
+  const pdf = await getDocumentProxy(data, {
+    fontExtraProperties: true,
+    ...pdfjsAssetOptions(options.assets ?? nodeAssetReader()),
+  })
   try {
     const pages: PageLayout[] = []
     for (let i = 0; i < pdf.numPages; i++) {
@@ -72,6 +88,7 @@ export async function extractPages(data: Uint8Array): Promise<PageLayout[]> {
         height,
         fontSize: Math.hypot(transform[2], transform[3]),
         hasEOL: Boolean(hasEOL),
+        rotation: rotationOf(transform),
       }))
       // The replay needs the operator list, which also decodes every image on
       // the page: skip it on pages without text (e.g. scans, rejected later).
@@ -90,26 +107,14 @@ export async function extractPages(data: Uint8Array): Promise<PageLayout[]> {
   }
 }
 
-/**
- * CMap and standard-font data for PDF.js, resolved from our own pdfjs-dist
- * dependency (pinned to the version unpdf bundles). unpdf only finds these when
- * pdfjs-dist happens to be resolvable from its own install, so pass them
- * explicitly to keep extraction identical across dev, tests and scripts.
- * The browser viewer must use the same assets (TECH_NOTES §8). Without them
- * (e.g. a bundle that cannot resolve the package), CMap-encoded fonts fail.
- */
-function pdfjsAssets(): { cMapUrl?: string, cMapPacked?: boolean, standardFontDataUrl?: string } {
-  try {
-    const base = import.meta.resolve('pdfjs-dist/package.json')
-    return {
-      cMapUrl: new URL('./cmaps/', base).href,
-      cMapPacked: true,
-      standardFontDataUrl: new URL('./standard_fonts/', base).href,
-    }
-  }
-  catch {
-    return {}
-  }
+/** Baseline/ascender directions for a non-horizontal text transform. */
+function rotationOf(transform: number[]): PositionedItem['rotation'] {
+  const [a, b, c, d] = transform as [number, number, number, number]
+  const along = Math.hypot(a, b)
+  const up = Math.hypot(c, d)
+  // Horizontal (incl. scaled/skew-free) text: the common, exact case.
+  if (along === 0 || up === 0 || (Math.abs(b) <= 1e-6 * along && Math.abs(c) <= 1e-6 * up && a > 0)) return undefined
+  return { ux: a / along, uy: b / along, nx: c / up, ny: d / up }
 }
 
 /** Builds normalized text plus the char→item maps from a page's items. */

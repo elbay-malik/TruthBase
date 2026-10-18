@@ -1,24 +1,36 @@
 <script setup lang="ts">
 import type { PDFPageProxy } from 'pdfjs-dist'
 import type { HighlightRect } from '#shared/types'
-import type { Box } from '#shared/utils/rect-overlap'
+import type { Box } from '~/utils/pdf-highlight'
 import '~/assets/css/pdf-text-layer.css'
 
 // One PDF page: canvas + text layer rendered only while `visible` (near the
 // viewport), released when scrolled far away. Highlights come straight from
 // the stored PDF-space rects through the page viewport, so they are placed
 // before the canvas paints and stay put on zoom (ADR-0004). When the stored
-// rects are stale (`fallbackRange`), the highlight is rebuilt from the text
-// layer instead — approximate, and only once the layer has rendered.
+// rects are stale (other page size, or the text moved), the highlight is
+// rebuilt from the text layer instead — approximate, once the layer renders.
 
 const props = defineProps<{
   page: PDFPageProxy
   scale: number
   visible: boolean
   rects?: HighlightRect[]
-  fallbackRange?: { start: number, end: number }
-  /** Re-trigger the highlight flash (e.g. the active citation's chunk id). */
+  /** The chunk's character range in the page text (stored with the rects). */
+  range?: { start: number, end: number }
+  /** The chunk text: checked against the rendered page text at `range`. */
+  expectedText?: string
+  /** The stored rects were computed for a different page size. */
+  geometryStale?: boolean
+  /** Re-trigger the highlight flash (e.g. the active citation + click count). */
   flashKey?: string
+}>()
+
+const emit = defineEmits<{
+  /** Once rendered: do the stored offsets still address `expectedText`, and was it found at all? */
+  verified: [result: { ok: boolean, located: boolean }]
+  /** Text-layer fallback boxes are in place (the viewer scrolls to them). */
+  fallbackReady: []
 }>()
 
 const viewport = computed(() => props.page.getViewport({ scale: props.scale }))
@@ -34,12 +46,15 @@ async function render() {
     const result = await renderPage(props.page, props.scale, fresh)
     if (current !== token || !mount.value) {
       result.textLayer.cancel() // superseded by a newer zoom / scrolled away
+      releaseCanvases(fresh)
       return
     }
+    releaseCanvases(mount.value)
     mount.value.replaceChildren(fresh)
     rendered.value = result
   }
   catch (error) {
+    releaseCanvases(fresh)
     if ((error as Error)?.name !== 'RenderingCancelledException') console.error('[pdf] page render failed', error)
   }
 }
@@ -48,6 +63,7 @@ function release() {
   token++
   rendered.value?.textLayer.cancel()
   rendered.value = undefined
+  releaseCanvases(mount.value)
   mount.value?.replaceChildren()
 }
 
@@ -57,16 +73,41 @@ watch(() => [props.visible, props.scale] as const, ([visible]) => {
 }, { immediate: true })
 onBeforeUnmount(release)
 
-// Fallback geometry needs the text layer attached to the DOM.
-watch([rendered, () => props.fallbackRange], async () => {
-  fallbackBoxes.value = []
-  if (!rendered.value || !props.fallbackRange) return
-  await nextTick()
-  fallbackBoxes.value = textLayerLines(rendered.value, props.fallbackRange.start, props.fallbackRange.end)
+// Stored rects are trusted only while the page text still has the cited
+// passage at the stored offsets (same PDF.js version and normalization as
+// ingestion). If it moved, the passage is looked up by its text instead, and
+// the highlight is rebuilt from the text layer — approximate.
+const check = computed(() => {
+  const text = rendered.value?.pageText.text
+  const { range, expectedText } = props
+  if (text === undefined || !range || expectedText === undefined) return undefined
+  if (text.slice(range.start, range.end) === expectedText) return { ok: true, range }
+  const at = text.indexOf(expectedText)
+  return { ok: false, range: at >= 0 ? { start: at, end: at + expectedText.length } : undefined }
 })
+// Every recheck (new target, re-render), not just changes: the viewer resets its flag per target.
+watch(check, (result) => {
+  if (result) emit('verified', { ok: result.ok, located: result.range !== undefined })
+}, { immediate: true })
+
+// Text moved but found elsewhere: rebuild from the text layer. Text not found
+// at all: keep the stored rects (still on the right page) unless the page
+// geometry changed too, in which case there is nothing trustworthy to draw.
+const fallbackRange = computed(() => (check.value ? check.value.range : props.range))
+const useFallback = computed(() => props.geometryStale || (check.value?.ok === false && check.value.range !== undefined))
+
+// Fallback geometry needs the text layer attached to the DOM.
+watch(() => [rendered.value, useFallback.value, fallbackRange.value?.start, fallbackRange.value?.end] as const, async ([r, fallback, start, end]) => {
+  fallbackBoxes.value = []
+  if (!r || !fallback || start === undefined || end === undefined) return
+  await nextTick()
+  if (r !== rendered.value) return
+  fallbackBoxes.value = textLayerLines(r, start, end)
+  if (fallbackBoxes.value.length) emit('fallbackReady')
+}, { immediate: true })
 
 const boxes = computed<Box[]>(() => {
-  if (props.fallbackRange) return fallbackBoxes.value
+  if (useFallback.value) return fallbackBoxes.value
   return props.rects?.length ? toViewportBoxes(viewport.value, props.rects) : []
 })
 

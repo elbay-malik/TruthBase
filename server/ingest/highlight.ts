@@ -30,6 +30,15 @@ export function chunkHighlight(page: PageLayout, span: ChunkSpan): ChunkHighligh
     if (item.width <= 0 || size <= 0) continue
 
     const length = item.str.length
+
+    // Rotated or mirrored text: the box of the covered quad (baseline span ×
+    // descent..ascent along the item's own axes), kept as its own rect.
+    if (item.rotation) {
+      rects.push(rotatedRect(item.x, item.y, item.rotation, item.width * (from / length), item.width * ((to + 1) / length), size))
+      lineY = Number.NaN
+      continue
+    }
+
     const exactX1 = item.charX0?.[from]
     const exactX2 = item.charX1?.[to]
     const rect: HighlightRect = {
@@ -65,6 +74,23 @@ export function chunkHighlight(page: PageLayout, span: ChunkSpan): ChunkHighligh
     startOffset: span.start,
     endOffset: span.end,
   }
+}
+
+/** Axis-aligned box of a run [s0, s1] along a rotated baseline at (x, y). */
+function rotatedRect(
+  x: number, y: number,
+  { ux, uy, nx, ny }: { ux: number, uy: number, nx: number, ny: number },
+  s0: number, s1: number, size: number,
+): HighlightRect {
+  const xs: number[] = []
+  const ys: number[] = []
+  for (const s of [s0, s1]) {
+    for (const t of [-DESCENT * size, ASCENT * size]) {
+      xs.push(x + ux * s + nx * t)
+      ys.push(y + uy * s + ny * t)
+    }
+  }
+  return { x1: Math.min(...xs), y1: Math.min(...ys), x2: Math.max(...xs), y2: Math.max(...ys) }
 }
 
 function union(rects: HighlightRect[]): HighlightRect {
