@@ -20,7 +20,8 @@
     "fixtures:highlights": "tsx scripts/build-highlight-fixtures.ts",
     "eval:answers": "tsx --env-file=.env scripts/eval-answers.ts",
     "check:viewer": "tsx --env-file=.env scripts/check-viewer.ts",
-    "tune:retrieval": "tsx --env-file=.env scripts/tune-retrieval.ts"
+    "tune:retrieval": "tsx --env-file=.env scripts/tune-retrieval.ts",
+    "eval:rerank": "tsx --env-file=.env scripts/eval-rerank.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.9",

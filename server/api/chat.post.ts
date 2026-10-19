@@ -4,13 +4,15 @@ import { NO_ANSWER, type ChatMessage } from '#shared/types/chat'
 import { geminiEmbedder } from '../ingest/embed'
 import { chatModel, isFallbackError } from '../rag/model'
 import { buildPrompt, GROUNDING_INSTRUCTIONS } from '../rag/prompt'
+import { configuredReranker } from '../rag/rerank'
 import { retrieveSources } from '../rag/retrieve'
 
 // POST /api/chat { question, documentId? } → UI message stream (AI SDK v7):
 //   data-sources  numbered sources [1..k] with chunk id, document, page and
 //                 stored highlight rects (citation chips; Phase 5 highlights)
 //   text          grounded answer citing [n], or exactly NO_ANSWER
-// Retrieval: Gemini query embedding → hybrid RRF search (top 8). Generation:
+// Retrieval: Gemini query embedding → hybrid RRF search → LLM rerank of the
+// fused top 15 (ADR-0007; fused order if the reranker fails) → top 8. Generation:
 // Groq gpt-oss-120b with Gemini fallback (server/rag/model.ts), temperature 0.
 // A client disconnect (Stop, closed tab) aborts the embedding and LLM calls.
 
@@ -40,11 +42,11 @@ export default defineEventHandler(async (event) => {
 
   const stream = createUIMessageStream<ChatMessage>({
     execute: async ({ writer }) => {
-      const sources = await retrieveSources(
+      const { sources } = await retrieveSources(
         supabase,
         geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_QUERY', abort.signal),
         question,
-        { documentId },
+        { documentId, reranker: configuredReranker(config), abortSignal: abort.signal },
       )
       writer.write({ type: 'data-sources', data: { sources } })
 

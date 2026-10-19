@@ -12,8 +12,9 @@
 // and each result records the model that actually answered.
 //
 // Generation sees exactly what POST /api/chat retrieves: hybrid search with
-// matchCount = DEFAULT_TOP_K and the SQL's tuned defaults (no weights sent,
-// docs/adr/0006). Recall@k is measured on a separate top-10 call per arm. (v1
+// the SQL's tuned defaults (no weights sent, docs/adr/0006), the fused top
+// RERANK_CANDIDATES reranked by --rerank (default: the app's, ADR-0007; "off"
+// for fused order), cut to DEFAULT_TOP_K. Recall@k is measured on a separate top-10 call per arm. (v1
 // of the RPC sized its candidate pools from matchCount, so a top-10 list cut
 // to 8 was not the chat's list; v2's pools are fixed, but the calls stay
 // separate so the eval never depends on that.)
@@ -40,8 +41,10 @@ import type { SourceRef } from '../shared/types/chat'
 import { geminiEmbedder } from '../server/ingest/embed'
 import { chatModel } from '../server/rag/model'
 import { buildPrompt, GROUNDING_INSTRUCTIONS, isRefusal, parseCitations } from '../server/rag/prompt'
+import { blendRanking, DEFAULT_RERANK_MODEL, RERANK_CANDIDATES, rerankModel, type RerankModelChoice } from '../server/rag/rerank'
 import { DEFAULT_TOP_K, toSources } from '../server/rag/retrieve'
 import { searchChunks, type SearchHit } from '../server/rag/search'
+import { rankingCache } from './lib/ranking-cache'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const { values } = parseArgs({
@@ -51,6 +54,7 @@ const { values } = parseArgs({
     delay: { type: 'string', default: '4000' }, // ms between generations (free-tier RPM)
     only: { type: 'string' },
     force: { type: 'boolean', default: false },
+    rerank: { type: 'string', default: DEFAULT_RERANK_MODEL }, // groq-20b | groq-120b | groq-qwen | gemini | off
   },
 })
 if (!values.label || !/^[\w.-]+$/.test(values.label)) {
@@ -79,6 +83,11 @@ const { model, id: modelId, providerOptions } = chatModel(
   { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') },
   values.model as 'groq' | 'gemini' | undefined,
 )
+
+const reranker = values.rerank === 'off'
+  ? undefined
+  : rerankModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') }, values.rerank as RerankModelChoice)
+if (values.rerank !== 'off' && !reranker) throw new Error(`--rerank ${values.rerank} is unknown or its API key is missing`)
 
 let golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
 if (values.only) {
@@ -119,7 +128,8 @@ async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): 
   }
 }
 
-console.log(`model ${modelId} · ${golden.length} questions · top-${DEFAULT_TOP_K} sources`)
+console.log(`model ${modelId} · rerank ${reranker?.id ?? 'off'} · ${golden.length} questions · top-${DEFAULT_TOP_K} sources`)
+const rankCached = reranker ? await rankingCache(reranker, filenameById, 7500) : undefined
 const embeddings = await withRetry('embed questions', () => embed(golden.map(r => r.question)))
 
 const results = []
@@ -128,15 +138,19 @@ for (const [i, record] of golden.entries()) {
   const search = (matchCount: number, weights: { fullTextWeight?: number, semanticWeight?: number } = {}) => searchChunks(supabase, {
     queryText: record.question, queryEmbedding: embeddings[i]!, matchCount, ...weights,
   })
-  const [generationHits, hybrid, dense, keyword] = await withRetry(`${record.id} search`, () => Promise.all([
-    search(DEFAULT_TOP_K), // what the chat route retrieves
+  const [fusedHits, hybrid, dense, keyword] = await withRetry(`${record.id} search`, () => Promise.all([
+    search(reranker ? RERANK_CANDIDATES : DEFAULT_TOP_K), // what the chat route retrieves
     search(10),
     // v1 of hybrid_search returned a zero-weight arm's rows with score 0 (v2
     // drops them itself); either way they are not this arm's hits.
     search(10, { fullTextWeight: 0 }).then(hits => hits.filter(h => h.score > 0)),
     search(10, { semanticWeight: 0 }).then(hits => hits.filter(h => h.score > 0)),
   ]))
-  const sources: SourceRef[] = toSources(generationHits, filenameById)
+  // The chat route's order (reranked head, fused tail), from rankings eval:rerank
+  // may already have cached: both evals spend the reranker's daily token quota.
+  const ranking = rankCached ? await rankCached(record.question, fusedHits) : undefined
+  const ordered = ranking ? blendRanking(fusedHits, ranking.order.map(i => fusedHits[i]!)) : fusedHits
+  const sources: SourceRef[] = toSources(ordered.slice(0, DEFAULT_TOP_K), filenameById)
 
   const { text, response } = await withRetry(`${record.id} generate`, () => generateText({
     model,
@@ -155,6 +169,7 @@ for (const [i, record] of golden.entries()) {
     id: record.id,
     tags: record.tags,
     answerable: record.answer !== null,
+    reranked: ranking !== undefined,
     rank: { hybrid: fullCoverageRank(hybrid, record.evidence), dense: fullCoverageRank(dense, record.evidence), keyword: fullCoverageRank(keyword, record.evidence) },
     /** All evidence inside the sources the model actually saw. */
     evidenceInSources: record.evidence.length > 0 && record.evidence.every(e => sources.some(s => contains(s, e))),
@@ -184,6 +199,7 @@ const falseRefusals = answerable.filter(r => r.refused).length
 const summary = {
   label: values.label,
   model: modelId,
+  rerank: reranker?.id ?? 'off',
   only: values.only ?? null,
   date: new Date().toISOString().slice(0, 10),
   topK: DEFAULT_TOP_K,

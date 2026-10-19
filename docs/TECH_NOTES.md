@@ -97,7 +97,7 @@ Verified in headless Chromium 149 with `pdfjs-dist@6.4.299`, the same version un
 
 ## 9. Generation models (Phase 4)
 
-- **Groq no longer serves `llama-3.3-70b-versatile`** (the plan's primary). As of 2026-10-17 its text models are `openai/gpt-oss-120b`, `openai/gpt-oss-20b` and `qwen/qwen3.8-27b`. We use `openai/gpt-oss-120b` with `providerOptions.groq = { reasoningEffort: 'low', reasoningFormat: 'hidden' }`. Free tier: **8,000 tokens/min, 1,000 requests/day** (from the `x-ratelimit-*` headers). A grounded answer is ~1.7–2.5k tokens, so about 3 answers/min across all users; throttle evals (~25 s/question) and add a Gemini fallback on 429 in Phase 11.
+- **Groq no longer serves `llama-3.3-70b-versatile`** (the plan's primary). As of 2026-10-17 its text models are `openai/gpt-oss-120b`, `openai/gpt-oss-20b` and `qwen/qwen3.8-27b`. We use `openai/gpt-oss-120b` with `providerOptions.groq = { reasoningEffort: 'low', reasoningFormat: 'hidden' }`. Free tier, per model: **8,000 tokens/min, 1,000 requests/day** (from the `x-ratelimit-*` headers) **and 200,000 tokens/day**, which the headers don't show (found with a 429 in Phase 7; Groq's rate-limits page lists the same). That caps gpt-oss-120b at roughly 100 answers/day. A grounded answer is ~1.7–2.5k tokens, so about 3 answers/min across all users; throttle evals (~25 s/question) and add a Gemini fallback on 429 in Phase 11.
 - **gpt-oss cites as `【n】`** (also `【n†L3-L5】`), its native format, and likes Markdown bold. The citation parser accepts both bracket styles (`shared/utils/citations.ts`), and the prompt asks for ASCII brackets and plain text.
 - **`gemini-2.5-flash-lite` is closed to new API users** (the API answers "no longer available to new users … use models/gemini-3.5-flash-lite"), even though it still shows in `models.list`. The Gemini fallback is therefore `gemini-3.5-flash-lite` (`server/rag/model.ts`). Verify a model with a real call, not just the listing.
 - AI SDK v7 server pattern as used in `server/api/chat.post.ts`: `createUIMessageStream({ execute: ({ writer }) => { writer.write({ type: 'data-sources', data }); writer.merge(toUIMessageStream({ stream: streamText(...).stream })) } })` → `createUIMessageStreamResponse({ stream })`. `streamText` takes `instructions` (not `system`) and `maxOutputTokens`.
@@ -135,4 +135,12 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 - The rate limiter trusts `X-Forwarded-For`; set `security.rateLimiter.ipHeader` to the host's trusted header and use a shared storage driver at deploy (Phases 11 and 14). `/api/chat` (10/min) and `/api/search` (30/min) now have tighter per-route limits.
 - A document row is listed while its chunks are still being inserted (a `status` column comes with Phase 11 uploads).
 - `check:viewer` drives the deep-link path. Clicking chips in a live answer is covered by the Phase 13 Playwright E2E.
+
+## 12. Reranking (Phase 7)
+
+- **Groq's daily token cap is the binding limit**, not tokens/min: 200K/day per model, refilled gradually (a spent quota lets a call through again after a while, not at midnight). One 45-question rerank eval at 15 candidates costs ~122K tokens, so evals and the demo share one budget ([ADR-0007](./adr/0007-reranking.md)). `scripts/lib/ranking-cache.ts` caches every ranking by (model, prompt) and stops a run on a long Retry-After instead of crashing.
+- **`generateText` doesn't enforce `abortSignal` itself**; it hands it to the provider's `fetch`. A model that ignores it (a test mock, a misbehaving provider) hangs past the timeout, so `rerank()` races the call against the signal.
+- **gpt-oss-20b returns a partial ranking** (often just its top pick) unless the prompt states the count: "Return all 15 passage numbers … each exactly once".
+- **qwen/qwen3.8-27b fails Groq's JSON validation** often with `Output.object` (`json_validate_failed`, echoing the prompt's `[source`); don't use it for structured output.
+- **AI SDK v7 structured output:** `generateText({ output: Output.object({ schema }) })` → `result.output`; a schema mismatch throws (`NoObjectGeneratedError`). Mock models for tests: `MockLanguageModelV4` from `ai/test`, with V4 results shaped `{ content, finishReason: { unified, raw }, usage: { inputTokens: {…}, outputTokens: {…} }, warnings }`.
 

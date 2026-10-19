@@ -63,6 +63,7 @@ export default defineNuxtConfig({
     // (see .env.example). Never move these under `public`.
     groqApiKey: '', // NUXT_GROQ_API_KEY
     geminiApiKey: '', // NUXT_GEMINI_API_KEY
+    rerankModel: 'groq-20b', // NUXT_RERANK_MODEL — groq-20b | groq-120b | groq-qwen | gemini | off (ADR-0007)
     supabaseUrl: '', // NUXT_SUPABASE_URL
     supabaseServiceKey: '', // NUXT_SUPABASE_SERVICE_KEY
     ingestToken: '', // NUXT_INGEST_TOKEN — operator-only ingestion until Phase 11

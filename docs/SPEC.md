@@ -77,7 +77,7 @@ These decisions get recorded as they are made, using the [ADR template](./adr/te
 | 0004 | **PDF extraction and highlight coordinate model**: unpdf text items → per-line rects, PDF-space storage, text-match fallback | 3 / 3.5 |
 | 0005 | **Citation format and grounding/refusal policy**: inline chunk-ID markers, prompt contract, refusal threshold | 4 |
 | 0006 | **Why hybrid search**: dense vs full-text vs hybrid, RRF `k` and weights, with measured golden numbers | 6 |
-| 0007 | **Reranker choice**: listwise LLM-as-reranker on Groq vs cross-encoders vs hosted rerank APIs | 7 |
+| 0007 | **Reranker choice**: listwise LLM-as-reranker on Groq vs cross-encoders vs hosted rerank APIs | 📝 Proposed (final numbers pending) |
 | 0008 | **Eval methodology and CI gate**: metric definitions, judge model, thresholds, tolerance | 9 |
 | 0009 | **Query rewriting**: multi-query vs HyDE, guardrails (entity preservation, rerank after fusion) | 8 |
 | 0010 | **Abuse protection and demo mode**: rate-limit store, caps, BYO-docs gating | 11 |

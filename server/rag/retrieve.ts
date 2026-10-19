@@ -1,19 +1,31 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SourceRef } from '../../shared/types/chat'
 import type { Embedder } from '../ingest/embed'
+import { rerank, RERANK_CANDIDATES, type RerankModel } from './rerank'
 import { searchChunks, type SearchHit } from './search'
 
-// Phase 4 retrieval: embed the question (RETRIEVAL_QUERY), hybrid RRF search,
-// keep the top-k chunks, and number them as citable sources.
+// Retrieval: embed the question (RETRIEVAL_QUERY), hybrid RRF search, rerank
+// the fused candidates with an LLM when a reranker is configured (Phase 7,
+// ADR-0007: its top RERANK_HEAD, then fused order), keep the top-k chunks, and
+// number them as citable sources.
 
 export const DEFAULT_TOP_K = 8
 
 export interface RetrieveOptions {
   topK?: number
   documentId?: string
-  /** RRF arm weights; Phase 6 tunes these against the golden set. */
+  /** RRF arm weights; unset means the SQL's tuned defaults (ADR-0006). */
   fullTextWeight?: number
   semanticWeight?: number
+  /** Rerank the fused top RERANK_CANDIDATES before keeping topK. */
+  reranker?: RerankModel
+  abortSignal?: AbortSignal
+}
+
+export interface Retrieval {
+  sources: SourceRef[]
+  /** True when the reranker ordered the sources; false means fused order. */
+  reranked: boolean
 }
 
 export async function retrieveSources(
@@ -21,17 +33,23 @@ export async function retrieveSources(
   embedQuery: Embedder,
   question: string,
   options: RetrieveOptions = {},
-): Promise<SourceRef[]> {
+): Promise<Retrieval> {
+  const topK = options.topK ?? DEFAULT_TOP_K
   const [embedding] = await embedQuery([question])
   const hits = await searchChunks(supabase, {
     queryText: question,
     queryEmbedding: embedding!,
-    matchCount: options.topK ?? DEFAULT_TOP_K,
+    // The RPC caps match_count at 30.
+    matchCount: options.reranker ? Math.min(Math.max(topK, RERANK_CANDIDATES), 30) : topK,
     documentId: options.documentId,
     fullTextWeight: options.fullTextWeight,
     semanticWeight: options.semanticWeight,
   })
-  return toSources(hits, await filenames(supabase, hits))
+  const filenameById = await filenames(supabase, hits)
+  const ranked = options.reranker
+    ? await rerank(options.reranker, question, hits, filenameById, { abortSignal: options.abortSignal })
+    : { hits, reranked: false }
+  return { sources: toSources(ranked.hits.slice(0, topK), filenameById), reranked: ranked.reranked }
 }
 
 export function toSources(hits: SearchHit[], filenameById: Map<string, string>): SourceRef[] {

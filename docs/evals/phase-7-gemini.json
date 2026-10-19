@@ -1,0 +1,1260 @@
+{
+ "model": "google/gemini-3.5-flash-lite",
+ "candidates": 20,
+ "date": "2026-10-19",
+ "overall": {
+  "all": {
+   "n": 45,
+   "fused": {
+    "recall5": 0.7555555555555555,
+    "recall8": 0.8666666666666667,
+    "recall10": 0.8666666666666667,
+    "mrr": 0.5148677248677248,
+    "ndcg5": 0.6380280013926369
+   },
+   "reranked": {
+    "recall5": 0.8444444444444444,
+    "recall8": 0.8444444444444444,
+    "recall10": 0.8666666666666667,
+    "mrr": 0.768888888888889,
+    "ndcg5": 0.8541667411100932
+   }
+  }
+ },
+ "slices": {
+  "ambiguous": {
+   "n": 4,
+   "fused": {
+    "recall5": 0.75,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.5416666666666666,
+    "ndcg5": 0.811019236584229
+   },
+   "reranked": {
+    "recall5": 0.75,
+    "recall8": 0.75,
+    "recall10": 1,
+    "mrr": 0.525,
+    "ndcg5": 0.811019236584229
+   }
+  },
+  "comparison": {
+   "n": 3,
+   "fused": {
+    "recall5": 0.6666666666666666,
+    "recall8": 0.6666666666666666,
+    "recall10": 0.6666666666666666,
+    "mrr": 0.5,
+    "ndcg5": 0.8769765845238192
+   },
+   "reranked": {
+    "recall5": 0.6666666666666666,
+    "recall8": 0.6666666666666666,
+    "recall10": 0.6666666666666666,
+    "mrr": 0.5,
+    "ndcg5": 1
+   }
+  },
+  "cross-document": {
+   "n": 4,
+   "fused": {
+    "recall5": 0.5,
+    "recall8": 0.75,
+    "recall10": 0.75,
+    "mrr": 0.25,
+    "ndcg5": 0.7909494338712759
+   },
+   "reranked": {
+    "recall5": 0.5,
+    "recall8": 0.5,
+    "recall10": 0.75,
+    "mrr": 0.275,
+    "ndcg5": 0.9032867981913646
+   }
+  },
+  "definition": {
+   "n": 4,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.8125,
+    "ndcg5": 0.8576691395183482
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.8333333333333334,
+    "ndcg5": 0.875
+   }
+  },
+  "distractor": {
+   "n": 1,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  },
+  "duplicate-passage": {
+   "n": 1,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.25,
+    "ndcg5": 0.43067655807339306
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.3333333333333333,
+    "ndcg5": 0.5
+   }
+  },
+  "factoid": {
+   "n": 9,
+   "fused": {
+    "recall5": 0.7777777777777778,
+    "recall8": 0.8888888888888888,
+    "recall10": 0.8888888888888888,
+    "mrr": 0.275,
+    "ndcg5": 0.3871138044990434
+   },
+   "reranked": {
+    "recall5": 0.8888888888888888,
+    "recall8": 0.8888888888888888,
+    "recall10": 0.8888888888888888,
+    "mrr": 0.8888888888888888,
+    "ndcg5": 0.8888888888888888
+   }
+  },
+  "figure-caption": {
+   "n": 1,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.25,
+    "ndcg5": 0.43067655807339306
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  },
+  "figure-reference": {
+   "n": 1,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  },
+  "front-matter": {
+   "n": 2,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.75,
+    "ndcg5": 0.8154648767857288
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  },
+  "keyword": {
+   "n": 5,
+   "fused": {
+    "recall5": 0.8,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.475,
+    "ndcg5": 0.5385072130432615
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  },
+  "list": {
+   "n": 8,
+   "fused": {
+    "recall5": 0.875,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.7678571428571428,
+    "ndcg5": 0.8707221995221313
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.8541666666666667,
+    "ndcg5": 0.9538662191964322
+   }
+  },
+  "multi-hop": {
+   "n": 2,
+   "fused": {
+    "recall5": 0.5,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "mrr": 0.16666666666666666,
+    "ndcg5": 0.7753252713598225
+   },
+   "reranked": {
+    "recall5": 0.5,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "mrr": 0.25,
+    "ndcg5": 1
+   }
+  },
+  "multi-page": {
+   "n": 3,
+   "fused": {
+    "recall5": 0,
+    "recall8": 0.3333333333333333,
+    "recall10": 0.3333333333333333,
+    "mrr": 0.047619047619047616,
+    "ndcg5": 0.20438239758848611
+   },
+   "reranked": {
+    "recall5": 0.3333333333333333,
+    "recall8": 0.3333333333333333,
+    "recall10": 0.3333333333333333,
+    "mrr": 0.1111111111111111,
+    "ndcg5": 0.23114213453909027
+   }
+  },
+  "multi-span": {
+   "n": 4,
+   "fused": {
+    "recall5": 0.25,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "mrr": 0.2857142857142857,
+    "ndcg5": 0.42597952225853364
+   },
+   "reranked": {
+    "recall5": 0.5,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "mrr": 0.3333333333333333,
+    "ndcg5": 0.5
+   }
+  },
+  "numeric": {
+   "n": 11,
+   "fused": {
+    "recall5": 0.6363636363636364,
+    "recall8": 0.7272727272727273,
+    "recall10": 0.7272727272727273,
+    "mrr": 0.4751082251082251,
+    "ndcg5": 0.5653204375965758
+   },
+   "reranked": {
+    "recall5": 0.7272727272727273,
+    "recall8": 0.7272727272727273,
+    "recall10": 0.7272727272727273,
+    "mrr": 0.6666666666666666,
+    "ndcg5": 0.6994024003288428
+   }
+  },
+  "paraphrase": {
+   "n": 3,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.7333333333333334,
+    "ndcg5": 0.7956176024115139
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  },
+  "reverse-lookup": {
+   "n": 2,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  },
+  "table": {
+   "n": 6,
+   "fused": {
+    "recall5": 0.6666666666666666,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.5029761904761905,
+    "ndcg5": 0.6124589174017182
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 0.8888888888888888,
+    "ndcg5": 0.9489044006028785
+   }
+  },
+  "yes-no": {
+   "n": 1,
+   "fused": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  }
+ },
+ "incomplete": 0,
+ "meanTokens": 3811.5777777777776,
+ "latency": {
+  "calls": 45,
+  "p50": 2730.074500000017,
+  "p95": 15459.845666999987
+ },
+ "rows": [
+  {
+   "id": "g-001",
+   "tags": [
+    "list"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 17012.698333,
+   "cached": false,
+   "tokens": 3949
+  },
+  {
+   "id": "g-002",
+   "tags": [
+    "definition"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 10920.551334,
+   "cached": false,
+   "tokens": 4003
+  },
+  {
+   "id": "g-003",
+   "tags": [
+    "factoid",
+    "figure-caption"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 4,
+    "ndcg5": 0.43067655807339306
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 13196.044875,
+   "cached": false,
+   "tokens": 3843
+  },
+  {
+   "id": "g-004",
+   "tags": [
+    "list"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 5059.851332999999,
+   "cached": false,
+   "tokens": 3596
+  },
+  {
+   "id": "g-005",
+   "tags": [
+    "paraphrase"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 5,
+    "ndcg5": 0.38685280723454163
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 10985.826125,
+   "cached": false,
+   "tokens": 3551
+  },
+  {
+   "id": "g-006",
+   "tags": [
+    "comparison",
+    "multi-span"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 6773.800792000002,
+   "cached": false,
+   "tokens": 3691
+  },
+  {
+   "id": "g-007",
+   "tags": [
+    "yes-no"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 8741.740125000011,
+   "cached": false,
+   "tokens": 3936
+  },
+  {
+   "id": "g-008",
+   "tags": [
+    "numeric",
+    "front-matter"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 10906.517582999993,
+   "cached": false,
+   "tokens": 3777
+  },
+  {
+   "id": "g-009",
+   "tags": [
+    "factoid"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 5,
+    "ndcg5": 0.38685280723454163
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 3972.217417000007,
+   "cached": false,
+   "tokens": 3753
+  },
+  {
+   "id": "g-010",
+   "tags": [
+    "keyword",
+    "table"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 8,
+    "ndcg5": 0
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 4202.190208,
+   "cached": false,
+   "tokens": 3432
+  },
+  {
+   "id": "g-011",
+   "tags": [
+    "keyword",
+    "table",
+    "reverse-lookup"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 2,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1402.364791999993,
+   "cached": false,
+   "tokens": 3675
+  },
+  {
+   "id": "g-012",
+   "tags": [
+    "definition"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1082.682375000004,
+   "cached": false,
+   "tokens": 3632
+  },
+  {
+   "id": "g-013",
+   "tags": [
+    "ambiguous",
+    "cross-document"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 6,
+    "ndcg5": 0.6131471927654584
+   },
+   "reranked": {
+    "rank": 10,
+    "ndcg5": 0.6131471927654584
+   },
+   "ranked": 20,
+   "ms": 1005.1447909999988,
+   "cached": false,
+   "tokens": 3551
+  },
+  {
+   "id": "g-014",
+   "tags": [
+    "ambiguous",
+    "cross-document",
+    "comparison"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 2,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 2,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1886.748792000013,
+   "cached": false,
+   "tokens": 3423
+  },
+  {
+   "id": "g-015",
+   "tags": [
+    "list"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 2,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 3764.6630000000005,
+   "cached": false,
+   "tokens": 3751
+  },
+  {
+   "id": "g-016",
+   "tags": [
+    "ambiguous",
+    "list"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 2,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "rank": 2,
+    "ndcg5": 0.6309297535714575
+   },
+   "ranked": 20,
+   "ms": 1212.2049589999951,
+   "cached": false,
+   "tokens": 3227
+  },
+  {
+   "id": "g-017",
+   "tags": [
+    "factoid",
+    "front-matter"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 2,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 4166.390375000003,
+   "cached": false,
+   "tokens": 3619
+  },
+  {
+   "id": "g-018",
+   "tags": [
+    "factoid",
+    "figure-reference"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 2,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1764.1443330000038,
+   "cached": false,
+   "tokens": 3421
+  },
+  {
+   "id": "g-019",
+   "tags": [
+    "keyword"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 915.7303750000137,
+   "cached": false,
+   "tokens": 3393
+  },
+  {
+   "id": "g-020",
+   "tags": [
+    "keyword",
+    "reverse-lookup",
+    "distractor"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 2,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 901.9417919999978,
+   "cached": false,
+   "tokens": 3436
+  },
+  {
+   "id": "g-021",
+   "tags": [
+    "factoid"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 5,
+    "ndcg5": 0.38685280723454163
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1369.7678330000053,
+   "cached": false,
+   "tokens": 3434
+  },
+  {
+   "id": "g-022",
+   "tags": [
+    "list",
+    "multi-span"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 7,
+    "ndcg5": 0.7039180890341347
+   },
+   "reranked": {
+    "rank": 3,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 935.2382090000028,
+   "cached": false,
+   "tokens": 3415
+  },
+  {
+   "id": "g-023",
+   "tags": [
+    "definition",
+    "duplicate-passage"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 4,
+    "ndcg5": 0.43067655807339306
+   },
+   "reranked": {
+    "rank": 3,
+    "ndcg5": 0.5
+   },
+   "ranked": 20,
+   "ms": 2081.60616700002,
+   "cached": false,
+   "tokens": 3276
+  },
+  {
+   "id": "g-024",
+   "tags": [
+    "table"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1579.9494579999882,
+   "cached": false,
+   "tokens": 3286
+  },
+  {
+   "id": "g-025",
+   "tags": [
+    "list"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1186.384625000006,
+   "cached": false,
+   "tokens": 3353
+  },
+  {
+   "id": "g-026",
+   "tags": [
+    "cross-document",
+    "multi-hop"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 3,
+    "ndcg5": 0.9197207891481876
+   },
+   "reranked": {
+    "rank": 2,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1937.2172080000164,
+   "cached": false,
+   "tokens": 3621
+  },
+  {
+   "id": "g-027",
+   "tags": [
+    "table",
+    "list"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1471.3026659999741,
+   "cached": false,
+   "tokens": 4159
+  },
+  {
+   "id": "g-028",
+   "tags": [
+    "factoid"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 8,
+    "ndcg5": 0
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1273.152083999972,
+   "cached": false,
+   "tokens": 4148
+  },
+  {
+   "id": "g-029",
+   "tags": [
+    "numeric",
+    "multi-span",
+    "multi-page"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "reranked": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "ranked": 20,
+   "ms": 2730.074500000017,
+   "cached": false,
+   "tokens": 4510
+  },
+  {
+   "id": "g-030",
+   "tags": [
+    "numeric"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "reranked": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "ranked": 20,
+   "ms": 1567.5143749999988,
+   "cached": false,
+   "tokens": 4072
+  },
+  {
+   "id": "g-031",
+   "tags": [
+    "factoid",
+    "numeric"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 2,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 3085.9852079999982,
+   "cached": false,
+   "tokens": 4310
+  },
+  {
+   "id": "g-032",
+   "tags": [
+    "table",
+    "numeric"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 4,
+    "ndcg5": 0.43067655807339306
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1202.0124169999908,
+   "cached": false,
+   "tokens": 4573
+  },
+  {
+   "id": "g-033",
+   "tags": [
+    "paraphrase"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1161.5474579999864,
+   "cached": false,
+   "tokens": 4134
+  },
+  {
+   "id": "g-034",
+   "tags": [
+    "numeric",
+    "paraphrase"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 4073.336917000008,
+   "cached": false,
+   "tokens": 4216
+  },
+  {
+   "id": "g-035",
+   "tags": [
+    "factoid"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "reranked": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "ranked": 20,
+   "ms": 963.0990420000162,
+   "cached": false,
+   "tokens": 4326
+  },
+  {
+   "id": "g-036",
+   "tags": [
+    "definition",
+    "list"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 4056.4476670000004,
+   "cached": false,
+   "tokens": 4296
+  },
+  {
+   "id": "g-037",
+   "tags": [
+    "ambiguous",
+    "numeric"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 1307.9060000000172,
+   "cached": false,
+   "tokens": 3805
+  },
+  {
+   "id": "g-038",
+   "tags": [
+    "multi-span",
+    "multi-page"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "reranked": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "ranked": 20,
+   "ms": 3339.6458339999954,
+   "cached": false,
+   "tokens": 3567
+  },
+  {
+   "id": "g-039",
+   "tags": [
+    "factoid"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 5,
+    "ndcg5": 0.38685280723454163
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 8807.938916999992,
+   "cached": false,
+   "tokens": 3578
+  },
+  {
+   "id": "g-040",
+   "tags": [
+    "numeric"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "reranked": {
+    "rank": null,
+    "ndcg5": 0
+   },
+   "ranked": 20,
+   "ms": 6139.974667000002,
+   "cached": false,
+   "tokens": 4080
+  },
+  {
+   "id": "g-041",
+   "tags": [
+    "numeric"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 3,
+    "ndcg5": 0.5437713091520254
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 4407.1862919999985,
+   "cached": false,
+   "tokens": 4074
+  },
+  {
+   "id": "g-042",
+   "tags": [
+    "numeric"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 4721.433624999976,
+   "cached": false,
+   "tokens": 3830
+  },
+  {
+   "id": "g-043",
+   "tags": [
+    "numeric",
+    "table",
+    "multi-page"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 7,
+    "ndcg5": 0.6131471927654584
+   },
+   "reranked": {
+    "rank": 3,
+    "ndcg5": 0.6934264036172708
+   },
+   "ranked": 20,
+   "ms": 15459.845666999987,
+   "cached": false,
+   "tokens": 4508
+  },
+  {
+   "id": "g-044",
+   "tags": [
+    "keyword"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": 4,
+    "ndcg5": 0.43067655807339306
+   },
+   "reranked": {
+    "rank": 1,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 25079.50179099996,
+   "cached": false,
+   "tokens": 3762
+  },
+  {
+   "id": "g-045",
+   "tags": [
+    "cross-document",
+    "multi-hop",
+    "comparison"
+   ],
+   "filtered": false,
+   "fused": {
+    "rank": null,
+    "ndcg5": 0.6309297535714575
+   },
+   "reranked": {
+    "rank": null,
+    "ndcg5": 1
+   },
+   "ranked": 20,
+   "ms": 909.5924579999992,
+   "cached": false,
+   "tokens": 4529
+  }
+ ]
+}
