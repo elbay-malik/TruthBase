@@ -1,5 +1,7 @@
 -- ============================================================================
--- Phase 2 acceptance check: hybrid_search returns sensibly fused results.
+-- Acceptance check: hybrid_search returns sensibly fused results (Phase 2,
+-- updated for the Phase 6 v2 function: OR'ed keyword terms, tuned defaults,
+-- candidate_count, no zero-score rows).
 --
 -- Seeds a tiny corpus whose arm rankings are known by construction, asserts
 -- the RRF fusion, weights, filters, stemming and access control, prints the
@@ -16,7 +18,9 @@
 --   4 (D)  unrelated                       170°  –             rank 4
 --   5 (E)  no embedding yet, no keywords   –     –             –        ← never returned
 --
--- Expected RRF (k=50, weights 1): A = 1/52 + 1/51 > B = 1/51 + 1/53 > C = 1/52 > D = 1/54
+-- Expected RRF with the defaults (k=60, keyword weight 0.5, semantic 1):
+--   A = 0.5/62 + 1/61 > B = 0.5/61 + 1/63 > C = 1/62 > D = 1/64
+-- and with k=50, weights 1 (v1's defaults): A = 1/52 + 1/51 > B = 1/51 + 1/53 > …
 -- `label` is stored in page_number to keep assertions readable.
 -- ============================================================================
 
@@ -67,19 +71,21 @@ begin
   from hybrid_search('verify backups', q, 10) with ordinality as r(id, document_id, page_number, content, highlight, created_at, score, ord);
   assert labels = array[1, 2, 3, 4], format('default fusion order: got %s, want {1,2,3,4}', labels);
 
-  -- 2. Score is exactly Σ weight / (k + rank).
+  -- 2. Score is exactly Σ weight / (k + rank), with the defaults and with explicit parameters.
   select score into top_score from hybrid_search('verify backups', q, 1);
-  assert abs(top_score - (1.0/51 + 1.0/52)) < 1e-9, format('RRF score of top row: got %s', top_score);
+  assert abs(top_score - (0.5/62 + 1.0/61)) < 1e-9, format('default RRF score of top row: got %s', top_score);
+  select score into top_score from hybrid_search('verify backups', q, 1, full_text_weight => 1, rrf_k => 50);
+  assert abs(top_score - (1.0/51 + 1.0/52)) < 1e-9, format('explicit RRF score of top row: got %s', top_score);
 
   -- 3. Weights: keyword arm off → pure semantic order.
   select array_agg(page_number order by ord) into labels
   from hybrid_search('verify backups', q, 10, full_text_weight => 0) with ordinality as r(id, document_id, page_number, content, highlight, created_at, score, ord);
   assert labels = array[1, 3, 2, 4], format('semantic-only order: got %s, want {1,3,2,4}', labels);
 
-  -- 4. Weights: semantic arm off → keyword winners first.
+  -- 4. Weights: semantic arm off → only keyword hits, no zero-score filler rows.
   select array_agg(page_number order by ord) into labels
   from hybrid_search('verify backups', q, 10, semantic_weight => 0) with ordinality as r(id, document_id, page_number, content, highlight, created_at, score, ord);
-  assert labels[1:2] = array[2, 1], format('keyword-only top 2: got %s, want {2,1,…}', labels);
+  assert labels = array[2, 1], format('keyword-only: got %s, want {2,1}', labels);
 
   -- 5. Document filter applies to both arms.
   select array_agg(page_number order by ord) into labels
@@ -97,12 +103,47 @@ begin
   -- 8. English stemming: inflected query matches the same keyword rows.
   select array_agg(page_number order by ord) into labels
   from hybrid_search('verified backup', q, 10, semantic_weight => 0) with ordinality as r(id, document_id, page_number, content, highlight, created_at, score, ord);
-  assert labels[1:2] = array[2, 1], format('stemmed query top 2: got %s, want {2,1,…}', labels);
+  assert labels = array[2, 1], format('stemmed query: got %s, want {2,1}', labels);
+
+  -- 9. Any query term matches (v1 required all): "zebra" is in no chunk.
+  select array_agg(page_number order by ord) into labels
+  from hybrid_search('how do I verify zebra backups?', q, 10, semantic_weight => 0) with ordinality as r(id, document_id, page_number, content, highlight, created_at, score, ord);
+  assert labels = array[2, 1], format('OR query: got %s, want {2,1}', labels);
+
+  -- 10. Websearch syntax in a question is plain text: quotes, negation, parens.
+  assert (select count(*) from hybrid_search('"verify" -backups (or)', q, 10, semantic_weight => 0)) = 2,
+    'quotes / minus / parens must not change matching';
+
+  -- 11. candidate_count caps each arm before fusion: keyword top 1 = B, semantic top 1 = A.
+  select array_agg(page_number order by ord) into labels
+  from hybrid_search('verify backups', q, 10, candidate_count => 1) with ordinality as r(id, document_id, page_number, content, highlight, created_at, score, ord);
+  assert labels = array[1, 2], format('candidate_count = 1: got %s, want {1,2}', labels);
+
+  -- 12. Punctuation-joined words are separate terms, as in the documents' tsvector.
+  select array_agg(page_number order by ord) into labels
+  from hybrid_search('verify,backups', q, 10, semantic_weight => 0) with ordinality as r(id, document_id, page_number, content, highlight, created_at, score, ord);
+  assert labels = array[2, 1], format('punctuation-joined query: got %s, want {2,1}', labels);
 
   raise notice 'hybrid_search: all fusion assertions passed';
 end $$;
 
--- 9. Access control: anon sees no chunks (RLS), cannot call the RPC, can read keep_alive.
+-- 13. A hyphenated control ID matches the token the document holds: the parser
+-- indexes "PR.DS-11" as 'pr.ds' and '-11', and the query must use the same.
+insert into chunks (document_id, page_number, content, embedding) values
+  ('00000000-0000-0000-0000-00000000d002', 6, 'Control PR.DS-11 requires that data copies are created and protected.', pg_temp.unit_vec(90)),
+  ('00000000-0000-0000-0000-00000000d002', 7, 'Section 11 lists eleven unrelated items.', pg_temp.unit_vec(95));
+do $$
+declare
+  labels int[];
+begin
+  select array_agg(page_number order by ord) into labels
+  from hybrid_search('What does PR.DS-11 require?', pg_temp.unit_vec(0), 10, semantic_weight => 0) with ordinality as r(id, document_id, page_number, content, highlight, created_at, score, ord);
+  assert labels = array[6], format('control-ID query: got %s, want {6} (not the "11" chunk)', labels);
+  raise notice 'hybrid_search: control-ID assertion passed';
+end $$;
+delete from chunks where page_number in (6, 7); -- keep the readout below to the documented 4 rows
+
+-- 14. Access control: anon sees no chunks (RLS), cannot call the RPC, can read keep_alive.
 set local role anon;
 do $$
 begin

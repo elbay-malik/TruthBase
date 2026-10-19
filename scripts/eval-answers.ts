@@ -12,15 +12,18 @@
 // and each result records the model that actually answered.
 //
 // Generation sees exactly what POST /api/chat retrieves: hybrid search with
-// matchCount = DEFAULT_TOP_K (the RPC's candidate pools depend on matchCount,
-// so a top-10 list cut to 8 is not the same list). Recall@k is measured on a
-// separate top-10 call per arm.
+// matchCount = DEFAULT_TOP_K and the SQL's tuned defaults (no weights sent,
+// docs/adr/0006). Recall@k is measured on a separate top-10 call per arm. (v1
+// of the RPC sized its candidate pools from matchCount, so a top-10 list cut
+// to 8 was not the chat's list; v2's pools are fixed, but the calls stay
+// separate so the eval never depends on that.)
 //
 // Metrics (docs/SPEC.md):
 //   recall@k            all evidence spans of a record lie inside retrieved chunks
 //                       (same document + page, chunk text contains the span),
-//                       for hybrid, dense-only and keyword-only search (single-arm
-//                       runs drop the other arm's zero-score rows the RPC appends)
+//                       for hybrid (tuned defaults), dense-only and keyword-only
+//                       search (one arm's weight 0; v2 drops the other arm's rows
+//                       itself, v1 returned them with score 0 and they are filtered)
 //   answer rate         answerable records the model answered (did not refuse)
 //   correct citation    answered records citing ≥1 source that contains evidence
 //   citation precision  cited sources containing evidence / all cited sources
@@ -121,15 +124,17 @@ const embeddings = await withRetry('embed questions', () => embed(golden.map(r =
 
 const results = []
 for (const [i, record] of golden.entries()) {
-  const search = (matchCount: number, fullTextWeight: number, semanticWeight: number) => searchChunks(supabase, {
-    queryText: record.question, queryEmbedding: embeddings[i]!, matchCount, fullTextWeight, semanticWeight,
+  // Weights left undefined are not sent: the RPC's tuned defaults apply, as for the chat route.
+  const search = (matchCount: number, weights: { fullTextWeight?: number, semanticWeight?: number } = {}) => searchChunks(supabase, {
+    queryText: record.question, queryEmbedding: embeddings[i]!, matchCount, ...weights,
   })
   const [generationHits, hybrid, dense, keyword] = await withRetry(`${record.id} search`, () => Promise.all([
-    search(DEFAULT_TOP_K, 1, 1), // what the chat route retrieves
-    search(10, 1, 1),
-    // A zero-weight arm still contributes rows, with score 0: not that arm's hits.
-    search(10, 0, 1).then(hits => hits.filter(h => h.score > 0)),
-    search(10, 1, 0).then(hits => hits.filter(h => h.score > 0)),
+    search(DEFAULT_TOP_K), // what the chat route retrieves
+    search(10),
+    // v1 of hybrid_search returned a zero-weight arm's rows with score 0 (v2
+    // drops them itself); either way they are not this arm's hits.
+    search(10, { fullTextWeight: 0 }).then(hits => hits.filter(h => h.score > 0)),
+    search(10, { semanticWeight: 0 }).then(hits => hits.filter(h => h.score > 0)),
   ]))
   const sources: SourceRef[] = toSources(generationHits, filenameById)
 

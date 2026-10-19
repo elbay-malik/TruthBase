@@ -19,7 +19,8 @@
     "ingest:golden": "tsx --env-file=.env scripts/ingest-golden.ts",
     "fixtures:highlights": "tsx scripts/build-highlight-fixtures.ts",
     "eval:answers": "tsx --env-file=.env scripts/eval-answers.ts",
-    "check:viewer": "tsx --env-file=.env scripts/check-viewer.ts"
+    "check:viewer": "tsx --env-file=.env scripts/check-viewer.ts",
+    "tune:retrieval": "tsx --env-file=.env scripts/tune-retrieval.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.9",
@@ -50,6 +51,7 @@
     "eslint": "^10.6.0",
     "happy-dom": "^20.10.6",
     "playwright-core": "^1.61.1",
+    "postgres": "^3.4.9",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^4.1.12",

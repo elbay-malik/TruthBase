@@ -127,12 +127,11 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 - **Runtime config from env goes through `destr`**, so `NUXT_INGEST_TOKEN=12345` arrives as a number. Coerce with `String()` before hashing.
 - **Client disconnects:** the chat route aborts retrieval and generation when the response closes early (Stop button, closed tab). Ingestion checks the same signal between embedding batches and between the store's steps (upload, document row, each chunk batch), and an abort mid-store rolls back like any failure. An abandoned upload stops spending quota and leaves no document behind.
 - **Prompt injection:** sources are wrapped in `<source id="n">` tags, look-alike tags inside document text are neutralised, and the instructions say source text is never an instruction. That reduces the risk but doesn't remove it ([ADR-0005](./adr/0005-citations-and-grounding.md)).
-- **Eval hygiene:** a zero-weight RRF arm still returns rows with score 0, so single-arm recall must drop them. `hybrid_search`'s candidate pools scale with `match_count`, so the eval retrieves generation sources with the chat route's `matchCount` instead of truncating a top-10 list.
+- **Eval hygiene:** `hybrid_search` v1 returned a zero-weight arm's rows with score 0, so single-arm recall must drop them (v2 drops them in SQL). v1's candidate pools scaled with `match_count`, so the eval retrieves generation sources with the chat route's `matchCount` instead of truncating a top-10 list. Since Phase 6 it also sends no weights, so the RPC's tuned defaults apply exactly as for the chat.
 - **Accepted advisories** (`pnpm audit`, none critical) are listed in `pnpm-workspace.yaml`. They're dev-only or unreachable from the app, and CI fails only on critical ones.
 
 **Deferred (tracked):**
-- RRF score ties have no tie-breaker in `hybrid_search` (Phase 6, needs a migration).
-- The keyword arm returns few rows for natural-language questions: `hybrid_search` uses `websearch_to_tsquery`, which ANDs every term, so keyword-only recall@10 is 27%. Phase 6 evaluates an OR'd query, or a strict query with an OR fallback.
+- ~~RRF score ties have no tie-breaker~~ and ~~the keyword arm ANDs every term (keyword-only recall@10 27%)~~: both fixed by `hybrid_search` v2 in Phase 6 ([ADR-0006](./adr/0006-hybrid-search.md)).
 - The rate limiter trusts `X-Forwarded-For`; set `security.rateLimiter.ipHeader` to the host's trusted header and use a shared storage driver at deploy (Phases 11 and 14). `/api/chat` (10/min) and `/api/search` (30/min) now have tighter per-route limits.
 - A document row is listed while its chunks are still being inserted (a `status` column comes with Phase 11 uploads).
 - `check:viewer` drives the deep-link path. Clicking chips in a live answer is covered by the Phase 13 Playwright E2E.

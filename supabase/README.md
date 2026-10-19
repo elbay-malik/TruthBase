@@ -14,13 +14,14 @@ Applied in filename (timestamp) order:
 | `migrations/20261016203928_hybrid_search.sql` | `hybrid_search(...)` RPC — RRF fusion of the two arms, optional single-document filter, returns the fused `score`; executable by `service_role` only |
 | `migrations/20261016203929_keep_alive.sql` | `keep_alive` table + RLS read policy for the anti-pause ping |
 | `migrations/20261016205210_documents_bucket.sql` | Private `documents` Storage bucket (PDF only, 20 MB limit) for ingested PDFs; served through short-lived signed URLs (Phase 3) |
+| `migrations/20261019120000_hybrid_search_v2.sql` | Phase 6 `hybrid_search` v2: OR'ed keyword terms, tuned defaults (keyword weight 0.5, k 60, 40 candidates per arm), index-eligible semantic arm, deterministic ties ([ADR-0006](../docs/adr/0006-hybrid-search.md)) |
 
 ## How to apply
 
 **Now (no CLI needed):** create a Supabase project, open the **SQL Editor**, and
 run each migration file in order.
 
-**Hosted project** (`ezgfuoaukozwylgkdtft`): all four migrations were applied
+**Hosted project** (`ezgfuoaukozwylgkdtft`): the first four migrations were applied
 on 2026-10-16 with the Supabase MCP server's `apply_migration` (the first three
 in Phase 2, `documents_bucket` in Phase 3), so they are in its migration
 history and the CLI sees them as already applied. Check with
@@ -38,13 +39,17 @@ history and the CLI sees them as already applied. Check with
 
 [`tests/hybrid_search.sql`](./tests/hybrid_search.sql) seeds a 5-row corpus whose
 keyword and semantic rankings are known by construction, asserts the fused
-order, the exact RRF score, both weights, the document filter, English stemming,
-and access control (anon: no rows via RLS, no RPC execute, keep_alive readable),
-prints the fused ranking, and **rolls back**. Run it on an empty database:
+order, the exact RRF scores (v2 defaults and explicit parameters), both
+weights, the document filter, English stemming, OR matching of query terms
+(including punctuation-joined words and a hyphenated control ID),
+`candidate_count`, no zero-score rows, and access control (anon: no rows via
+RLS, no RPC execute, keep_alive readable), prints the fused ranking, and
+**rolls back**. Run it on an empty database:
 
-- **Hosted:** paste it into the SQL Editor and run. Expect two `NOTICE … all
-  assertions passed` lines and labels `1, 2, 3, 4` with scores
-  `0.038839, 0.038476, 0.019231, 0.018519`.
+- **Hosted:** paste it into the SQL Editor and run. Expect three `NOTICE …
+  passed` lines and labels `1, 2, 3, 4` with scores
+  `0.024458, 0.024070, 0.016129, 0.015625` (v2 defaults: k 60, keyword weight
+  0.5; v1 printed `0.038839, 0.038476, 0.019231, 0.018519`).
 - **CI:** the `db` job in [`ci.yml`](../.github/workflows/ci.yml) applies the
   migrations to `supabase/postgres` (the image Supabase hosts) and runs it on
   every push.
@@ -73,5 +78,10 @@ For the keep-alive GitHub Action, add repo secrets `SUPABASE_URL` and
   [TECH_NOTES §2](../docs/TECH_NOTES.md)) — fits the 500 MB free budget.
 - **HNSW cosine** (`vector_cosine_ops`, `<=>`) is the applied default; an
   inner-product variant is documented inline in the init migration.
-- **RRF `k` = 50** is a function parameter, so Phase 6 tuning needs no schema
-  change. Over-fetch is `least(match_count, 30) * 2` per arm before fusing.
+- **RRF defaults (v2, Phase 6):** `k` = 60, keyword weight 0.5, semantic
+  weight 1, `candidate_count` = 40 rows per arm (capped at 100), independent of
+  `match_count` (capped at 30). All are function parameters, so re-tuning is a
+  `create or replace`, not an app deploy ([ADR-0006](../docs/adr/0006-hybrid-search.md)).
+  v1 used k 50, weights 1/1, and `least(match_count, 30) * 2` per arm.
+- **The semantic arm is an exact scan.** The SQL function's generic plan never
+  picks the HNSW index; exact is exhaustive and fine at this size (ADR-0006).
