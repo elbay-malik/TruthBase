@@ -10,5 +10,5 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
   // Nitro's auto-imports, for server utils a unit test imports (quota.ts).
-  "include": ["scripts/**/*.ts", "test/unit/**/*.ts", ".nuxt/types/nitro-imports.d.ts"]
+  "include": ["scripts/**/*.ts", "test/unit/**/*.ts", "test/e2e/**/*.ts", "playwright.config.ts", ".nuxt/types/nitro-imports.d.ts"]
 }

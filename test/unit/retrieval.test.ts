@@ -47,6 +47,14 @@ describe('searchChunks', () => {
     })
   })
 
+  it('maps rows in the fused order the RPC returns, and no data to no hits', async () => {
+    const row = (id: string, score: number) => ({ id, document_id: 'd1', page_number: null, content: id, highlight: null, created_at: '', score })
+    const ranked = client({ data: [row('b', 0.03), row('a', 0.02)], error: null })
+    expect((await searchChunks(ranked.supabase, { queryText: 'q', queryEmbedding: [1] })).map(h => [h.id, h.score])).toEqual([['b', 0.03], ['a', 0.02]])
+    const empty = client({ data: null, error: null })
+    expect(await searchChunks(empty.supabase, { queryText: 'q', queryEmbedding: [1] })).toEqual([])
+  })
+
   it('wraps RPC errors in SearchError', async () => {
     const { supabase } = client({ data: null, error: { message: 'boom' } })
     await expect(searchChunks(supabase, { queryText: 'q', queryEmbedding: [1] })).rejects.toBeInstanceOf(SearchError)

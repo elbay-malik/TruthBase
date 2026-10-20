@@ -81,6 +81,75 @@ describe('chunkPage', () => {
     const text = 'x'.repeat(150)
     expectWellFormed(text, chunkPage(text, opts), opts.maxChars + opts.minChars)
   })
+
+  it('fills a chunk up to exactly maxChars and splits one character later', () => {
+    const exact = `${'A'.repeat(29)}. ${'B'.repeat(28)}.` // 30 + 1 + 29 = 60
+    expect(chunkPage(exact, opts)).toEqual([{ start: 0, end: 60 }])
+    const over = `${'A'.repeat(29)}. ${'B'.repeat(29)}.` // 61: the 30-char sentence exceeds the overlap budget
+    expect(chunkPage(over, opts)).toEqual([{ start: 0, end: 30 }, { start: 31, end: 61 }])
+  })
+
+  it('merges a tail shorter than minChars into the previous chunk, but not one of exactly minChars', () => {
+    const noOverlap = { ...opts, overlapChars: 0 }
+    const short = `${'A'.repeat(50)}. ${'B'.repeat(8)}.` // tail of 9 chars
+    expect(chunkPage(short, noOverlap)).toEqual([{ start: 0, end: 61 }])
+    const kept = `${'A'.repeat(50)}. ${'B'.repeat(9)}.` // tail of 10 chars
+    expect(chunkPage(kept, noOverlap)).toEqual([{ start: 0, end: 51 }, { start: 52, end: 62 }])
+  })
+
+  it('keeps a page shorter than minChars as its only chunk', () => {
+    expect(chunkPage('Hi.', opts)).toEqual([{ start: 0, end: 3 }])
+    expect(chunkPage('x', opts)).toEqual([{ start: 0, end: 1 }])
+  })
+
+  it('emits back-to-back chunks without overlap when overlapChars is 0', () => {
+    const text = Array.from({ length: 12 }, (_, i) => `Sentence number ${i} ends here.`).join(' ')
+    const chunks = chunkPage(text, { ...opts, overlapChars: 0 })
+    expectWellFormed(text, chunks, opts.maxChars + opts.minChars)
+    for (let i = 1; i < chunks.length; i++) expect(chunks[i]!.start).toBe(chunks[i - 1]!.end + 1)
+  })
+
+  it('keeps a closing quote or bracket with its sentence', () => {
+    // maxChars 20 leaves room for one more word, so a word-boundary split
+    // (sentence end missed) would differ from sentence packing.
+    const one = { maxChars: 20, overlapChars: 0, minChars: 0 }
+    const quoted = 'He said "stop." Then left.'
+    expect(chunkPage(quoted, one).map(c => quoted.slice(c.start, c.end))).toEqual(['He said "stop."', 'Then left.'])
+    const bracketed = '(See note one.) Next one.'
+    expect(chunkPage(bracketed, one).map(c => bracketed.slice(c.start, c.end))).toEqual(['(See note one.)', 'Next one.'])
+  })
+
+  it('packs abbreviation and decimal false sentence ends back into one chunk', () => {
+    const text = 'See e.g. Table 2.1 by Smith et al. for details.'
+    expect(chunkPage(text, opts)).toEqual([{ start: 0, end: text.length }])
+  })
+
+  // Seeded, so failures reproduce: mixed Latin / CJK / over-long tokens under
+  // random options must always satisfy the invariants.
+  it('stays well-formed on randomized pages and options', () => {
+    let seed = 0x13
+    const random = () => { // mulberry32
+      seed = (seed + 0x6D2B79F5) | 0
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    const int = (lo: number, hi: number) => lo + Math.floor(random() * (hi - lo + 1))
+    const pick = <T>(xs: T[]) => xs[int(0, xs.length - 1)]!
+    const word = () => 'abcdefghij'.slice(0, int(1, 10)).repeat(random() < 0.02 ? 30 : 1)
+    const sentence = () => random() < 0.25
+      ? `${'漢字かな'.repeat(int(1, 15))}${pick(['。', '！', '？」'])}`
+      : `${Array.from({ length: int(1, 25) }, word).join(' ')}${pick(['.', '!', '?', '."', '.)', ''])}`
+
+    for (let run = 0; run < 300; run++) {
+      const text = Array.from({ length: int(1, 30) }, sentence).reduce((acc, s) => acc + (acc && random() < 0.8 ? ' ' : '') + s, '')
+      const maxChars = int(20, 300)
+      const options = { maxChars, overlapChars: int(0, maxChars), minChars: int(0, Math.floor(maxChars / 3)) }
+      const chunks = chunkPage(text, options)
+      expectWellFormed(text, chunks, maxChars + options.minChars)
+      for (const c of chunks.slice(0, -1)) expect(c.end - c.start).toBeLessThanOrEqual(maxChars)
+    }
+  })
 })
 
 describe('chunkPage on the golden PDFs (default options)', () => {

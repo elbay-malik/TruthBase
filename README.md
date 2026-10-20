@@ -1,6 +1,6 @@
 # TruthBase
 
-> 🚧 **Status: Phases 0–12 built**: grounded chat with citations, and clicking a citation scrolls the PDF to the exact highlighted passage (placement verified on all 60 golden spans at 3 zoom levels; one TeX math glyph is a known gap, see ADR-0004), on top of tuned hybrid search, LLM reranking, multi-query expansion, evals, tracing and daily quotas, in an accessible, keyboard-operable UI (Lighthouse accessibility 100, see [Quality](#quality)). Some final numbers are still pending (reranking, query rewriting, the first full LLM eval; see ADR-0007/0008/0009). Next: Phase 13, end-to-end tests. See [ROADMAP.md](./ROADMAP.md) for progress.
+> 🚧 **Status: Phases 0–13 built**: grounded chat with citations, and clicking a citation scrolls the PDF to the exact highlighted passage (placement verified on all 60 golden spans at 3 zoom levels; one TeX math glyph is a known gap, see ADR-0004), on top of tuned hybrid search, LLM reranking, multi-query expansion, evals, tracing and daily quotas, in an accessible, keyboard-operable UI (Lighthouse accessibility 100, see [Quality](#quality)). Some final numbers are still pending (reranking, query rewriting, the first full LLM eval; see ADR-0007/0008/0009). Vitest covers chunking, highlight rects and RRF fusion, and a Playwright E2E checks citation → highlight on every golden span in CI. Next: Phase 14, deployment. See [ROADMAP.md](./ROADMAP.md) for progress.
 
 **TruthBase** is a verifiable, advanced-RAG knowledge base built on Nuxt 4. Ingest PDFs (operator-only until Phase 11b adds uploads), ask questions, and get grounded answers with inline citations — where **clicking a citation scrolls the PDF viewer to the exact page and highlights the exact supporting passage**.
 
@@ -14,7 +14,7 @@ What is built today (Phases 0–12):
 - **Accessible UI**: WCAG AA contrast in light and dark, a visible focus ring on every control, and a keyboard-only citation flow (`/`, Tab, Enter, `[` `]`, Esc) with live announcements. Brotli/gzip for HTML, JSON and static assets; the landing page loads no PDF.js or PDF until a citation or document is opened.
 - **Abuse protection**: daily per-client and whole-demo caps in Postgres on top of the per-minute limiter, with a clean 429 ([ADR-0010](./docs/adr/0010-abuse-protection.md)). The demo workspace needs no login.
 
-Planned (see [ROADMAP.md](./ROADMAP.md)): bring-your-own-docs uploads behind Supabase Auth (Phase 11b), end-to-end tests (Phase 13) and deployment (Phase 14).
+Planned (see [ROADMAP.md](./ROADMAP.md)): bring-your-own-docs uploads behind Supabase Auth (Phase 11b) and deployment (Phase 14).
 
 📋 Full architecture and phase-by-phase plan: [docs/EXECUTION_PLAN.md](./docs/EXECUTION_PLAN.md)
 🔧 Version corrections & API deltas vs. the original brief: [docs/TECH_NOTES.md](./docs/TECH_NOTES.md)
@@ -50,9 +50,12 @@ pnpm dev            # dev server at http://localhost:3000
 pnpm typecheck      # `nuxt typecheck` + the CLI scripts (tsconfig.scripts.json)
 pnpm lint           # eslint flat config
 pnpm test           # vitest (unit + nuxt projects)
+pnpm test:e2e:build # production build + Playwright E2E (no secrets, no network)
 ```
 
-Operator scripts (need `.env`): `pnpm ingest:golden` seeds the golden PDFs, the evals are listed in [docs/evals](./docs/evals/README.md), and `pnpm check:viewer` runs the highlight acceptance check against `NUXT_DISABLE_RATE_LIMIT=1 pnpm dev`. Install its browser once first with `pnpm exec playwright-core install chromium`.
+The E2E suite runs the production build with the backend replaced by repo fixtures and a local Supabase stub ([ADR-0012](./docs/adr/0012-hermetic-e2e.md)): ask → click a citation → the overlay sits on the cited lines, on the right page, at 50/100/200% zoom, desktop and phone. Install its browser once with `pnpm exec playwright install chromium`; more in [TECH_NOTES §19](./docs/TECH_NOTES.md#19-testing-phase-13).
+
+Operator scripts (need `.env`): `pnpm ingest:golden` seeds the golden PDFs, the evals are listed in [docs/evals](./docs/evals/README.md), and `pnpm check:viewer` runs the highlight acceptance check against `NUXT_DISABLE_RATE_LIMIT=1 pnpm dev`. It uses the same browser as the E2E suite.
 
 Secrets are server-only via Nuxt `runtimeConfig` — copy [.env.example](./.env.example) to `.env` for local development. Nothing secret ever ships to the client.
 

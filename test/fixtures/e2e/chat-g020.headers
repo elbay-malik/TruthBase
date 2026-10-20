@@ -1,0 +1,17 @@
+HTTP/1.1 200 OK
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=15552000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Download-Options: noopen
+X-Frame-Options: SAMEORIGIN
+X-Permitted-Cross-Domain-Policies: none
+X-XSS-Protection: 0
+access-control-allow-origin: *
+cache-control: no-cache
+connection: keep-alive
+content-type: text/event-stream
+x-accel-buffering: no
+x-vercel-ai-ui-message-stream: v1
+Date: Tue, 20 Oct 2026 15:56:25 GMT
+Transfer-Encoding: chunked
+

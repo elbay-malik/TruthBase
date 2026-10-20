@@ -46,6 +46,19 @@ describe('blendRanking', () => {
     expect(blendRanking([1, 2, 3], [3, 1, 2], 0)).toEqual([1, 2, 3])
     expect(blendRanking([1, 2, 3], [3, 1, 2], 9)).toEqual([3, 1, 2])
   })
+
+  it('handles empty input and a reranked list identical to the fused one', () => {
+    expect(blendRanking([], [], 4)).toEqual([])
+    expect(blendRanking([1, 2, 3], [1, 2, 3], 2)).toEqual([1, 2, 3])
+  })
+
+  it('keeps every fused hit exactly once whatever the head size', () => {
+    const fused = [1, 2, 3, 4, 5]
+    for (let head = 0; head <= 6; head++) {
+      const out = blendRanking(fused, [5, 3, 1, 4, 2], head)
+      expect([...out].sort()).toEqual(fused)
+    }
+  })
 })
 
 describe('buildRerankPrompt', () => {

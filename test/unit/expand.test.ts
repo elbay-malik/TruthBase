@@ -69,6 +69,47 @@ describe('fuseRankings', () => {
     const fused = fuseRankings([[hit('a')], [hit('b')]], [0.5, 1])
     expect(fused.map(h => h.id)).toEqual(['b', 'a'])
   })
+
+  it('returns nothing for no lists or only empty lists', () => {
+    expect(fuseRankings([])).toEqual([])
+    expect(fuseRankings([[], []])).toEqual([])
+  })
+
+  it('keeps a single list in its own order', () => {
+    expect(fuseRankings([['a', 'b', 'c'].map(hit)]).map(h => h.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('interleaves equal-rank hits of different lists in list order', () => {
+    const fused = fuseRankings([[hit('a'), hit('b')], [hit('c'), hit('d')], [hit('e')]])
+    expect(fused.map(h => h.id)).toEqual(['a', 'c', 'e', 'b', 'd'])
+  })
+
+  it('lists a hit found by several queries once, keeping the first list\'s copy', () => {
+    const own = { ...hit('a'), score: 0.9 }
+    const fused = fuseRankings([[own, hit('b')], [hit('b'), { ...hit('a'), score: 0.1 }]])
+    expect(fused.map(h => h.id)).toEqual(['a', 'b'])
+    expect(fused[0]).toBe(own)
+  })
+
+  it('lets k trade a single list\'s top hit against agreement between lists', () => {
+    const lists = [[hit('a'), hit('b'), hit('c')], [hit('d'), hit('c')]]
+    // k = 0: a and d (1 each, a first by list order) beat c = 1/3 + 1/2.
+    // k = 60: c = 1/63 + 1/62 beats a and d = 1/61.
+    expect(fuseRankings(lists, [], 0).map(h => h.id)).toEqual(['a', 'd', 'c', 'b'])
+    expect(fuseRankings(lists, [], 60)[0]!.id).toBe('c')
+  })
+
+  it('scores 1-based ranks: weight / (k + rank)', () => {
+    // k = 1: b = 1/3 + 1/3 beats a and c = 1/2. With 0-based ranks all three would tie at 1.
+    const lists = [[hit('a'), hit('b')], [hit('c'), hit('b')]]
+    expect(fuseRankings(lists, [], 1).map(h => h.id)).toEqual(['b', 'a', 'c'])
+  })
+
+  it('still lists the hits of a zero-weight list, after the weighted ones', () => {
+    const fused = fuseRankings([[hit('a')], [hit('b'), hit('a')]], [0, 1])
+    expect(fused.map(h => h.id)).toEqual(['b', 'a'])
+    expect(fuseRankings([[hit('a')], [hit('b')]], [1, 0]).map(h => h.id)).toEqual(['a', 'b'])
+  })
 })
 
 describe('expand', () => {
@@ -192,6 +233,17 @@ describe('retrieveSources with an expander', () => {
       return texts.map(() => [1])
     }
     await expect(retrieveSources(supabase, embedThenAbort, 'What are the tiers?', { expander: answering(['CSF tiers']), abortSignal: abort.signal })).rejects.toThrow('aborted')
+  })
+
+  it('caps the fused list at the RPC match count (30) before taking topK', async () => {
+    const question = Array.from({ length: 25 }, (_, i) => `q${i + 1}`)
+    const rewrite = Array.from({ length: 25 }, (_, i) => `r${i + 1}`)
+    const { rpc, supabase } = fakeSupabase({ 'What are the tiers?': question, 'CSF tiers': rewrite })
+    const result = await retrieveSources(supabase, embed, 'What are the tiers?', { topK: 40, expander: answering(['CSF tiers']) })
+    expect(rpc.mock.calls.map(([, args]) => (args as unknown as { match_count: number }).match_count)).toEqual([30, 30])
+    // Same rank in both lists: the question's hit first, then the rewrite's.
+    expect(result.sources.map(s => s.chunkId)).toEqual(question.slice(0, 15).flatMap((q, i) => [q, rewrite[i]!]))
+    expect(result.sources.map(s => s.index)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1))
   })
 
   it('searches the question alone when the expander returns nothing', async () => {

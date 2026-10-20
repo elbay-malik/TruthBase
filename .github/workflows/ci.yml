@@ -68,6 +68,37 @@ jobs:
       - if: failure()
         run: cat server.log
 
+  # Playwright E2E (Phase 13) against the production build, started without
+  # secrets: ask → click a citation chip → the highlight overlay sits on the
+  # right page where the stored rects say, at 50/100/200% zoom, desktop and
+  # phone. The browser's /api/* requests are answered from repo fixtures and
+  # the SSR documents listing from a local stub (test/e2e/fixtures.ts).
+  e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # The browser build matching the pinned @playwright/test, with its system libraries.
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      # Also on success: a test that passed only on its retry is flaky, and the
+      # report (with the first attempt's trace) is how that shows.
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   # Applies supabase/migrations to the same Postgres image Supabase hosts
   # (pgvector, anon/authenticated/service_role roles), runs the
   # hybrid_search acceptance check and the retrieval quality gate. Connects as non-superuser `postgres`,

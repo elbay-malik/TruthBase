@@ -82,6 +82,7 @@ These decisions get recorded as they are made, using the [ADR template](./adr/te
 | 0009 | **Query rewriting**: multi-query vs HyDE, guardrails (entity preservation, rerank after fusion) | 📝 Proposed (final numbers pending) |
 | 0010 | **Abuse protection and demo mode**: rate-limit store, caps, BYO-docs gating | ✅ Accepted (BYO docs: Phase 11b) |
 | 0011 | **Deployment topology**: Workers Paid vs free Workers + Node ingestion host | 14 |
+| 0012 | **Hermetic E2E**: browser-level API fixtures and a Supabase stub vs a live backend | ✅ Accepted |
 
 ## Risks
 
