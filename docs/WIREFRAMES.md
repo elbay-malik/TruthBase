@@ -34,12 +34,12 @@ Components map to Nuxt UI v4 where possible: `UButton`, `UBadge`, `UTextarea`, `
 │ └──────────────────────────────────────┘ │                                                │
 │  Answers only from these documents.      │                                                │
 └──────────────────────────────────────────┴────────────────────────────────────────────────┘
-          chat pane (~40%, resizable)                    viewer pane (~60%)
+             chat pane (~42%, fixed)                      viewer pane (~58%)
 ```
 
 - Example questions are taken from the golden set, so a first-time visitor always gets a good answer.
 - The document selector scopes retrieval (`filter_document_id`). "All documents" is the default.
-- The viewer shows the first document until a citation is clicked.
+- The viewer shows the selected document until a citation is clicked. With "All documents" it starts empty ("Click a citation to see the exact passage here."), so no PDF is downloaded before a question; its own switcher can open any document from page 1.
 
 ## 2. Desktop: answer streaming
 
@@ -124,7 +124,7 @@ Behavior:
 - A refusal never shows citation chips. "Possibly related" links open the page without a highlight, which marks them as not evidence.
 - Visual tone is neutral (`UAlert`, info color). It must not look like an error, because refusing is correct behavior.
 
-## 5. Upload and ingestion (bring-your-own-docs, Phase 11)
+## 5. Upload and ingestion (bring-your-own-docs, Phase 11b)
 
 ```
 │  Documents                                         [ + Upload PDF ]  │
@@ -189,16 +189,29 @@ Behavior:
 - The highlight is not shown by color alone: it has a 2 px outline plus a tint, and meets the contrast requirement in both themes.
 - The PDF text layer stays selectable and readable by screen readers. The overlay is `aria-hidden`.
 
-## Implementation status (after Phase 5 and its audit, 2026-10-18)
+## Implementation status (after Phase 12, 2026-10-20)
 
-Built as specified in §1–4, §6, the keyboard table and the a11y notes. That includes the §3.4 tooltip excerpt, the §3.7 text-match fallback, §4's "possibly related" links that open the page without a highlight, and `Retry` with the question kept. Screen readers get one status line ("Searching…", "Answer ready, 2 sources") instead of every streamed token. Deferred:
+Built as specified in §1–4, §6, §7, the keyboard table and the a11y notes. That includes the §3.4 tooltip excerpt, the §3.7 text-match fallback, §4's "possibly related" links that open the page without a highlight (one per page, at most three), and `Retry` with the question kept. Screen readers get one status line ("Searching…", "Answer ready, 2 sources") instead of every streamed token. Items deferred after Phase 5 and built in Phase 12:
 
-| Item | Where specified | Deferred to |
+- **Viewer header (§1, §3):** a document switcher, `◀ n / N ▶` page buttons with a page-number field, and zoom buttons with 24 px targets (44 px on phones). Page jumps and zoom steps are announced.
+- **`/` shortcut:** focuses the question input from anywhere except a text field or an open menu.
+- **`Retry` in the viewer** when a PDF fails to load, announced as "Couldn't load <file>. Retry available."; focus stays in the viewer.
+- **Daily-cap state (§7):** a 429 from the daily quota ([ADR-0010](./adr/0010-abuse-protection.md)) shows its message with "Back in about …, at <time>" and keeps the input read-only (still focusable) until the reset, then offers the question again. The per-minute limit still shows a "wait a minute" message.
+
+Decisions that change the wireframes:
+
+- The split pane is fixed at 42/58 instead of resizable. It works from 1024 to 1920 px, and a keyboard-operable separator adds little to the showcase.
+- On desktop the viewer starts empty under "All documents" (§1 note above) instead of showing the first document.
+- The highlight drops overlay lines in the top and bottom 7.5% of the page (running headers, footers, page numbers that a chunk includes), unless the whole passage is there.
+
+Still deferred:
+
+| Item | Where specified | Why |
 |---|---|---|
-| Document switcher (`▾`) and `◀ n / N ▶` page buttons in the viewer header (the header shows `p. n / N`, and the chat's document filter picks the default document) | §1, §3 | Phase 12 |
-| `/` shortcut to focus the question input | Keyboard table | Phase 12 |
-| Rate-limit countdown with the input disabled (today: a "wait a minute" message) | §7 | Phase 11 |
-| `Retry` in the viewer when a PDF fails to load | §7 | Phase 12 |
-| Upload and ingestion UI | §5 | Phase 11 |
+| `Evals ↗` / `GitHub ↗` header links and the "4 demo PDFs · public domain / CC BY 4.0" line | §1 | Their public URLs exist only after deployment (Phase 14) |
+| Resizable split pane | §1 | See decisions above |
+| Upload and ingestion UI | §5 | Operator-only until Phase 11b ([ADR-0010](./adr/0010-abuse-protection.md)) |
+| Running headers and footers stripped from chunk text at ingestion | §3.4 tooltip | Needs a chunker change, re-ingestion and a new retrieval-eval baseline; the render-time filter covers the highlight |
+| Dimmed PDF pages in dark mode, "zoom to passage" on phones | §6 | Contrast risk for the highlight colours; fit-width plus manual zoom works |
 
 The showcase questions still work: in the post-audit Groq eval, g-020 is answered with a correct citation (both Phase 4 runs refused it), and g-047 is still correctly refused.

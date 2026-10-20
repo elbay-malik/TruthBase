@@ -1,7 +1,8 @@
 import { z } from 'zod'
+import { MAX_QUESTION_LENGTH } from './limits'
 
-// API request contracts. Server routes validate against these; the client
-// can reuse them for form validation. Import via the #shared alias.
+// API request contracts. Server routes validate against these. The client
+// imports plain limits from ./limits instead, to keep zod out of its bundle.
 
 /**
  * POST /api/chat. Single-turn by design (Phase 4): every question is answered
@@ -9,12 +10,12 @@ import { z } from 'zod'
  * not the conversation.
  */
 export const chatRequestSchema = z.object({
-  question: z.string().trim().min(1).max(1000),
+  question: z.string().trim().min(1).max(MAX_QUESTION_LENGTH),
   documentId: z.uuid().optional(),
 })
 
 export const searchRequestSchema = z.object({
-  query: z.string().trim().min(1).max(1000),
+  query: z.string().trim().min(1).max(MAX_QUESTION_LENGTH),
   documentId: z.uuid().optional(),
   // hybrid_search returns at most 30 rows (its RRF candidate pool).
   topK: z.number().int().positive().max(30).default(10),

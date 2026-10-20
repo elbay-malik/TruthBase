@@ -113,8 +113,10 @@ watch(() => [rendered.value, useFallback.value, fallbackRange.value?.start, fall
 }, { immediate: true })
 
 const boxes = computed<Box[]>(() => {
-  if (useFallback.value) return fallbackBoxes.value
-  return props.rects?.length ? toViewportBoxes(viewport.value, props.rects) : []
+  const all = useFallback.value
+    ? fallbackBoxes.value
+    : props.rects?.length ? toViewportBoxes(viewport.value, props.rects) : []
+  return dropRunningMargins(all, viewport.value.height)
 })
 
 defineExpose({ boxes, viewport })
@@ -123,6 +125,8 @@ defineExpose({ boxes, viewport })
 <template>
   <div
     class="pdf-page-slot relative bg-white shadow-sm ring-1 ring-black/5"
+    role="group"
+    :aria-label="`Page ${page.pageNumber}`"
     :style="{ width: `${viewport.width}px`, height: `${viewport.height}px` }"
     :data-page-number="page.pageNumber"
   >
@@ -132,12 +136,15 @@ defineExpose({ boxes, viewport })
     />
     <div
       v-if="!rendered"
-      class="absolute inset-0 grid place-items-center text-xs text-muted"
+      class="absolute inset-0 grid place-items-center text-xs text-slate-600"
+      aria-hidden="true"
     >
       Page {{ page.pageNumber }}
     </div>
+    <!-- No z-index: it would isolate the overlay, and the tint's multiply
+         would no longer reach the canvas. Later in tree order = on top. -->
     <div
-      class="pointer-events-none absolute inset-0 z-10"
+      class="pointer-events-none absolute inset-0"
       aria-hidden="true"
     >
       <div
@@ -151,21 +158,32 @@ defineExpose({ boxes, viewport })
 </template>
 
 <style>
-/* Tint + outline: the highlight is not conveyed by colour alone (WIREFRAMES a11y). */
+/*
+ * Tint + outline: the highlight is not conveyed by colour alone (WIREFRAMES a11y).
+ * The outline is 2px yellow-700 (4.9:1 on the always-white page) and is not
+ * blended; only the tint (on ::before) multiplies with the page.
+ */
 .pdf-highlight {
-  background: rgb(250 204 21 / 0.38);
-  box-shadow: 0 0 0 1.5px rgb(202 138 4 / 0.9);
+  outline: 2px solid #a16207;
   border-radius: 2px;
+}
+
+.pdf-highlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(250 204 21 / 0.42);
   mix-blend-mode: multiply;
   animation: pdf-highlight-flash 600ms ease-out 1;
 }
 
 @keyframes pdf-highlight-flash {
   0% { background: rgb(250 204 21 / 0.85); }
-  100% { background: rgb(250 204 21 / 0.38); }
+  100% { background: rgb(250 204 21 / 0.42); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pdf-highlight { animation: none; }
+  .pdf-highlight::before { animation: none; }
 }
 </style>

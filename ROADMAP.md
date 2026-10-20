@@ -51,8 +51,9 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 - [x] **Phase 11 — Rate limiting, demo mode, anti-abuse** *(~1 wk)*
   Exceeding caps returns clean 429; demo workspace works without login.
   <br>Done: see [ADR-0010](./docs/adr/0010-abuse-protection.md).
-- [ ] **Phase 12 — UI polish + accessibility** *(~1.5 wk)*
+- [x] **Phase 12 — UI polish + accessibility** *(~1.5 wk)*
   Lighthouse a11y/perf captured; keyboard-only citation flow works.
+  <br>Done: five audits (axe, Lighthouse, keyboard, runtime, visual) against the production build, fixed and re-run. **Lighthouse 13.5.0, median of 3 ([README](./README.md#quality), `pnpm lighthouse`): accessibility 100, best practices 100 and SEO 100 on `/` and the citation deep link, mobile and desktop (from 89–95 / 96); performance 98 mobile and 100 desktop (from 59 / 90), mobile LCP 9.4 → 2.4 s, CLS < 0.001, TBT ≤ 34 ms.** The gains come from brotli/gzip on HTML, JSON and assets, loading `ai`/zod and PDF.js off the first paint, and an empty viewer on landing (300 KiB instead of 1.5–3.4 MB). axe: 0 violations in 44 runs (11 states × desktop/phone × light/dark). AA contrast in both themes through darker light-mode semantic tokens, a solid focus ring (≥ 5.5:1), and a 4.9:1 highlight outline. **Keyboard-only flow verified in Chromium:** `/` focuses the question, Tab and Enter open a citation with focus moved to the viewer and "Page 28, Citation 1 of 3" announced, `[` `]` step, Esc returns to the chip of the citation shown; focus never drops to the page body, and Tab cycles inside the phone sheet. The viewer gained the document switcher, page buttons and Retry, and the daily cap shows a countdown with the input read-only. Remaining deferrals (resizable split, header links until Phase 14, stripping running headers at ingestion) are in [WIREFRAMES](./docs/WIREFRAMES.md#implementation-status-after-phase-12-2026-10-20); notes in TECH_NOTES §18.
 - [ ] **Phase 13 — Testing (Vitest + Playwright)** *(~1.5 wk)*
   CI green incl. the E2E citation-to-highlight assertion.
 - [ ] **Phase 14 — Deployment** *(~1 wk)*

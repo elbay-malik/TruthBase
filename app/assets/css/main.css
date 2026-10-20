@@ -1,2 +1,35 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/* Semantic colours that meet WCAG AA. Nuxt UI maps them to the 500 shade in
+   light and 400 in dark (inside @layer theme); white on blue-500 is 3.8:1, so
+   light mode uses darker shades (white on blue-700 is 6.8:1, the 10% tints
+   stay above 4.5:1). Unlayered, so .dark must restate its values. */
+:root,
+.light {
+  --ui-primary: var(--ui-color-primary-700);
+  --ui-info: var(--ui-color-info-700);
+  --ui-error: var(--ui-color-error-700);
+  --ui-warning: var(--ui-color-warning-800);
+}
+
+.dark {
+  --ui-primary: var(--ui-color-primary-400);
+  --ui-info: var(--ui-color-info-400);
+  --ui-error: var(--ui-color-error-300);
+  --ui-warning: var(--ui-color-warning-400);
+}
+
+/* One full-opacity focus ring for every focusable control. Nuxt UI's default
+   is a 25% primary outline (about 1.4:1); this one is at least 5.5:1 against
+   the page and the chip fill in both themes. Unlayered, so it beats the
+   outline utilities; inset rings (box-shadow) stay as they are. An element
+   whose ring would be clipped can pull it inside with [--focus-ring-offset:-2px].
+   Focusable regions (the PDF pane scroller) get it inside by default. */
+:where(a[href], button, input, select, textarea, summary, [role="button"], [role="combobox"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: var(--focus-ring-offset, 2px);
+}
+:where([role="region"][tabindex]) {
+  --focus-ring-offset: -2px;
+}

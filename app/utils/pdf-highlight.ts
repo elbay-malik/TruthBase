@@ -137,6 +137,26 @@ export function toViewportBoxes(viewport: PageViewport, rects: HighlightRect[]):
   })
 }
 
+/**
+ * Share of the page height at the top and bottom where running headers,
+ * footers and page numbers sit. A chunk's lines there are layout noise, not
+ * the cited passage (ingestion keeps them in the chunk text and rects).
+ */
+export const RUNNING_MARGIN = 0.075
+
+/**
+ * Drops boxes whose vertical centre lies in the top or bottom running margin
+ * band, so the highlight shows the passage only. Kept as they are when every
+ * box is in the band (a passage that really is a header or footnote).
+ */
+export function dropRunningMargins(boxes: Box[], pageHeight: number): Box[] {
+  const band = RUNNING_MARGIN * pageHeight
+  const body = boxes.filter((b) => {
+    const centre = (b.y1 + b.y2) / 2
+    return centre >= band && centre <= pageHeight - band
+  })
+  return body.length ? body : boxes
+}
 
 /**
  * Text-layer boxes for [start, end) grouped into lines the way the server
@@ -176,6 +196,3 @@ export function textLayerLines(rendered: RenderedPage, start: number, end: numbe
   }
   return lines.map(l => l.box)
 }
-
-
-

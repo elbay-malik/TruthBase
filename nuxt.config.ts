@@ -21,14 +21,28 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
   ],
 
+  app: {
+    head: {
+      htmlAttrs: { lang: 'en' },
+    },
+  },
+
   css: ['~/assets/css/main.css'],
 
+  ui: {
+    // Theme CSS only for the components the app uses (about half the entry CSS).
+    experimental: { componentDetection: true },
+  },
+
+
   hooks: {
-    // The PDF.js worker (~1.3 MB) is fetched when the viewer first opens a
-    // document (app/utils/pdf-highlight.ts); don't prefetch it on every page.
+    // PDF.js (the ~490 KB library and the ~1.3 MB worker) is loaded when the
+    // viewer first opens a document (app/utils/pdf-highlight.ts), and the page
+    // warms it on intent; ai (with zod) is loaded once the page is idle
+    // (app/composables/useLazyChat.ts). Don't prefetch them during first paint.
     'build:manifest': (manifest) => {
       for (const entry of Object.values(manifest)) {
-        if (entry.file.includes('pdf.worker')) {
+        if (entry.file.includes('pdf.worker') || /\/(pdfjs-dist|ai)\//.test(entry.src ?? '')) {
           entry.prefetch = false
           entry.preload = false
         }
@@ -38,6 +52,9 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    // Prebuilt .gz/.br next to every compressible public asset (_nuxt, /pdfjs);
+    // SSR HTML and API JSON are compressed by server/plugins/compression.ts.
+    compressPublicAssets: { gzip: true, brotli: true },
     // The same PDF.js data files for the browser viewer, same-origin
     // (app/utils/pdf-highlight.ts PDFJS_ASSET_OPTIONS). Versioned with
     // pdfjs-dist, so they can be cached for a day.
@@ -89,6 +106,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    // Public assets get a Cache-Control only through publicAssets.maxAge.
+    '/favicon.ico': { headers: { 'cache-control': 'public, max-age=86400' } },
     // Questions are data, never rendered as HTML; the XSS validator would 400
     // on harmless text like "Tier 2 < Tier 3".
     // Chat spends generation + embedding quota (Groq free tier: 1K req/day),

@@ -27,7 +27,8 @@
     "eval:retrieval": "tsx scripts/eval-retrieval.ts",
     "eval:llm": "PROMPTFOO_PASS_RATE_THRESHOLD=0 pnpm dlx promptfoo@0.124.1 eval -c scripts/promptfoo/promptfooconfig.yaml --no-cache -o .cache/promptfoo-results.json",
     "eval:llm:summary": "tsx --env-file-if-exists=.env scripts/promptfoo/summary.ts",
-    "sample:traces": "tsx --env-file=.env scripts/sample-traces.ts"
+    "sample:traces": "tsx --env-file=.env scripts/sample-traces.ts",
+    "lighthouse": "node scripts/lighthouse.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.9",

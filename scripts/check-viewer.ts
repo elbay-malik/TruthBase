@@ -35,6 +35,8 @@ const { values } = parseArgs({
   },
 })
 const zooms = values.zooms.split(',').map(Number)
+/** Mirrors RUNNING_MARGIN in app/utils/pdf-highlight.ts. */
+const RUNNING_MARGIN = 0.075
 
 interface Fixture { id: string, document: string, page: number, pageHeight: number, chunk: { start: number, end: number, rects: HighlightRect[] } }
 let fixtures: Fixture[] = JSON.parse(await readFile(join(ROOT, 'test/fixtures/highlight-spans.json'), 'utf8'))
@@ -161,7 +163,12 @@ async function check(page: Page, f: Fixture, chunkId: string, zoom: number) {
   }, null, { timeout: 30_000 })
   const m = await page.evaluate(measure, f.page)
 
-  const expected = f.chunk.rects.map(r => ({ x: r.x1 * zoom, y: (f.pageHeight - r.y2) * zoom, w: (r.x2 - r.x1) * zoom, h: (r.y2 - r.y1) * zoom }))
+  // The viewer drops lines in the running header/footer band (dropRunningMargins
+  // in app/utils/pdf-highlight.ts, which tsx can't import: '#shared' aliases);
+  // the band is symmetric, so PDF-space centres select the same lines.
+  const band = RUNNING_MARGIN * f.pageHeight
+  const body = f.chunk.rects.filter(r => (r.y1 + r.y2) / 2 >= band && (r.y1 + r.y2) / 2 <= f.pageHeight - band)
+  const expected = (body.length ? body : f.chunk.rects).map(r => ({ x: r.x1 * zoom, y: (f.pageHeight - r.y2) * zoom, w: (r.x2 - r.x1) * zoom, h: (r.y2 - r.y1) * zoom }))
   const posError = m.boxes.length === expected.length
     ? Math.max(...m.boxes.map((b, i) => Math.max(Math.abs(b.x - expected[i]!.x), Math.abs(b.y - expected[i]!.y), Math.abs(b.w - expected[i]!.w), Math.abs(b.h - expected[i]!.h))))
     : Number.POSITIVE_INFINITY
