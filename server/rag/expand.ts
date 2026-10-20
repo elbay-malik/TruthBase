@@ -1,3 +1,4 @@
+import { updateActiveObservation } from '@langfuse/tracing'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import type { TaskModel, TaskModelChoice } from './model'
@@ -133,6 +134,7 @@ export async function expand(
   catch (error) {
     if (options.abortSignal?.aborted) throw error
     console.warn(`[expand] ${tm.id} failed, retrieving the question alone: ${String(error).slice(0, 200)}`)
+    updateActiveObservation({ level: 'WARNING', statusMessage: `rewrite failed, question searched alone: ${String(error).slice(0, 200)}` })
     return []
   }
 }

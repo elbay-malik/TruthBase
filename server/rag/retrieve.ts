@@ -1,3 +1,4 @@
+import { startActiveObservation } from '@langfuse/tracing'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SourceRef } from '../../shared/types/chat'
 import type { Embedder } from '../ingest/embed'
@@ -13,6 +14,9 @@ import { searchChunks, type SearchHit } from './search'
 // are fused with RRF. With a reranker (Phase 7, ADR-0007), an LLM picks the
 // top RERANK_HEAD of the fused candidates and the rest follow in fused order.
 // Keep the top-k chunks and number them as citable sources.
+//
+// Traced as a Langfuse `retriever` observation with `rewrite` and `rerank`
+// steps (Phase 10); no-ops when tracing is off (server/plugins/tracing.ts).
 
 export const DEFAULT_TOP_K = 8
 
@@ -39,11 +43,28 @@ export interface Retrieval {
   reranked: boolean
 }
 
-export async function retrieveSources(
+export function retrieveSources(
   supabase: SupabaseClient,
   embedQuery: Embedder,
   question: string,
   options: RetrieveOptions = {},
+): Promise<Retrieval> {
+  return startActiveObservation('retrieve', async (observation) => {
+    observation.update({ input: { question, documentId: options.documentId, topK: options.topK ?? DEFAULT_TOP_K } })
+    const result = await retrieve(supabase, embedQuery, question, options)
+    observation.update({
+      output: result.sources.map(s => ({ index: s.index, chunkId: s.chunkId, filename: s.filename, page: s.pageNumber })),
+      metadata: { rewrites: result.rewrites, reranked: result.reranked, expander: options.expander?.id ?? 'off', reranker: options.reranker?.id ?? 'off' },
+    })
+    return result
+  }, { asType: 'retriever' })
+}
+
+async function retrieve(
+  supabase: SupabaseClient,
+  embedQuery: Embedder,
+  question: string,
+  options: RetrieveOptions,
 ): Promise<Retrieval> {
   const topK = options.topK ?? DEFAULT_TOP_K
   // The RPC caps match_count at 30.
@@ -71,8 +92,14 @@ export async function retrieveSources(
   }
 
   const filenameById = await filenames(supabase, hits)
-  const ranked = options.reranker
-    ? await rerank(options.reranker, question, hits, filenameById, { abortSignal: options.abortSignal, timeoutMs: options.stepTimeoutMs })
+  const reranker = options.reranker
+  const ranked = reranker
+    ? await startActiveObservation('rerank', async (observation) => {
+        observation.update({ input: { candidates: hits.map(h => h.id) } })
+        const result = await rerank(reranker, question, hits, filenameById, { abortSignal: options.abortSignal, timeoutMs: options.stepTimeoutMs })
+        observation.update({ output: { reranked: result.reranked, order: result.hits.slice(0, topK).map(h => h.id) } })
+        return result
+      }, { asType: 'chain' })
     : { hits, reranked: false }
   return { sources: toSources(ranked.hits.slice(0, topK), filenameById), rewrites, reranked: ranked.reranked }
 }
@@ -87,7 +114,11 @@ async function rewritesFor(supabase: SupabaseClient, expander: TaskModel, questi
     console.warn(`[expand] document catalog unavailable, retrieving the question alone: ${String(error).slice(0, 200)}`)
     return []
   }
-  return expand(expander, question, catalog.map(catalogLine), { abortSignal: options.abortSignal, timeoutMs: options.stepTimeoutMs })
+  return startActiveObservation('rewrite', async (observation) => {
+    const queries = await expand(expander, question, catalog.map(catalogLine), { abortSignal: options.abortSignal, timeoutMs: options.stepTimeoutMs })
+    observation.update({ output: queries })
+    return queries
+  }, { asType: 'chain' })
 }
 
 export function toSources(hits: SearchHit[], filenameById: Map<string, string>): SourceRef[] {

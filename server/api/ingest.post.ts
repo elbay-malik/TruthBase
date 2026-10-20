@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
+import { propagateAttributes, startActiveObservation } from '@langfuse/tracing'
 import { geminiEmbedder } from '../ingest/embed'
 import { IngestError, ingestPdf, type IngestProgress } from '../ingest/pipeline'
 import { storeDocument } from '../ingest/store'
@@ -13,6 +14,9 @@ import { storeDocument } from '../ingest/store'
 // Ingestion spends embedding quota and storage, so until Phase 11 adds
 // bring-your-own-docs auth it is operator-only: `Authorization: Bearer
 // <NUXT_INGEST_TOKEN>`, and disabled entirely when no token is configured.
+//
+// Traced (Phase 10) as an `ingest` trace: file, outcome and failing stage,
+// with each embedding batch nested as an AI SDK observation.
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024 // matches the `documents` bucket limit
 
@@ -55,22 +59,32 @@ export default defineEventHandler(async (event) => {
     if (!event.node.res.writableFinished) abort.abort()
   })
 
-  ingestPdf(new Uint8Array(file.data), file.filename, {
-    embed: geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_DOCUMENT', abort.signal),
-    store: (document, pdf, chunks, onBatch, signal) => storeDocument(supabase, document, pdf, chunks, onBatch, signal),
-    onProgress: (progress: IngestProgress) => void send('progress', progress),
-    assets: nitroPdfAssets(),
-    signal: abort.signal,
-  })
-    .then(result => send('done', result))
-    .catch((error: unknown) => {
+  const filename = file.filename
+  void propagateAttributes({ traceName: 'ingest', tags: ['ingest'] }, () => startActiveObservation('ingest', async (observation) => {
+    observation.update({ input: { filename, bytes: file.data.length } })
+    try {
+      const result = await ingestPdf(new Uint8Array(file.data), filename, {
+        embed: geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_DOCUMENT', abort.signal),
+        store: (document, pdf, chunks, onBatch, signal) => storeDocument(supabase, document, pdf, chunks, onBatch, signal),
+        onProgress: (progress: IngestProgress) => void send('progress', progress),
+        assets: nitroPdfAssets(),
+        signal: abort.signal,
+      })
+      observation.update({ output: result })
+      await send('done', result)
+    }
+    catch (error: unknown) {
       console.error('[ingest]', error)
       const stage = error instanceof IngestError ? error.stage : undefined
+      observation.update({ level: abort.signal.aborted ? 'WARNING' : 'ERROR', statusMessage: `${stage ?? 'unknown stage'}: ${String(error).slice(0, 300)}` })
       // IngestError messages are written for users; anything else stays in the log.
       const message = error instanceof IngestError ? error.message : 'Ingestion failed.'
-      return send('error', { message, stage })
-    })
-    .finally(() => stream.close())
+      await send('error', { message, stage })
+    }
+    finally {
+      await stream.close()
+    }
+  }, { asType: 'chain' }))
 
   return stream.send()
 })

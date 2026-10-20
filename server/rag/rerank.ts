@@ -1,3 +1,4 @@
+import { updateActiveObservation } from '@langfuse/tracing'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { configuredTaskModel, type TaskModel, type TaskModelChoice } from './model'
@@ -151,6 +152,7 @@ export async function rerank(
   catch (error) {
     if (options.abortSignal?.aborted) throw error
     console.warn(`[rerank] ${rm.id} failed, keeping fused order: ${String(error).slice(0, 200)}`)
+    updateActiveObservation({ level: 'WARNING', statusMessage: `rerank failed, fused order kept: ${String(error).slice(0, 200)}` })
     return { hits, reranked: false, ms: performance.now() - start }
   }
 }

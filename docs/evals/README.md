@@ -33,6 +33,9 @@ pnpm tune:retrieval      # hybrid weights and RRF grid (ADR-0006)
 pnpm eval:rerank         # reranker vs fused order (ADR-0007)
 pnpm eval:multiquery     # multi-query expansion (ADR-0009)
 pnpm eval:answers --label <name>   # answers + citations, the pre-promptfoo eval
+
+# Production traces → golden-set candidates (Langfuse, Phase 10)
+pnpm sample:traces --days 7        # writes .cache/golden-candidates.json for curation
 ```
 
 ## Files here

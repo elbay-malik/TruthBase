@@ -160,3 +160,14 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 - **`node --env-file` fails when the file is missing**; scripts that also run in CI use `--env-file-if-exists`.
 - **qwen3.8-27b produced valid structured output as a judge** in the smoke test, unlike as a reranker (§12); confirm over a full run.
 
+## 15. Tracing (Phase 10)
+
+- **Setup:** `server/plugins/tracing.ts` registers a `NodeTracerProvider` with Langfuse's `LangfuseSpanProcessor` and `registerTelemetry(new LangfuseVercelAiSdkIntegration())`. AI SDK 7 then traces every call by default (telemetry is opt-out; v6's `experimental_telemetry: { isEnabled: true }` is gone). Off unless `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` are set; without a provider, `@langfuse/tracing` calls are no-ops, so tests and evals run untraced.
+- **One trace per chat request:** an `agent` root (`chat`) opened with `startActiveObservation(..., { endOnExit: false })` and ended once by whichever comes first of `streamText`'s `onFinish`/`onAbort`, the stream's `onError`, or the no-sources refusal. Nested: a `retriever` (`retrieve`) with `chain` steps `rewrite` and `rerank`, and the AI SDK's own embedding and generation observations (tokens per call). Root metadata: `ttftMs`, `retrievalMs`, `totalMs`, rewrites, reranked, models.
+- **Fallbacks are visible:** a failed rewrite or rerank marks its step `WARNING` with the error; the failing generation shows as `ERROR` with the provider's message (e.g. Groq's tokens-per-minute 429).
+- **First measured TTFT (dev server, 5 requests):** 1.35–1.6 s for specific questions (no rewrites), 2.2–2.9 s when the question is rewritten (the rewrites are embedded and searched after the rewrite call returns). SPEC's < 2 s p50 depends on how many real questions get rewritten; measure on production traffic with `pnpm sample:traces`. The rewriter on gpt-oss-20b rewrote "What does PR.DS-11 require?", which names an identifier and should be skipped.
+- **Langfuse's v1 public API (`/api/public/traces`) is deprecated on Cloud and removed on 2026-11-16**; read data with `GET /api/public/v2/observations` (filters `name`, `type`, `fromStartTime`; `fields=core,basic,io,metadata`; cursor pagination). The SDK stores observation input/output as JSON strings.
+- **Serverless (Phase 14):** spans export in batches and flush on Nitro's `close` hook, which suits a long-running Node server. On a per-request runtime, call the processor's `forceFlush()` in `event.waitUntil` or traces are lost.
+- **Privacy:** questions and answers are sent to Langfuse (EU region here). Fine for the public demo's documents; Phase 11 uploads should reconsider `mask` or `recordInputs/recordOutputs: false`.
+- **Dashboards:** Langfuse's built-in dashboard covers latency and cost per model and trace volume. For TTFT, filter `chat` observations on metadata `ttftMs`; for fallback rates, count `rerank`/`rewrite` observations at level `WARNING`.
+
