@@ -36,8 +36,18 @@ describe('splitCitations', () => {
   })
 
   it('ignores brackets glued to a word, also when chained', () => {
-    expect(parseCitations('arr[1] and m[1][2]', 3)).toEqual([])
+    expect(parseCitations('arr[1] and m[1][2] are indexes', 3)).toEqual([])
     expect(parseCitations('end.[1][2]', 3)).toEqual([1, 2])
+    expect(parseCitations('Set arr[1] = x[2] then call f(my_var[3]).', 3)).toEqual([])
+  })
+
+  it('accepts markers glued to a number, or to a word at the end of a clause', () => {
+    expect(parseCitations('Defined as PR.DS-11[2]. In CSF 2.0[1] and in 2024[3] too.', 3)).toEqual([2, 1, 3])
+    expect(parseCitations('There are four tiers[1][2]. Each has a profile[3], see below', 3)).toEqual([1, 2, 3])
+    expect(parseCitations('Four tiers[1] exist', 3)).toEqual([]) // mid-clause: could be an index
+    expect(parseCitations('The GOVERN function sets policy[1]', 3)).toEqual([1])
+    expect(parseCitations('- Govern[1]\n- Map[2]\n- Measure[3]', 3)).toEqual([1, 2, 3])
+    expect(parseCitations('Each has a profile[1]), done. It says "set policies[2]"', 3)).toEqual([1, 2])
   })
 })
 

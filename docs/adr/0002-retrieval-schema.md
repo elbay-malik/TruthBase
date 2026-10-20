@@ -25,6 +25,8 @@ pgvector guides (July 2026).
   `score = Σ weight / (rrf_k + rank)`, `rrf_k` default 50, per-arm weights
   default 1, over-fetching `least(match_count, 30) * 2` candidates per arm.
   Exposes an optional `filter_document_id`.
+  Superseded for parameters by [ADR-0006](./0006-hybrid-search.md) (v2: k 60,
+  keyword weight 0.5, 40 candidates per arm).
 
 ## Rationale
 
@@ -51,10 +53,13 @@ pgvector guides (July 2026).
 ## Consequences
 
 - Ingestion (Phase 3) must L2-normalize before insert, or cosine ranking degrades.
+- Query embeddings are on the request path: `/api/chat` and `/api/search` call
+  `geminiEmbedder` with `INTERACTIVE_EMBED_LIMITS` (1 retry, 8 s), while
+  ingestion and scripts keep 5 retries. `/api/search` answers 504 on a timeout.
 - The `hybrid_search` RPC returns the chunk columns callers need plus the
   fused RRF `score` (not the embedding or tsvector, which would bloat every
-  response); `hybridSearch()` maps the snake_case rows to `SearchHit`
-  (`server/utils/retrieval.ts`).
+  response); `toSearchHit()` maps the snake_case rows to `SearchHit`
+  (`server/rag/search.ts`).
 - `documents` and `chunks` have RLS enabled with no policies, and
   `hybrid_search` is executable by `service_role` only: the anon key (which
   the keep-alive ping uses) cannot read or write the corpus. The public demo
@@ -63,3 +68,5 @@ pgvector guides (July 2026).
   retrofitting positions later means re-parsing every PDF.
 - Free-tier pausing is mitigated by the keep-alive table + scheduled ping, not
   by the schema itself.
+  GitHub disables scheduled workflows in a public repo after 60 days without
+  activity, so the keep-alive workflow re-enables itself on each run.

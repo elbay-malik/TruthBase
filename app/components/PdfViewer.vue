@@ -138,6 +138,8 @@ function toggleFitWidth() {
   emit('update:zoom', undefined)
 }
 
+// The scroller reserves its scrollbar gutter: otherwise a scrollbar that appears
+// narrows it, fit width shrinks the pages, the scrollbar goes, and so on.
 useResizeObserver(scroller, () => applyFitWidth())
 
 // Zoom and resize keep the reader where they were: the point at the middle of
@@ -214,10 +216,13 @@ function scrollToTarget(behavior: ScrollBehavior = 'smooth') {
 /** Whether this opened citation already scrolled to its fallback boxes (declared before the immediate watcher uses it). */
 let fallbackScrolled = false
 
-watch(() => [props.target?.chunkId, props.targetNonce] as const, async (_current, previous) => {
-  // Every open re-verifies (the target page re-emits once rendered).
-  textStale.value = false
-  notLocated.value = false
+watch(() => [props.target?.chunkId, props.targetNonce] as const, async (current, previous) => {
+  // A new citation re-verifies (the target page re-emits once rendered).
+  // Re-clicking the active one keeps its flags: nothing re-renders to re-emit them.
+  if (current[0] !== previous?.[0]) {
+    textStale.value = false
+    notLocated.value = false
+  }
   fallbackScrolled = false
   // A failed load is retried when a citation in that document is opened again.
   if (status.value === 'error' && props.documentId) void open(props.documentId)
@@ -328,7 +333,7 @@ defineExpose({ focus: () => scroller.value?.focus(), scale, status, documentId: 
 
     <div
       ref="scroller"
-      class="relative min-h-0 flex-1 overflow-auto outline-none"
+      class="relative min-h-0 flex-1 overflow-auto outline-none [scrollbar-gutter:stable]"
       tabindex="-1"
       @scroll.passive="onScroll"
     >

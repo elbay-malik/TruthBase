@@ -26,7 +26,7 @@ The golden Q&A set is the project's ground truth. It drives the retrieval and ge
 
 ## Matching rules (the contract with Phase 3)
 
-- **Page text** = `unpdf` `extractText(pdf, { mergePages: false })` for that page, with all whitespace runs collapsed to one space and the result trimmed.
+- **Page text** = `unpdf` `extractText(pdf, { mergePages: false })` for that page, with all whitespace runs collapsed to one space, other control characters (C0/C1, DEL) dropped, and the result trimmed.
 - **`evidence.text`** must be an exact substring of that page text. Curly quotes (`’ “ ”`) and en dashes (`–`) are kept as the PDF encodes them.
 - Quotes avoid words hyphenated at a line break (`recommenda- tion`), because the extracted text keeps the break.
 - If the Phase 3 chunker changes the normalization (e.g. de-hyphenation), update this rule and the test together. Otherwise highlight and recall matching drift apart.

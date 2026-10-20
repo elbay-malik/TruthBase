@@ -84,4 +84,19 @@ describe('retrieval tracing', () => {
     expect(String(attr(named('rerank'), 'status_message'))).toContain('fused order kept')
     warn.mockRestore()
   })
+
+  it('marks a failed rewrite search as a warning and keeps the question\'s hits', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    let calls = 0
+    const flaky = async (texts: string[]) => {
+      if (++calls > 1) throw new Error('embedding quota exhausted')
+      return texts.map(() => [1])
+    }
+    const result = await retrieveSources(fakeSupabase(), flaky, 'What are the tiers?', { expander: answering({ queries: ['CSF tiers'] }) })
+    expect(result.rewrites).toEqual([])
+    expect(result.sources).toHaveLength(3)
+    expect(attr(named('retrieve'), 'level')).toBe('WARNING')
+    expect(String(attr(named('retrieve'), 'status_message'))).toContain('question searched alone')
+    warn.mockRestore()
+  })
 })

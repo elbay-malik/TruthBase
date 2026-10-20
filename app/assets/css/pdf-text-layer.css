@@ -1,8 +1,9 @@
 /*
  * PDF.js text layer styles, copied from pdfjs-dist@6.4.299 web/pdf_viewer.css
- * (lines 648–700; Apache-2.0, © Mozilla Foundation). Only the .textLayer block
- * is taken; importing the whole viewer stylesheet would bring global :root
- * variables that clash with Nuxt UI. Keep in sync when pdfjs-dist is bumped.
+ * (lines 648–700 and the [data-main-rotation] rules at 6291–6299; Apache-2.0,
+ * © Mozilla Foundation). Only the .textLayer styles are taken; importing the
+ * whole viewer stylesheet would bring global :root variables that clash with
+ * Nuxt UI. Keep in sync when pdfjs-dist is bumped.
  *
  * The page wrapper must define the scale variables the text layer reads —
  * without them the layer silently lays out at the wrong size.
@@ -63,4 +64,15 @@
   .markedContent {
     display: contents;
   }
+}
+
+/* TextLayer lays out unrotated and only tags /Rotate pages: turn it to match the canvas. */
+.textLayer[data-main-rotation="90"] {
+  transform: rotate(90deg) translateY(-100%);
+}
+.textLayer[data-main-rotation="180"] {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+.textLayer[data-main-rotation="270"] {
+  transform: rotate(270deg) translateX(-100%);
 }

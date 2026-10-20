@@ -3,6 +3,7 @@ import { propagateAttributes, startActiveObservation } from '@langfuse/tracing'
 import { geminiEmbedder } from '../ingest/embed'
 import { IngestError, ingestPdf, type IngestProgress } from '../ingest/pipeline'
 import { storeDocument } from '../ingest/store'
+import { clearCatalogCache } from '../rag/catalog'
 
 // POST /api/ingest — multipart `file` (PDF) → parse → chunk → embed → store,
 // streaming progress as Server-Sent Events:
@@ -76,12 +77,15 @@ export default defineEventHandler(async (event) => {
     catch (error: unknown) {
       console.error('[ingest]', error)
       const stage = error instanceof IngestError ? error.stage : undefined
-      observation.update({ level: abort.signal.aborted ? 'WARNING' : 'ERROR', statusMessage: `${stage ?? 'unknown stage'}: ${String(error).slice(0, 300)}` })
+      const detail = error instanceof IngestError && error.cause !== undefined ? error.cause : error
+      observation.update({ level: abort.signal.aborted ? 'WARNING' : 'ERROR', statusMessage: `${stage ?? 'unknown stage'}: ${String(detail).slice(0, 300)}` })
       // IngestError messages are written for users; anything else stays in the log.
       const message = error instanceof IngestError ? error.message : 'Ingestion failed.'
       await send('error', { message, stage })
     }
     finally {
+      // New or rolled-back documents change the catalog query expansion reads.
+      clearCatalogCache()
       await stream.close()
     }
   }, { asType: 'chain' }))

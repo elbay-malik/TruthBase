@@ -31,6 +31,9 @@ export function loadPdfjs(): Promise<Pdfjs> {
   ]).then(([pdfjs, worker]) => {
     pdfjs.GlobalWorkerOptions.workerSrc = worker.default
     return pdfjs
+  }).catch((error) => {
+    pdfjsPromise = undefined // a failed import (network blip) is retried on the next load
+    throw error
   })
   return pdfjsPromise
 }
@@ -73,9 +76,13 @@ export interface RenderedPage {
   dpr: number
 }
 
-/** Renders `page` at `scale` (canvas at device resolution + text layer) into `mount`. */
-export async function renderPage(page: PDFPageProxy, scale: number, mount: HTMLElement): Promise<RenderedPage> {
+/**
+ * Renders `page` at `scale` (canvas at device resolution + text layer) into
+ * `mount`. Aborting `signal` cancels the canvas render (RenderingCancelledException).
+ */
+export async function renderPage(page: PDFPageProxy, scale: number, mount: HTMLElement, signal?: AbortSignal): Promise<RenderedPage> {
   const pdfjs = await loadPdfjs()
+  signal?.throwIfAborted()
   const viewport = page.getViewport({ scale })
 
   const container = document.createElement('div')
@@ -101,7 +108,15 @@ export async function renderPage(page: PDFPageProxy, scale: number, mount: HTMLE
   container.append(canvas, textLayerDiv)
   mount.append(container)
 
-  await page.render({ canvas, viewport, transform: dpr === 1 ? undefined : [dpr, 0, 0, dpr, 0, 0] }).promise
+  const task = page.render({ canvas, viewport, transform: dpr === 1 ? undefined : [dpr, 0, 0, dpr, 0, 0] })
+  const cancel = () => task.cancel()
+  signal?.addEventListener('abort', cancel, { once: true })
+  try {
+    await task.promise
+  }
+  finally {
+    signal?.removeEventListener('abort', cancel)
+  }
 
   const textContent = await page.getTextContent()
   const textLayer = new pdfjs.TextLayer({ textContentSource: textContent, container: textLayerDiv, viewport })
@@ -128,11 +143,12 @@ export function toViewportBoxes(viewport: PageViewport, rects: HighlightRect[]):
  * groups stored rects: consecutive items on the same baseline (±0.5·size) and
  * not across a column gap (3·size) form one line; each line is the hull of
  * its boxes. Order-independent of box geometry, unlike a geometric merge.
+ * Compared in PDF space, so lines on a /Rotate page group the same way.
  */
 export function textLayerLines(rendered: RenderedPage, start: number, end: number): Box[] {
   const { textLayer, container, pageText, items, viewport } = rendered
   const origin = container.getBoundingClientRect()
-  const lines: { box: Box, baseline: number, size: number, right: number }[] = []
+  const lines: { box: Box, baseline: number, right: number }[] = []
   for (const [itemIndex, { from, to }] of itemRanges(pageText, start, end)) {
     const node = textLayer.textDivs[itemIndex]?.firstChild
     const item = items[itemIndex]!
@@ -143,15 +159,19 @@ export function textLayerLines(rendered: RenderedPage, start: number, end: numbe
     const r = range.getBoundingClientRect()
     if (r.width === 0) continue
     const box = { x1: r.left - origin.left, y1: r.top - origin.top, x2: r.right - origin.left, y2: r.bottom - origin.top }
-    const size = Math.hypot(item.transform[2], item.transform[3]) * viewport.scale
+    const [ax] = viewport.convertToPdfPoint(box.x1, box.y1) as [number, number]
+    const [bx] = viewport.convertToPdfPoint(box.x2, box.y2) as [number, number]
+    const left = Math.min(ax, bx)
+    const right = Math.max(ax, bx)
+    const size = Math.hypot(item.transform[2], item.transform[3])
     const baseline = item.transform[5]
     const line = lines.at(-1)
-    if (line && Math.abs(baseline - line.baseline) * viewport.scale < 0.5 * size && box.x1 >= line.right - size && box.x1 - line.right < 3 * size) {
+    if (line && Math.abs(baseline - line.baseline) < 0.5 * size && left >= line.right - size && left - line.right < 3 * size) {
       line.box = { x1: Math.min(line.box.x1, box.x1), y1: Math.min(line.box.y1, box.y1), x2: Math.max(line.box.x2, box.x2), y2: Math.max(line.box.y2, box.y2) }
-      line.right = Math.max(line.right, box.x2) // running max, like the server's line.x2
+      line.right = Math.max(line.right, right) // running max, like the server's line.x2
     }
     else {
-      lines.push({ box, baseline, size, right: box.x2 })
+      lines.push({ box, baseline, right })
     }
   }
   return lines.map(l => l.box)

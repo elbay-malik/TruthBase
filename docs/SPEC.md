@@ -32,7 +32,7 @@ It is a portfolio project. It shows senior-level retrieval engineering (hybrid s
 4. Grounded refusal when no retrieved chunk supports an answer.
 5. Ingestion: upload → parse with positions → chunk → embed (768-dim) → store.
 6. Retrieval: hybrid (dense + full-text, fused with RRF) → LLM rerank → optional multi-query expansion.
-7. Evals: promptfoo on the golden set, used as a CI gate. Tracing with Langfuse.
+7. Evals on the golden set: an offline retrieval gate on every PR, plus a manual and weekly promptfoo LLM eval ([ADR-0008](./adr/0008-evals-and-ci-gate.md)). Tracing with Langfuse.
 8. Abuse protection: per-IP rate limits, output-token caps and a clean 429 response.
 
 **Out of scope (decided):**

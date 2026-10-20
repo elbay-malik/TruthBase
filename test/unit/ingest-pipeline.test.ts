@@ -70,24 +70,41 @@ describe('ingestPdf (offline: fake embedder and store)', () => {
     expect(embed).toHaveBeenCalledTimes(1)
     expect(store).not.toHaveBeenCalled()
   }, 30_000)
+
+  it('tags embedder and store failures with their stage, keeping the cause', async () => {
+    const pdf = new Uint8Array(await readFile(PDF))
+    const quota = new Error('429 quota exceeded')
+    await expect(ingestPdf(pdf, 'x.pdf', { embed: async () => { throw quota }, store: vi.fn() }))
+      .rejects.toMatchObject({ stage: 'embed', message: 'Embedding the document failed.', cause: quota })
+
+    const embed = async (texts: string[]) => texts.map(() => [1, 0, 0])
+    await expect(ingestPdf(pdf, 'x.pdf', { embed, store: async () => { throw new Error('chunk insert failed') } }))
+      .rejects.toMatchObject({ stage: 'store', message: 'Saving the document failed.' })
+  }, 30_000)
+
+  it('tags an unreadable PDF as a parse failure', async () => {
+    await expect(ingestPdf(new TextEncoder().encode('%PDF-1.4 garbage'), 'bad.pdf', { embed: vi.fn(), store: vi.fn() }))
+      .rejects.toMatchObject({ stage: 'parse' })
+  })
 })
 
 describe('storeDocument', () => {
-  /** Minimal supabase-js stand-in that records calls; aborts after the first chunk batch. */
-  function fakeSupabase(onChunkInsert: () => void) {
+  /** Minimal supabase-js stand-in that records calls; `onChunkInsert` can abort. */
+  function fakeSupabase(onChunkInsert: () => void, errors: { upload?: string, chunks?: string, delete?: string } = {}) {
     const calls: string[] = []
+    const result = (message?: string) => ({ error: message ? { message } : null })
     const client = {
       storage: { from: () => ({
-        upload: async () => (calls.push('upload'), { error: null }),
-        remove: async () => (calls.push('remove'), { error: null }),
+        upload: async () => (calls.push('upload'), result(errors.upload)),
+        remove: async () => (calls.push('remove'), result()),
       }) },
       from: (table: string) => ({
         insert: async () => {
           calls.push(`insert ${table}`)
           if (table === 'chunks') onChunkInsert()
-          return { error: null }
+          return result(table === 'chunks' ? errors.chunks : undefined)
         },
-        delete: () => ({ eq: async () => (calls.push(`delete ${table}`), { error: null }) }),
+        delete: () => ({ eq: async () => (calls.push(`delete ${table}`), result(errors.delete)) }),
       }),
     }
     return { client: client as unknown as SupabaseClient, calls }
@@ -100,5 +117,23 @@ describe('storeDocument', () => {
     await expect(storeDocument(client, { id: 'd', filename: 'f.pdf', pageCount: 1 }, new Uint8Array(1), Array.from({ length: 150 }, () => chunk), undefined, abort.signal))
       .rejects.toThrow()
     expect(calls).toEqual(['upload', 'insert documents', 'insert chunks', 'delete documents', 'remove'])
+  })
+
+  const chunk: ChunkInsert = { pageNumber: 1, content: 'x', embedding: [1], highlight: {} as ChunkInsert['highlight'] }
+  const document = { id: 'd', filename: 'f.pdf', pageCount: 1 }
+
+  it('removes the object when the upload reports an error (it may still have been written)', async () => {
+    const { client, calls } = fakeSupabase(() => {}, { upload: 'gateway timeout' })
+    await expect(storeDocument(client, document, new Uint8Array(1), [chunk])).rejects.toThrow('PDF upload failed')
+    expect(calls).toEqual(['upload', 'remove'])
+  })
+
+  it('retries a failing rollback delete and logs what is left behind', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { client, calls } = fakeSupabase(() => {}, { chunks: 'boom', delete: 'network down' })
+    await expect(storeDocument(client, document, new Uint8Array(1), [chunk])).rejects.toThrow('chunk insert failed')
+    expect(calls.filter(c => c === 'delete documents')).toHaveLength(3)
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('PARTIAL document d'))
+    log.mockRestore()
   })
 })

@@ -70,10 +70,14 @@ export default defineNuxtConfig({
     ingestToken: '', // NUXT_INGEST_TOKEN — operator-only ingestion
     // Behind a proxy: the header it sets with the client IP (cf-connecting-ip,
     // fly-client-ip, x-real-ip, x-forwarded-for). Empty: the socket address.
+    // Keys the daily caps and the per-minute limiter (server/plugins/client-ip.ts).
+    // With chained proxies, use the outermost one's header; x-forwarded-for's
+    // last entry is only the nearest proxy.
     trustedIpHeader: '', // NUXT_TRUSTED_IP_HEADER
     // Daily caps per client IP and for the whole demo (ADR-0010); a limit
-    // below 1 closes the route. Chat's global budget keeps gpt-oss-120b inside
-    // its 200K tokens/day (~100 answers) with room for evals.
+    // below 1, or one that isn't a whole number, closes the route. Chat's
+    // global budget keeps gpt-oss-120b inside its 200K tokens/day (~100
+    // answers) with room for evals.
     quota: {
       enabled: !rateLimitOff, // off only with NUXT_DISABLE_RATE_LIMIT=1 in `nuxt dev`
       chatPerClient: 30, // NUXT_QUOTA_CHAT_PER_CLIENT
@@ -111,7 +115,15 @@ export default defineNuxtConfig({
   // per-IP rate limiter (150 req / 5 min) as the burst limit; the daily caps
   // live in Postgres (server/utils/quota.ts, ADR-0010).
   security: {
-    rateLimiter: rateLimitOff ? false : undefined,
+    rateLimiter: rateLimitOff
+      ? false
+      : {
+          // CLIENT_IP_HEADER (server/utils/quota.ts): set on every request
+          // from the trusted client IP by server/plugins/client-ip.ts.
+          ipHeader: 'x-truthbase-client-ip',
+          // One small entry per client and rule; LRU-evicted past this.
+          driver: { name: 'lruCache', options: { max: 10_000 } },
+        },
     headers: {
       // The default COEP makes the PDF.js module worker fail to load, so PDF.js
       // silently falls back to a main-thread "fake worker". Nothing here needs

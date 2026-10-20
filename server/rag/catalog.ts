@@ -7,8 +7,11 @@ import type { ChunkHighlight } from '../../shared/types'
 // which is the title for the documents we ingest ("RAPTOR: Recursive
 // Abstractive Processing for Tree-Organized Retrieval").
 //
-// Documents change rarely, so the catalog is cached per server process.
-// Phase 11 uploads should store a title at ingestion instead.
+// Documents change rarely, so the catalog is cached per server process and
+// dropped after an ingest. A document with no lead yet (its chunks are still
+// being stored) is only cached briefly; one whose page 1 has no text (a scanned
+// cover) keeps that 30 s TTL for good, two cheap queries. Phase 11 uploads
+// should store a title at ingestion instead.
 
 export interface CatalogEntry {
   id: string
@@ -19,9 +22,10 @@ export interface CatalogEntry {
 
 const DESCRIPTION_CHARS = 160
 const TTL_MS = 10 * 60_000
-let cache: { at: number, entries: CatalogEntry[] } | undefined
+const BLANK_LEAD_TTL_MS = 30_000
+let cache: { until: number, entries: CatalogEntry[] } | undefined
 
-/** For tests: forget the cached catalog. */
+/** Forget the cached catalog (after an ingest, and in tests). */
 export function clearCatalogCache(): void {
   cache = undefined
 }
@@ -37,7 +41,7 @@ function top(highlight: ChunkHighlight | null): number {
 }
 
 export async function documentCatalog(supabase: SupabaseClient): Promise<CatalogEntry[]> {
-  if (cache && Date.now() - cache.at < TTL_MS) return cache.entries
+  if (cache && Date.now() < cache.until) return cache.entries
   const [docs, firstPages] = await Promise.all([
     supabase.from('documents').select('id, filename').order('filename'),
     supabase.from('chunks').select('document_id, content, highlight').eq('page_number', 1),
@@ -56,6 +60,6 @@ export async function documentCatalog(supabase: SupabaseClient): Promise<Catalog
     filename: d.filename as string,
     lead: (topChunk.get(d.id as string)?.content ?? '').replace(/\s+/g, ' ').trim().slice(0, DESCRIPTION_CHARS),
   }))
-  cache = { at: Date.now(), entries }
+  cache = { until: Date.now() + (entries.some(e => !e.lead) ? BLANK_LEAD_TTL_MS : TTL_MS), entries }
   return entries
 }

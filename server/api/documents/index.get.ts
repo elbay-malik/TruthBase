@@ -7,7 +7,9 @@ export default defineEventHandler(async () => {
     .order('filename')
 
   if (error) {
-    throw createError({ statusCode: 502, statusMessage: 'Bad Gateway', message: `Listing documents failed: ${error.message}` })
+    // The database's error text stays in the server log, not the response.
+    console.error('[documents] listing failed:', error.message)
+    throw createError({ statusCode: 502, statusMessage: 'Bad Gateway', message: 'Listing documents failed.' })
   }
   return data.map(d => ({ id: d.id as string, filename: d.filename as string, pageCount: d.page_count as number }))
 })

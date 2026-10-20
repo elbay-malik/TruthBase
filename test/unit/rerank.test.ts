@@ -1,8 +1,10 @@
 import { APICallError } from '@ai-sdk/provider'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { MockLanguageModelV4 } from 'ai/test'
 import { describe, expect, it, vi } from 'vitest'
 import type { TaskModel } from '../../server/rag/model'
-import { blendRanking, buildRerankPrompt, rerank, repairRanking } from '../../server/rag/rerank'
+import { blendRanking, buildRerankPrompt, rerank, RERANK_CANDIDATES, repairRanking } from '../../server/rag/rerank'
+import { retrieveSources } from '../../server/rag/retrieve'
 import type { SearchHit } from '../../server/rag/search'
 
 const hit = (id: string, content = `text ${id}`): SearchHit => ({
@@ -96,5 +98,40 @@ describe('rerank', () => {
   it('skips the call without a model or with fewer than two hits', async () => {
     expect((await rerank(undefined, 'q', hits, files)).reranked).toBe(false)
     expect((await rerank(answering('{"ranking":[1]}'), 'q', [hit('a')], files)).reranked).toBe(false)
+  })
+})
+
+describe('retrieveSources with a reranker', () => {
+  // hybrid_search returns match_count rows h1..hN in fused order.
+  const supabase = {
+    rpc: async (_fn: string, args: { match_count: number }) => ({
+      data: Array.from({ length: args.match_count }, (_, i) => ({ id: `h${i + 1}`, document_id: 'd1', page_number: 1, content: `h${i + 1}`, highlight: null, created_at: '', score: 1 })),
+      error: null,
+    }),
+    from: () => {
+      const query = { select: () => query, in: () => query, then: (resolve: (v: unknown) => void) => resolve({ data: [{ id: 'd1', filename: 'nist.pdf' }], error: null }) }
+      return query
+    },
+  } as unknown as SupabaseClient
+  const embed = async (texts: string[]) => texts.map(() => [1])
+  /** Ranks the candidates in reverse and records how many it was shown. */
+  const reversing = () => {
+    const shown: number[] = []
+    const doGenerate = async (options: { prompt: unknown }) => {
+      const n = Number(/Return all (\d+) passage numbers/.exec(JSON.stringify(options.prompt))![1])
+      shown.push(n)
+      return { content: [{ type: 'text', text: JSON.stringify({ ranking: Array.from({ length: n }, (_, i) => n - i) }) }], finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [] }
+    }
+    const rm: TaskModel = { model: new MockLanguageModelV4({ doGenerate: doGenerate as never }), id: 'mock/model', providerOptions: {} }
+    return { rm, shown }
+  }
+
+  it('reranks only the fused top RERANK_CANDIDATES and keeps the rest in fused order', async () => {
+    const { rm, shown } = reversing()
+    const result = await retrieveSources(supabase, embed, 'q', { topK: 30, reranker: rm })
+    expect(shown).toEqual([RERANK_CANDIDATES])
+    const ids = result.sources.map(s => s.chunkId)
+    expect(ids.slice(0, 4)).toEqual(['h15', 'h14', 'h13', 'h12'])
+    expect(ids.slice(4)).toEqual(Array.from({ length: 30 }, (_, i) => `h${i + 1}`).filter(id => !['h15', 'h14', 'h13', 'h12'].includes(id)))
   })
 })

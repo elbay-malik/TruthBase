@@ -4,7 +4,7 @@ import type { LanguageModelV4, LanguageModelV4CallOptions } from '@ai-sdk/provid
 import { describe, expect, it, vi } from 'vitest'
 import type { SourceRef } from '../../shared/types/chat'
 import { isFallbackError, withFallback } from '../../server/rag/model'
-import { buildPrompt, neutralise } from '../../server/rag/prompt'
+import { buildPrompt, neutralise, neutraliseRefs } from '../../server/rag/prompt'
 
 const source = (content: string, filename = 'a.pdf'): SourceRef => ({
   index: 1, chunkId: 'c', documentId: 'd', filename, pageNumber: 3, content, highlight: null,
@@ -23,6 +23,12 @@ describe('buildPrompt', () => {
     expect(prompt.match(/<\/source>/g)).toHaveLength(1)
     expect(neutralise('< / SOURCE>')).not.toMatch(/<\s*\/?\s*source/i)
   })
+
+  it('rewrites the document\'s own bracketed reference numbers so they never read as citations', () => {
+    const prompt = buildPrompt('q', [source('Consult SP 800-53 [5] and [1, 2], see 【3】.')])
+    expect(prompt).toContain('Consult SP 800-53 ⟦5⟧ and ⟦1, 2⟧, see ⟦3⟧.')
+    expect(neutraliseRefs('arr[0] and [a]')).toBe('arr⟦0⟧ and [a]')
+  })
 })
 
 describe('model fallback', () => {
@@ -37,10 +43,13 @@ describe('model fallback', () => {
   })
   const options = {} as LanguageModelV4CallOptions
 
-  it('treats only rate limits and server errors as fallback errors', () => {
+  it('treats rate limits, server errors and unreachable providers as fallback errors', () => {
     expect(isFallbackError(apiError(429))).toBe(true)
     expect(isFallbackError(apiError(503))).toBe(true)
+    // provider-utils wraps a failed fetch (DNS, refused, reset) without a status code.
+    expect(isFallbackError(new APICallError({ message: 'Cannot connect to API', url: 'https://x', requestBodyValues: {}, isRetryable: true }))).toBe(true)
     expect(isFallbackError(apiError(400))).toBe(false)
+    expect(isFallbackError(apiError(404))).toBe(false)
     expect(isFallbackError(new Error('boom'))).toBe(false)
     // streamText wraps the last error once its retries are exhausted.
     const exhausted = new RetryError({ message: 'Failed after 2 attempts', reason: 'maxRetriesExceeded', errors: [apiError(429), apiError(429)] })
@@ -58,6 +67,25 @@ describe('model fallback', () => {
   it('does not fall back on a bad request', async () => {
     const fallback = fakeModel('fallback', async () => 'never')
     await expect(withFallback(fakeModel('primary', () => Promise.reject(apiError(400))), fallback).doStream(options)).rejects.toThrow('HTTP 400')
+    expect(fallback.doStream).not.toHaveBeenCalled()
+  })
+
+  it('falls back when the primary stream does not start in time, but not when the caller aborts', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // A provider fetch rejects once its signal aborts.
+    const hanging = (provider: string) => fakeModel(provider, () => new Promise(() => {}))
+    const stalled: LanguageModelV4 = {
+      ...hanging('primary'),
+      doStream: (o: LanguageModelV4CallOptions) => new Promise((_, reject) => o.abortSignal!.addEventListener('abort', () => reject(o.abortSignal!.reason))),
+    }
+    const ok = fakeModel('fallback', async () => 'fallback result')
+    expect(await withFallback(stalled, ok, 20).doStream(options)).toBe('fallback result')
+
+    const caller = new AbortController()
+    const fallback = fakeModel('fallback', async () => 'never')
+    const pending = withFallback(stalled, fallback, 1000).doStream({ abortSignal: caller.signal } as LanguageModelV4CallOptions)
+    caller.abort()
+    await expect(pending).rejects.toThrow()
     expect(fallback.doStream).not.toHaveBeenCalled()
   })
 })

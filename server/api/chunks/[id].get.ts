@@ -13,7 +13,9 @@ export default defineEventHandler(async (event): Promise<SourceRef> => {
     .maybeSingle()
 
   if (error) {
-    throw createError({ statusCode: 502, statusMessage: 'Bad Gateway', message: `Chunk lookup failed: ${error.message}` })
+    // The database's error text stays in the server log, not the response.
+    console.error('[chunks] lookup failed:', error.message)
+    throw createError({ statusCode: 502, statusMessage: 'Bad Gateway', message: 'Chunk lookup failed.' })
   }
   if (!data) {
     throw createError({ statusCode: 404, statusMessage: 'Not Found', message: 'No such chunk.' })

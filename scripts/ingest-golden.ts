@@ -2,7 +2,7 @@
 // Supabase project from .env, through the same pipeline as POST /api/ingest.
 //
 //   pnpm ingest:golden               # skips PDFs already ingested (by filename)
-//   pnpm ingest:golden --replace     # deletes and re-ingests them
+//   pnpm ingest:golden --replace     # re-ingests them, then deletes the old copies
 //   pnpm ingest:golden --highlights-only
 //                                    # recomputes stored highlight rects from each
 //                                    # chunk's offsets (after highlight-math changes;
@@ -38,7 +38,15 @@ if (values['highlights-only']) {
   process.exit(0)
 }
 
-const embed = geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_DOCUMENT')
+// Ctrl+C aborts the current PDF so the store rolls back instead of leaving a
+// partial document (which a later run would skip); a second Ctrl+C exits.
+const abort = new AbortController()
+process.on('SIGINT', () => {
+  if (abort.signal.aborted) process.exit(130)
+  console.log('\ncancelling (Ctrl+C again to exit now)…')
+  abort.abort()
+})
+const embed = geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_DOCUMENT', abort.signal)
 
 for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sort()) {
   const { data: existing, error } = await supabase.from('documents').select('id, storage_path').eq('filename', filename)
@@ -47,18 +55,25 @@ for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sor
     console.log(`skip     ${filename} (already ingested)`)
     continue
   }
-  for (const doc of existing) {
-    await supabase.from('documents').delete().eq('id', doc.id)
-    if (doc.storage_path) await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.storage_path])
-  }
 
+  // Ingest first, so a failure (e.g. embedding quota) keeps the old copy.
   const started = Date.now()
   const result = await ingestPdf(new Uint8Array(await readFile(join(PDFS, filename))), filename, {
     embed,
-    store: (document, pdf, chunks, onBatch) => storeDocument(supabase, document, pdf, chunks, onBatch),
+    store: (document, pdf, chunks, onBatch, signal) => storeDocument(supabase, document, pdf, chunks, onBatch, signal),
     onProgress: p => process.stdout.write(`\r${p.stage.padEnd(8)} ${filename} ${p.done}/${p.total}   `),
+    signal: abort.signal,
   })
   console.log(`\rdone     ${filename}: ${result.pageCount} pages, ${result.chunkCount} chunks in ${((Date.now() - started) / 1000).toFixed(1)}s → ${result.documentId}`)
+
+  for (const doc of existing) {
+    const removed = await supabase.from('documents').delete().eq('id', doc.id)
+    if (removed.error) throw new Error(`${filename}: old copy ${doc.id} not deleted (now duplicated): ${removed.error.message}`)
+    if (!doc.storage_path) continue
+    const unlinked = await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.storage_path])
+    if (unlinked.error) console.error(`${filename}: ${DOCUMENTS_BUCKET}/${doc.storage_path} not removed: ${unlinked.error.message}`)
+  }
+  if (existing.length > 0) console.log(`replaced ${filename}: deleted ${existing.length} old cop${existing.length === 1 ? 'y' : 'ies'}`)
 }
 
 async function refreshHighlights() {

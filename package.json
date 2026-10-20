@@ -25,7 +25,7 @@
     "eval:multiquery": "tsx --env-file=.env scripts/eval-multiquery.ts",
     "fixtures:retrieval": "tsx --env-file=.env scripts/build-retrieval-fixture.ts",
     "eval:retrieval": "tsx scripts/eval-retrieval.ts",
-    "eval:llm": "pnpm dlx promptfoo@0.124.1 eval -c scripts/promptfoo/promptfooconfig.yaml --no-cache -o .cache/promptfoo-results.json",
+    "eval:llm": "PROMPTFOO_PASS_RATE_THRESHOLD=0 pnpm dlx promptfoo@0.124.1 eval -c scripts/promptfoo/promptfooconfig.yaml --no-cache -o .cache/promptfoo-results.json",
     "eval:llm:summary": "tsx --env-file-if-exists=.env scripts/promptfoo/summary.ts",
     "sample:traces": "tsx --env-file=.env scripts/sample-traces.ts"
   },

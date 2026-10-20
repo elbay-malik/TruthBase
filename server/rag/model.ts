@@ -10,8 +10,9 @@ import { APICallError, RetryError } from 'ai'
 //
 // Groq's free tier is 8K tokens/min (~3 answers/min across all users), so when
 // both keys are set, a Groq request that is rejected before streaming starts
-// (429 rate limit, 5xx) goes straight to Gemini. The AI SDK's own retry loop
-// (`maxRetries`) wraps this whole chain, so each SDK attempt tries both.
+// (429 rate limit, 5xx, unreachable, or no stream within 10 s) goes straight
+// to Gemini. The AI SDK's own retry loop (`maxRetries`) wraps this whole
+// chain, so each SDK attempt tries both.
 
 export const GROQ_MODEL = 'openai/gpt-oss-120b'
 export const GEMINI_MODEL = 'gemini-3.5-flash-lite'
@@ -58,30 +59,46 @@ export function chatModel(keys: ModelKeys, prefer?: 'groq' | 'gemini'): ChatMode
 }
 
 /**
- * Rate limits and provider outages, as opposed to bad requests. Looks through
- * the AI SDK's RetryError, which wraps the last attempt's error once
- * `maxRetries` is exhausted.
+ * Rate limits and provider outages, as opposed to bad requests: 429, 5xx, and
+ * connection failures (DNS, refused, reset), which reach us as an
+ * APICallError without a status code. Looks through the AI SDK's RetryError,
+ * which wraps the last attempt's error once `maxRetries` is exhausted.
  */
 export function isFallbackError(error: unknown): boolean {
   if (RetryError.isInstance(error)) return isFallbackError(error.lastError)
   if (!APICallError.isInstance(error)) return false
-  return error.statusCode === 429 || (error.statusCode ?? 0) >= 500
+  return error.statusCode === undefined || error.statusCode === 429 || error.statusCode >= 500
 }
+
+/** How long the primary may take to start streaming before the fallback gets the request. */
+export const PRIMARY_STREAM_TIMEOUT_MS = 10_000
 
 /**
  * A model that calls `primary` and, if the request is rejected before any
- * output (429 / 5xx), calls `fallback` with the same options. Once streaming
+ * output (429 / 5xx / unreachable) or a stream doesn't start within
+ * `streamTimeoutMs`, calls `fallback` with the same options. Once streaming
  * has started there is no switch: the stream's own error handling applies.
  */
-export function withFallback(primary: LanguageModelV4, fallback: LanguageModelV4): LanguageModelV4 {
-  const attempt = async <T>(call: (model: LanguageModelV4) => PromiseLike<T>): Promise<T> => {
+export function withFallback(primary: LanguageModelV4, fallback: LanguageModelV4, streamTimeoutMs = PRIMARY_STREAM_TIMEOUT_MS): LanguageModelV4 {
+  const attempt = async <T>(options: LanguageModelV4CallOptions, call: (model: LanguageModelV4, options: LanguageModelV4CallOptions) => PromiseLike<T>, timeoutMs?: number): Promise<T> => {
+    // Only the wait for the response is budgeted: the timer stops once the
+    // call returns, so a long stream after that is never cut.
+    const budget = new AbortController()
+    const timer = timeoutMs === undefined
+      ? undefined
+      : setTimeout(() => budget.abort(new DOMException(`no response within ${timeoutMs} ms`, 'TimeoutError')), timeoutMs)
+    const abortSignal = AbortSignal.any([budget.signal, options.abortSignal].filter(s => s !== undefined))
     try {
-      return await call(primary)
+      return await call(primary, { ...options, abortSignal })
     }
     catch (error) {
-      if (!isFallbackError(error)) throw error
-      console.warn(`[model] ${primary.provider}/${primary.modelId} unavailable (${(error as APICallError).statusCode}); falling back to ${fallback.provider}/${fallback.modelId}`)
-      return await call(fallback)
+      if (options.abortSignal?.aborted || !(budget.signal.aborted || isFallbackError(error))) throw error
+      const reason = budget.signal.aborted ? 'timed out' : (error as APICallError).statusCode ?? 'unreachable'
+      console.warn(`[model] ${primary.provider}/${primary.modelId} unavailable (${reason}); falling back to ${fallback.provider}/${fallback.modelId}`)
+      return await call(fallback, options)
+    }
+    finally {
+      clearTimeout(timer)
     }
   }
   return {
@@ -89,8 +106,8 @@ export function withFallback(primary: LanguageModelV4, fallback: LanguageModelV4
     provider: primary.provider,
     modelId: primary.modelId,
     supportedUrls: primary.supportedUrls,
-    doGenerate: (options: LanguageModelV4CallOptions) => attempt(m => m.doGenerate(options)),
-    doStream: (options: LanguageModelV4CallOptions) => attempt(m => m.doStream(options)),
+    doGenerate: (options: LanguageModelV4CallOptions) => attempt(options, (m, o) => m.doGenerate(o)),
+    doStream: (options: LanguageModelV4CallOptions) => attempt(options, (m, o) => m.doStream(o), streamTimeoutMs),
   }
 }
 

@@ -30,9 +30,10 @@ export interface ChunkSpan {
 }
 
 // A sentence ends at . ! ? (optionally followed by a closing quote/bracket)
-// and the next one starts after a space. Over-splitting on "e.g." or "et al."
-// is harmless: pieces are packed back together up to maxChars.
-const SENTENCE_END = /[.!?][”’")\]]?(?= )/g
+// and the next one starts after a space. CJK text has no spaces between
+// sentences, so 。！？ end one wherever they occur. Over-splitting on "e.g."
+// or "et al." is harmless: pieces are packed back together up to maxChars.
+const SENTENCE_END = /[.!?][”’")\]]?(?= )|[。！？]+[」』）”’]?/g
 
 export function chunkPage(text: string, options: ChunkOptions = DEFAULT_CHUNK_OPTIONS): ChunkSpan[] {
   const { maxChars, overlapChars, minChars } = options
@@ -72,7 +73,7 @@ function sentenceSpans(text: string): ChunkSpan[] {
   for (const match of text.matchAll(SENTENCE_END)) {
     const end = match.index + match[0].length
     spans.push({ start, end })
-    start = end + 1 // skip the separating space
+    start = text[end] === ' ' ? end + 1 : end // skip the separating space
   }
   if (start < text.length) spans.push({ start, end: text.length })
   return spans

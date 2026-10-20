@@ -9,7 +9,9 @@ name: llm-eval
 # Not a PR gate: one run needs ~300K Groq tokens across four models, and each
 # model's free tier allows 200K/day, shared with the live demo. Model calls are
 # cached (.cache/models, kept by actions/cache), so a run stopped by a spent
-# quota (exit 2) finishes on a later run without paying twice.
+# quota (exit 2) finishes on a later run without paying twice. Failed
+# assertions don't fail the Eval step (eval:llm sets
+# PROMPTFOO_PASS_RATE_THRESHOLD=0); summary.ts is the gate.
 #
 # Secrets: NUXT_GROQ_API_KEY, NUXT_GEMINI_API_KEY, NUXT_SUPABASE_URL,
 # NUXT_SUPABASE_SERVICE_KEY.
@@ -24,6 +26,9 @@ on:
   schedule:
     - cron: '0 3 * * 0' # Sundays 03:00 UTC, when the demo is quietest
 
+permissions:
+  contents: read
+
 concurrency:
   group: llm-eval
   cancel-in-progress: false
@@ -33,10 +38,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      NUXT_GROQ_API_KEY: ${{ secrets.NUXT_GROQ_API_KEY }}
-      NUXT_GEMINI_API_KEY: ${{ secrets.NUXT_GEMINI_API_KEY }}
-      NUXT_SUPABASE_URL: ${{ secrets.NUXT_SUPABASE_URL }}
-      NUXT_SUPABASE_SERVICE_KEY: ${{ secrets.NUXT_SUPABASE_SERVICE_KEY }}
       GOLDEN_ONLY: ${{ inputs.only }}
       PROMPTFOO_DISABLE_TELEMETRY: '1'
       PROMPTFOO_DISABLE_UPDATE: '1'
@@ -57,12 +58,21 @@ jobs:
           key: llm-eval-models-${{ github.run_id }}
           restore-keys: llm-eval-models-
 
+      # Secrets only where model calls happen, not in install or cache steps.
       - name: Eval
         run: pnpm eval:llm
+        env:
+          NUXT_GROQ_API_KEY: ${{ secrets.NUXT_GROQ_API_KEY }}
+          NUXT_GEMINI_API_KEY: ${{ secrets.NUXT_GEMINI_API_KEY }}
+          NUXT_SUPABASE_URL: ${{ secrets.NUXT_SUPABASE_URL }}
+          NUXT_SUPABASE_SERVICE_KEY: ${{ secrets.NUXT_SUPABASE_SERVICE_KEY }}
 
       - name: Summary and gate
         shell: bash # -eo pipefail: tee must not hide the gate's exit code
         run: pnpm eval:llm:summary | tee summary.txt
+        env: # the judge, for any answer not in its cache
+          NUXT_GROQ_API_KEY: ${{ secrets.NUXT_GROQ_API_KEY }}
+          NUXT_GEMINI_API_KEY: ${{ secrets.NUXT_GEMINI_API_KEY }}
 
       - uses: actions/cache/save@v4
         if: always()

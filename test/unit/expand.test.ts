@@ -106,6 +106,40 @@ describe('documentCatalog', () => {
   })
 })
 
+describe('documentCatalog cache', () => {
+  const counting = (lead: boolean) => {
+    const from = vi.fn((name: string) => {
+      const rows = name === 'documents'
+        ? [{ id: 'd1', filename: 'new.pdf' }]
+        : lead ? [{ document_id: 'd1', content: 'Title', highlight: null }] : []
+      const query = { select: () => query, order: () => query, eq: () => query, then: (resolve: (v: unknown) => void) => resolve({ data: rows, error: null }) }
+      return query
+    })
+    return { from, supabase: { from } as unknown as SupabaseClient }
+  }
+
+  it('keeps a document without a lead (chunks still being stored) only briefly', async () => {
+    clearCatalogCache()
+    const now = vi.spyOn(Date, 'now').mockReturnValue(0)
+    const blank = counting(false)
+    await documentCatalog(blank.supabase)
+    await documentCatalog(blank.supabase)
+    expect(blank.from).toHaveBeenCalledTimes(2) // one refresh: documents + chunks
+    now.mockReturnValue(31_000)
+    await documentCatalog(blank.supabase)
+    expect(blank.from).toHaveBeenCalledTimes(4)
+
+    clearCatalogCache()
+    const full = counting(true)
+    await documentCatalog(full.supabase)
+    now.mockReturnValue(31_000 + 5 * 60_000)
+    await documentCatalog(full.supabase)
+    expect(full.from).toHaveBeenCalledTimes(2)
+    now.mockRestore()
+    clearCatalogCache()
+  })
+})
+
 describe('retrieveSources with an expander', () => {
   /** Fake Supabase: hybrid_search answers per query text; documents and first-page chunks for the catalog. */
   function fakeSupabase(results: Record<string, string[]>) {
@@ -130,6 +164,34 @@ describe('retrieveSources with an expander', () => {
     expect(result.rewrites).toEqual(['CSF tiers'])
     expect(result.sources.map(s => s.chunkId)).toEqual(['a', 'c', 'b'])
     expect(rpc).toHaveBeenCalledTimes(2)
+  })
+
+  it('falls back to the question\'s own hits when a rewrite search fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { supabase } = fakeSupabase({ 'What are the tiers?': ['a', 'b'], 'CSF tiers': ['c'] })
+    let calls = 0
+    const flaky = async (texts: string[]) => {
+      if (++calls > 1) throw new Error('embedding quota exhausted')
+      return texts.map(() => [1])
+    }
+    const result = await retrieveSources(supabase, flaky, 'What are the tiers?', { expander: answering(['CSF tiers']) })
+    expect(result.rewrites).toEqual([])
+    expect(result.sources.map(s => s.chunkId)).toEqual(['a', 'b'])
+    warn.mockRestore()
+  })
+
+  it('rethrows a rewrite failure when the caller aborted', async () => {
+    const { supabase } = fakeSupabase({ 'What are the tiers?': ['a'], 'CSF tiers': ['c'] })
+    const abort = new AbortController()
+    let calls = 0
+    const embedThenAbort = async (texts: string[]) => {
+      if (++calls > 1) {
+        abort.abort()
+        throw new Error('aborted')
+      }
+      return texts.map(() => [1])
+    }
+    await expect(retrieveSources(supabase, embedThenAbort, 'What are the tiers?', { expander: answering(['CSF tiers']), abortSignal: abort.signal })).rejects.toThrow('aborted')
   })
 
   it('searches the question alone when the expander returns nothing', async () => {

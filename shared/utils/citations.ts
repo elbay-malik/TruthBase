@@ -5,12 +5,24 @@ import { NO_ANSWER } from '../types/chat'
 // what users see and what the metrics count can never disagree.
 //
 // Markers: "[2]", "[1][4]", "[1, 2]", ranges "[1-3]" / "[1–3]", and gpt-oss's
-// native "【2】" / "【2†L3-L5】". A "[" glued to a word ("arr[2]", and the
-// chained "arr[1][2]") is not a marker; adjacent markers ("[1][3]") are. Inside a marker, numbers outside 1..sourceCount are dropped; the
-// valid ones still count (UI and eval apply the same rule).
+// native "【2】" / "【2†L3-L5】". A "[" glued to a number is a marker
+// ("CSF 2.0[1]", "PR.DS-11[2]"); glued to a word only at the end of a clause,
+// line or answer ("tiers[1].", "policy[1])", "- Govern[1]⏎"), so code like
+// "arr[2] and m[1][2] or my_var[3])" is not. Adjacent markers
+// ("[1][3]") are. Inside a marker, numbers outside 1..sourceCount are dropped;
+// the valid ones still count (UI and eval apply the same rule).
 
-/** Group 1: the marker body, e.g. "1, 3-4". */
-export const CITATION_MARKER = /(?<!\w(?:\[[^[\]]*\])*)\[(\d+(?:\s*[-–,，]\s*\d+)*)\]|【(\d+(?:\s*[-–,，]\s*\d+)*)(?:†[^】]*)?】/g
+/** Group 1: the body of an ASCII marker, group 2 of a native one, e.g. "1, 3-4". */
+export const CITATION_MARKER = /\[(\d+(?:\s*[-–,，]\s*\d+)*)\]|【(\d+(?:\s*[-–,，]\s*\d+)*)(?:†[^】]*)?】/g
+
+/** Whether the ASCII marker at text[start, end) is an index glued to a word ("arr[2]"), not a citation. */
+function looksLikeIndex(text: string, start: number, end: number): boolean {
+  // Look past adjacent bracket groups on both sides: "m[1][2]" is one index chain.
+  const word = /\w*$/.exec(text.slice(Math.max(0, start - 200), start).replace(/(?:\[[^[\]]*\])+$/, ''))![0]
+  if (!word || /\d$/.test(word)) return false
+  if (word.includes('_')) return true
+  return !/^(?:[.,;:!?)"'”’]+(?:\s|$)|[ \t]*(?:\r?\n|$))/.test(text.slice(end, end + 200).replace(/^(?:\[[^[\]]*\])+/, ''))
+}
 
 /** Ranges wider than this are not expanded (a "[1-40]" is not a citation list). */
 const MAX_RANGE = 10
@@ -40,6 +52,7 @@ export function splitCitations(answer: string, sourceCount: number): AnswerSegme
   const segments: AnswerSegment[] = []
   let last = 0
   for (const match of answer.matchAll(CITATION_MARKER)) {
+    if (match[1] !== undefined && looksLikeIndex(answer, match.index, match.index + match[0].length)) continue
     const numbers = markerNumbers(match[1] ?? match[2]!, sourceCount)
     if (numbers.length === 0) continue
     if (match.index > last) segments.push({ type: 'text', text: answer.slice(last, match.index) })

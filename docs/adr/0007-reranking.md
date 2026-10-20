@@ -17,7 +17,7 @@ Constraints: free tiers only, and a runtime that may end up on edge workers (no 
 
 1. **A listwise LLM reranker** (`server/rag/rerank.ts`). One call gets the question and the fused top **15** as numbered `<source>` passages (with file and page, tag look-alikes neutralised as in the grounding prompt). It returns `{ "ranking": [...] }` through the AI SDK's `Output.object` with a zod schema. The prompt states the count ("Return all 15 passage numbers"): without it, gpt-oss-20b often returned only its top pick.
 2. **Model: `openai/gpt-oss-20b` on Groq**, reasoning effort `low`, temperature 0. It has its own quota, separate from the answer model's (`gpt-oss-120b`). `NUXT_RERANK_MODEL` switches models (`groq-120b`, `groq-qwen`, `gemini`) or turns reranking `off`.
-3. **The reranker picks the first 4 sources; the rest follow in fused order** (`blendRanking`, `RERANK_HEAD = 4`), cut to the generator's 8. The fused top 4 always stays in the list, so the reranker can promote evidence but can't push hybrid search's finds out.
+3. **The reranker picks the first 4 sources; the rest follow in fused order** (`blendRanking`, `RERANK_HEAD = 4`), cut to the generator's 8. The fused top 4 always stays in the list, so the reranker can promote evidence but can't push hybrid search's finds out. A `topK` above 15 reranks only the fused top 15; the rest follow in fused order.
 4. **The ranking is repaired, never trusted.** Unknown and repeated numbers are dropped, and candidates the model left out keep their fused order after the ranked ones.
 5. **Reranking is optional at run time.** On any error, rate limit, schema failure or a 4 s timeout, the chat uses the fused order. The timeout races the call, so the budget holds even if a provider ignores the abort signal.
 

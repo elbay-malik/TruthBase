@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { H3Event } from 'h3'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 // server/utils/quota.ts uses Nitro's auto-imported h3 helpers; stub them with
 // minimal fakes (h3 isn't resolvable from the unit project).
@@ -15,6 +15,10 @@ beforeAll(() => {
   })
   vi.stubGlobal('createError', (input: { statusCode: number, message: string, data?: unknown }) => Object.assign(new Error(input.message), input))
 })
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.restoreAllMocks()
+})
 afterAll(() => {
   vi.unstubAllGlobals()
 })
@@ -22,6 +26,8 @@ afterAll(() => {
 const quota = await import('../../server/utils/quota')
 const asEvent = (e: FakeEvent) => e as unknown as H3Event
 
+// warnOnce state is module-wide: each warn-once test uses its own key, and no
+// earlier test may trigger it.
 describe('clientIp', () => {
   it('uses the socket address unless a trusted header is configured', () => {
     const event = fakeEvent({ 'x-forwarded-for': '6.6.6.6' })
@@ -33,8 +39,71 @@ describe('clientIp', () => {
     expect(quota.clientIp(asEvent(fakeEvent({ 'x-forwarded-for': '6.6.6.6, 1.2.3.4' })), 'x-forwarded-for')).toBe('1.2.3.4')
   })
 
-  it('falls back to the socket when the trusted header is missing', () => {
+  it('falls back to the socket when the trusted header is missing, and warns once', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect(quota.clientIp(asEvent(fakeEvent()), 'cf-connecting-ip')).toBe('10.0.0.1')
+    quota.clientIp(asEvent(fakeEvent()), 'cf-connecting-ip')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('cf-connecting-ip is missing')
+  })
+
+  it('warns once in production when an unset header leaves a private socket address', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubEnv('NODE_ENV', 'production')
+    quota.clientIp(asEvent(fakeEvent({}, '203.0.113.7')), '')
+    expect(warn).not.toHaveBeenCalled()
+    // Carrier-grade NAT (100.64.0.0/10) counts as private.
+    quota.clientIp(asEvent(fakeEvent({}, '100.64.0.9')), '')
+    expect(warn).toHaveBeenCalledTimes(1)
+    quota.clientIp(asEvent(fakeEvent({}, '::ffff:172.16.0.2')), '')
+    quota.clientIp(asEvent(fakeEvent({}, '10.0.0.1')), '')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('NUXT_TRUSTED_IP_HEADER is unset')
+  })
+
+  it('normalises the address it returns', () => {
+    expect(quota.clientIp(asEvent(fakeEvent({}, '::ffff:1.2.3.4')), '')).toBe('1.2.3.4')
+    expect(quota.clientIp(asEvent(fakeEvent({ 'x-real-ip': '2001:db8:1:2::abcd' })), 'x-real-ip')).toBe('2001:db8:1:2::/64')
+  })
+})
+
+describe('normalizeIp', () => {
+  it('maps IPv4-mapped IPv6 to the IPv4 address', () => {
+    expect(quota.normalizeIp('::ffff:1.2.3.4')).toBe('1.2.3.4')
+    expect(quota.normalizeIp('::FFFF:1.2.3.4')).toBe('1.2.3.4')
+    expect(quota.normalizeIp('1.2.3.4')).toBe('1.2.3.4')
+  })
+
+  it('reduces IPv6 to its /64, whatever the notation', () => {
+    const prefix = '2001:db8:0:1::/64'
+    expect(quota.normalizeIp('2001:db8:0:1::1')).toBe(prefix)
+    expect(quota.normalizeIp('2001:0db8:0000:0001:ffff:ffff:ffff:ffff')).toBe(prefix)
+    expect(quota.normalizeIp('[2001:DB8:0:1:0:0:0:2]')).toBe(prefix)
+    expect(quota.normalizeIp('2001:db8::1:0:0:0')).toBe('2001:db8:0:0::/64')
+    expect(quota.normalizeIp('fe80::1%eth0')).toBe('fe80:0:0:0::/64')
+    expect(quota.normalizeIp('64:ff9b::1.2.3.4')).toBe('64:ff9b:0:0::/64')
+    expect(quota.normalizeIp('::1')).toBe('0:0:0:0::/64')
+  })
+
+  it('leaves anything else as it is', () => {
+    expect(quota.normalizeIp('unknown')).toBe('unknown')
+  })
+})
+
+describe('quotaLimit', () => {
+  it('accepts whole numbers, also as strings', () => {
+    expect(quota.quotaLimit(80, 'X')).toBe(80)
+    expect(quota.quotaLimit('80', 'X')).toBe(80)
+    expect(quota.quotaLimit(0, 'X')).toBe(0)
+  })
+
+  it('closes the route on anything else, with one warning per setting', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    for (const value of ['80k', '80/day', 80.5, 2 ** 31, '', ' ', null, undefined, true]) {
+      expect(quota.quotaLimit(value, 'NUXT_QUOTA_TEST')).toBe(0)
+    }
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('NUXT_QUOTA_TEST="80k" is not a whole number')
   })
 })
 
@@ -86,9 +155,8 @@ describe('enforceDailyQuota', () => {
   })
 
   it('lets the request through when the counter store fails', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { supabase } = supabaseReturning(null, { message: 'connection refused' })
     await expect(quota.enforceDailyQuota(asEvent(fakeEvent()), supabase, 'search', limits, options)).resolves.toBeUndefined()
-    warn.mockRestore()
   })
 })

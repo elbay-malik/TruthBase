@@ -13,17 +13,19 @@ Phase 11's acceptance criterion (EXECUTION_PLAN): exceeding the cap returns a cl
 
 ## Decision
 
-1. **Two layers.** nuxt-security's per-minute limiter stays as the burst limit. On top, **daily caps per client and for the whole demo**, enforced before any model call in `/api/chat` and `/api/search` (`server/utils/quota.ts`):
+1. **Two layers.** nuxt-security's per-minute limiter stays as the burst limit, keyed on the same client IP as the daily caps (item 4; `server/plugins/client-ip.ts` sets it as `rateLimiter.ipHeader`), in an LRU store of 10,000 entries. On top, **daily caps per client and for the whole demo**, enforced before any model call in `/api/chat` and `/api/search` (`server/utils/quota.ts`):
 
    | Route | Per client / day | Whole demo / day | Why |
    |---|---|---|---|
    | `/api/chat` | 30 | 80 | gpt-oss-120b's 200K tokens/day ≈ 100 answers; 20 left for evals and retries |
-   | `/api/search` | 100 | 300 | embeddings + rewrite + rerank, no answer |
+   | `/api/search` | 100 | 300 | embeddings only: no rewrite, rerank or answer |
 
-   All four are `NUXT_QUOTA_*` settings; a limit below 1 closes the route. The day is UTC.
+   All four are `NUXT_QUOTA_*` settings; a limit below 1, or a value that isn't a whole number, closes the route (with a warning at startup). The day is UTC.
+
+   Search runs plain hybrid retrieval: gpt-oss-20b's ~60 enhanced requests a day are kept for chat, which a single client's search allowance could otherwise spend for everyone.
 2. **Counters in Postgres** (`usage_counters`, migration `20261020120000_usage_quota.sql`). One function, `consume_quotas(scopes[], keys[], limits[])`, locks the counter rows in a fixed order and increments all of them or none, so concurrent requests can't overshoot and a request blocked by the global budget doesn't use up its client's allowance. Rows older than two days are pruned on the way. Server-only: RLS with no policies, execute for `service_role` only.
 3. **Over a cap: 429** with `Retry-After` (seconds to midnight UTC) and a message saying which limit was hit, before the response stream opens. The body's `data.quota` (`client` or `global`) lets the UI show that message and drop its Retry button; the per-minute limiter's 429 keeps "wait a minute".
-4. **The client is the IP, stored as an HMAC** keyed with the service key (22 characters of base64url), never in clear. The IP is the socket address unless `NUXT_TRUSTED_IP_HEADER` names the header the deployment's proxy sets (`cf-connecting-ip`, `fly-client-ip`, `x-real-ip`, or `x-forwarded-for`, whose last entry is used); otherwise client-sent headers are ignored.
+4. **The client is the IP, stored as an HMAC** keyed with the service key (22 characters of base64url), never in clear. The IP is the socket address unless `NUXT_TRUSTED_IP_HEADER` names the header the deployment's proxy sets (`cf-connecting-ip`, `fly-client-ip`, `x-real-ip`, or `x-forwarded-for`, whose last entry is used); otherwise client-sent headers are ignored. IPv6 counts per /64 (one host usually holds a whole /64) and IPv4-mapped addresses as IPv4. The origin must be reachable only through that proxy, or a client can send the header itself; with chained proxies (a CDN in front of the host), use the outermost one's header, since the last `x-forwarded-for` entry is only the nearest proxy. A configured header missing from a request, or no header in production while the socket address is private, is logged once: it means every visitor may be sharing one allowance.
 5. **Fail open.** If the counter store errors, the request proceeds with a logged warning. A Supabase outage breaks retrieval anyway, and the per-minute limiter still applies.
 6. **Demo mode is the default and only mode for now:** the four golden documents, public and read-only, no login. Ingestion stays operator-only (`NUXT_INGEST_TOKEN`). Output length was already capped (700 tokens per answer, 1,000 characters per question).
 
@@ -45,8 +47,10 @@ Phase 11's acceptance criterion (EXECUTION_PLAN): exceeding the cap returns a cl
 
 ## Consequences
 
-- **Deploy:** apply the migration, and set `NUXT_TRUSTED_IP_HEADER` for the host (Phase 14). Until the migration exists, the app fails open with a warning per request.
+- **Deploy:** apply the migration, and set `NUXT_TRUSTED_IP_HEADER` for the host (Phase 14); it keys both layers. Until the migration exists, the app fails open with a warning per request.
 - **Shared IPs** (offices, carrier NAT) share one allowance of 30 chats a day. Acceptable for a demo.
+- **gpt-oss-20b runs out before the chat budget:** 80 chats a day exceed its ~60 enhanced chats, so late in a busy day chat skips rewriting and reranking and answers from the fused order (ADR-0007, ADR-0009). Answers still work.
+- **PDF egress is not capped per day.** `/api/documents/:id/file` signs a 12-minute URL that Storage serves directly and that can be fetched again until it expires; only the per-minute limiter bounds signing. The golden PDFs are 1–2.5 MB, so draining the free egress takes thousands of downloads. Serve them from a CDN at deploy if that happens.
 - **The global budget is spent by evals too** only if they go through the routes; they don't (they call the pipeline directly), so the 20 left over is headroom for their direct use of the same Groq quota.
 - **Langfuse Hobby (50K units/month)** is bounded too: at ~17–20 observations per traced chat, 80 chats a day is ~45K a month, close to the cap. Sample traces or lower the cap if the demo is busy every day.
 - **Revisit** on a paid tier, when 11b adds per-user quotas for signed-in users, or if the shared-IP limit hurts real visitors.

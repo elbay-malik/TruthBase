@@ -41,10 +41,18 @@ export interface IngestResult {
   chunkCount: number
 }
 
+/** A failure at a known stage; `message` is safe to show users, `cause` is not. */
 export class IngestError extends Error {
-  constructor(message: string, readonly stage: IngestStage) {
-    super(message)
+  constructor(message: string, readonly stage: IngestStage, options?: ErrorOptions) {
+    super(message, options)
   }
+}
+
+const STAGE_FAILED: Record<IngestStage, string> = {
+  parse: 'The PDF could not be read.',
+  chunk: 'The PDF text could not be split into chunks.',
+  embed: 'Embedding the document failed.',
+  store: 'Saving the document failed.',
 }
 
 export async function ingestPdf(pdf: Uint8Array, filename: string, deps: IngestDeps): Promise<IngestResult> {
@@ -54,28 +62,43 @@ export async function ingestPdf(pdf: Uint8Array, filename: string, deps: IngestD
   const checkAborted = (stage: IngestStage) => {
     if (deps.signal?.aborted) throw new IngestError('Ingestion cancelled.', stage)
   }
+  // Tags any other error (PDF.js, embedder, store) with its stage; the original
+  // goes to `cause`, which the route logs but never sends to the client.
+  const inStage = async <T>(stage: IngestStage, run: () => T | Promise<T>): Promise<T> => {
+    try {
+      return await run()
+    }
+    catch (error) {
+      if (error instanceof IngestError) throw error
+      if (deps.signal?.aborted) throw new IngestError('Ingestion cancelled.', stage, { cause: error })
+      const message = error instanceof Error && error.name === 'PasswordException'
+        ? 'Password-protected PDFs are not supported.'
+        : STAGE_FAILED[stage]
+      throw new IngestError(message, stage, { cause: error })
+    }
+  }
 
   // unpdf hands the buffer to a PDF.js worker that may detach it; keep ours.
-  const pages = await extractPages(pdf.slice(), { assets: deps.assets })
+  const pages = await inStage('parse', () => extractPages(pdf.slice(), { assets: deps.assets }))
   report({ stage: 'parse', done: pages.length, total: pages.length })
   if (pages.every(page => page.text.length === 0)) {
     throw new IngestError('No text layer found — scanned PDFs are not supported.', 'parse')
   }
 
-  const chunks = pages.flatMap(page =>
+  const chunks = await inStage('chunk', () => pages.flatMap(page =>
     chunkPage(page.text, deps.chunkOptions ?? DEFAULT_CHUNK_OPTIONS).map(span => ({
       pageNumber: page.pageNumber,
       content: page.text.slice(span.start, span.end),
       highlight: chunkHighlight(page, span),
     })),
-  )
+  ))
   report({ stage: 'chunk', done: chunks.length, total: chunks.length })
 
   const embeddings: number[][] = []
   for (let i = 0; i < chunks.length; i += batchSize) {
     checkAborted('embed')
     const batch = chunks.slice(i, i + batchSize)
-    const vectors = await deps.embed(batch.map(chunk => chunk.content))
+    const vectors = await inStage('embed', () => deps.embed(batch.map(chunk => chunk.content)))
     if (vectors.length !== batch.length) throw new IngestError('embedding count mismatch', 'embed')
     embeddings.push(...vectors)
     report({ stage: 'embed', done: embeddings.length, total: chunks.length })
@@ -83,17 +106,14 @@ export async function ingestPdf(pdf: Uint8Array, filename: string, deps: IngestD
 
   checkAborted('store')
   const document: DocumentInsert = { id: crypto.randomUUID(), filename, pageCount: pages.length }
-  await deps.store(
+  // The store rolls back on failure, so an abort reads like the earlier stages.
+  await inStage('store', () => deps.store(
     document,
     pdf,
     chunks.map((chunk, i) => ({ ...chunk, embedding: embeddings[i]! })),
     stored => report({ stage: 'store', done: stored, total: chunks.length }),
     deps.signal,
-  ).catch((error: unknown) => {
-    // The store rolled back; report the abort like the earlier stages do.
-    if (deps.signal?.aborted) throw new IngestError('Ingestion cancelled.', 'store')
-    throw error
-  })
+  ))
 
   return { documentId: document.id, pageCount: pages.length, chunkCount: chunks.length }
 }

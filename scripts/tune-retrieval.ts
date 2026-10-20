@@ -17,12 +17,12 @@
 // Filtered recall repeats the search with filter_document_id = the evidence's
 // document (single-document records), as the chat UI's document filter does.
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
 import postgres from 'postgres'
-import { geminiEmbedder } from '../server/ingest/embed'
+import { queryEmbeddings } from './lib/golden'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const { values } = parseArgs({
@@ -72,22 +72,8 @@ if (values.sync) {
 // ── golden set + cached query embeddings ───────────────────────────────────
 const golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
 const answerable = golden.filter(r => r.answer !== null && r.evidence.length > 0)
-const cacheFile = join(ROOT, '.cache/golden-query-embeddings.json')
-let cache: Record<string, number[]> = {}
-try {
-  cache = JSON.parse(await readFile(cacheFile, 'utf8'))
-}
-catch {
-  // No cache yet: every question is embedded below.
-}
-const missing = answerable.filter(r => !cache[r.question])
-if (missing.length) {
-  const embed = geminiEmbedder(process.env.NUXT_GEMINI_API_KEY ?? '', 'RETRIEVAL_QUERY')
-  const vectors = await embed(missing.map(r => r.question))
-  missing.forEach((r, i) => (cache[r.question] = vectors[i]!))
-  await mkdir(join(ROOT, '.cache'), { recursive: true })
-  await writeFile(cacheFile, JSON.stringify(cache))
-}
+const vectors = await (await queryEmbeddings(process.env.NUXT_GEMINI_API_KEY ?? ''))(answerable.map(r => r.question))
+const queryEmbedding = Object.fromEntries(answerable.map((r, i) => [r.question, vectors[i]!]))
 
 const docs = await sql<{ id: string, filename: string }[]>`select id, filename from documents`
 const docByName = new Map(docs.map(d => [d.filename, d.id]))
@@ -183,7 +169,7 @@ async function run(v: Variant, filtered: boolean, search?: Search) {
     const documents = new Set(r.evidence.map(e => e.document))
     if (filtered && documents.size !== 1) continue
     const filter = filtered ? docByName.get([...documents][0]!)! : null
-    const embedding = `[${cache[r.question]!.join(',')}]`
+    const embedding = `[${queryEmbedding[r.question]!.join(',')}]`
     if (search) {
       ranks.push(coverageRank(await search(r.question, embedding, filter), r.evidence))
       continue

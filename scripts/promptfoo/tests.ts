@@ -12,7 +12,9 @@ const assertion = (fn: string, metric: string) => ({ type: 'javascript', value: 
 
 export default function tests() {
   const golden: GoldenRecord[] = JSON.parse(readFileSync(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
-  const only = process.env.GOLDEN_ONLY ? new Set(process.env.GOLDEN_ONLY.split(',')) : undefined
+  const only = process.env.GOLDEN_ONLY ? new Set(process.env.GOLDEN_ONLY.split(',').map(id => id.trim()).filter(Boolean)) : undefined
+  const unknown = [...only ?? []].filter(id => !golden.some(r => r.id === id))
+  if (unknown.length) throw new Error(`GOLDEN_ONLY: unknown golden ids ${unknown.join(', ')}`)
   return golden.filter(r => !only || only.has(r.id)).map((r) => {
     const answerable = r.answer !== null
     return {

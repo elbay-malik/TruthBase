@@ -12,6 +12,10 @@ on:
     - cron: '0 6 * * 1,4'
   workflow_dispatch: {}
 
+# Only the self-enable step below needs a token scope; everything else is none.
+permissions:
+  actions: write
+
 jobs:
   ping:
     runs-on: ubuntu-24.04
@@ -35,6 +39,17 @@ jobs:
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -o /dev/null
           echo "Keep-alive ping OK."
+
+      # In a public repo GitHub disables scheduled workflows after 60 days
+      # without repository activity, and then the project pauses 7 days later.
+      # Re-enabling this workflow through the REST API is the known keepalive
+      # trick (what keepalive-workflow v2 does), but GitHub does not document
+      # that it resets the 60-day timer. Backstops: GitHub emails the owner
+      # before disabling, and one click (or any push) re-enables it.
+      - name: Re-enable this workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/keep-alive.yml/enable" --silent
 
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   SUPABASE_URL       https://<project-ref>.supabase.co   (Project Settings → API)

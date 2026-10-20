@@ -52,4 +52,5 @@ Containment is a proxy, not retrieval quality. `test/unit/ingest-chunk.test.ts` 
 
 - Highlights are paragraph-sized and always on one page.
 - Sentence detection over-splits on abbreviations ("e.g.", "et al."), which is harmless because pieces are re-packed.
+- CJK `。！？` also end a sentence, with no space needed after them. Chunks of the Latin golden corpus are unchanged (verified byte-identical).
 - Changing the defaults means re-ingesting every document. The containment test fails first if a change splits golden spans.

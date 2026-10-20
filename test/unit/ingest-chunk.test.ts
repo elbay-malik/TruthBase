@@ -65,6 +65,18 @@ describe('chunkPage', () => {
     for (let i = 1; i < chunks.length; i++) expect(chunks[i]!.end).toBeGreaterThan(chunks[i - 1]!.end)
   })
 
+  it('ends CJK sentences at 。！？ without a following space, and overlaps them', () => {
+    const sentence = (ch: string) => `${ch.repeat(20)}。`
+    const text = `${sentence('一')}${sentence('二')}「${'三'.repeat(19)}！」${sentence('四')}`
+    const chunks = chunkPage(text, { ...opts, overlapChars: 30 })
+    expectWellFormed(text, chunks, opts.maxChars + opts.minChars)
+    expect(chunks.map(c => text.slice(c.start, c.end))).toEqual([
+      `${sentence('一')}${sentence('二')}`,
+      `${sentence('二')}「${'三'.repeat(19)}！」`,
+      `「${'三'.repeat(19)}！」${sentence('四')}`,
+    ])
+  })
+
   it('hard-cuts a token longer than maxChars instead of looping', () => {
     const text = 'x'.repeat(150)
     expectWellFormed(text, chunkPage(text, opts), opts.maxChars + opts.minChars)

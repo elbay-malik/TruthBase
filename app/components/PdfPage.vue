@@ -37,14 +37,16 @@ const viewport = computed(() => props.page.getViewport({ scale: props.scale }))
 const mount = ref<HTMLDivElement>()
 const rendered = shallowRef<RenderedPage>()
 const fallbackBoxes = shallowRef<Box[]>([])
-let token = 0
+let rendering: AbortController | undefined
 
 async function render() {
-  const current = ++token
+  // A newer zoom supersedes the render in flight: cancel it rather than let it finish.
+  rendering?.abort()
+  const controller = rendering = new AbortController()
   const fresh = document.createElement('div')
   try {
-    const result = await renderPage(props.page, props.scale, fresh)
-    if (current !== token || !mount.value) {
+    const result = await renderPage(props.page, props.scale, fresh, controller.signal)
+    if (controller.signal.aborted || !mount.value) {
       result.textLayer.cancel() // superseded by a newer zoom / scrolled away
       releaseCanvases(fresh)
       return
@@ -55,16 +57,20 @@ async function render() {
   }
   catch (error) {
     releaseCanvases(fresh)
-    if ((error as Error)?.name !== 'RenderingCancelledException') console.error('[pdf] page render failed', error)
+    const name = (error as Error)?.name
+    if (name !== 'RenderingCancelledException' && name !== 'AbortError') console.error('[pdf] page render failed', error)
   }
 }
 
 function release() {
-  token++
+  rendering?.abort()
+  rendering = undefined
   rendered.value?.textLayer.cancel()
   rendered.value = undefined
   releaseCanvases(mount.value)
   mount.value?.replaceChildren()
+  // Drop the operator list and decoded images; once the cancelled render settles if one is in flight.
+  props.page.cleanup()
 }
 
 watch(() => [props.visible, props.scale] as const, ([visible]) => {

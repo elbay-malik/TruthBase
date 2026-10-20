@@ -5,7 +5,9 @@
 //
 // Text is built exactly like unpdf's extractText (each item's `str`, plus "\n"
 // when `hasEOL`), then whitespace runs collapse to one space and the result is
-// trimmed — the matching contract in docs/golden/README.md.
+// trimmed — the matching contract in docs/golden/README.md. Other control
+// characters (e.g. U+0000 from fonts without a usable ToUnicode map) are
+// dropped: Postgres text rejects NUL, and they carry no readable text.
 
 export interface TextItemLike {
   str: string
@@ -22,6 +24,9 @@ export interface PageText {
   /** For each character of `text`: offset inside `items[charItem[i]].str`. */
   charOffset: Int32Array
 }
+
+/** C0 and C1 controls plus DEL; the whitespace ones are handled first. */
+const isControl = (ch: string) => ch < ' ' || (ch >= '\u007f' && ch <= '\u009f')
 
 export function normalizePageText(items: readonly TextItemLike[]): PageText {
   const chars: string[] = []
@@ -40,6 +45,7 @@ export function normalizePageText(items: readonly TextItemLike[]): PageText {
         pushWhitespace()
         continue
       }
+      if (isControl(ch)) continue
       if (pendingSpace) {
         chars.push(' ')
         charItem.push(-1)

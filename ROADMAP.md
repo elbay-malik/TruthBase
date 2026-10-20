@@ -34,18 +34,23 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
   - **Corrected metrics:** keyword-only recall, SPEC refusal accuracy, eval sources identical to the chat route.
 
   Details in TECH_NOTES §11 and ADR-0004/0005. **Acceptance re-run with stricter gates** (sub-pixel boxes within 0.5 px, SPEC's ink coverage ≥ 0.99 at zoom ≥ 100%, the loaded document id, a real PDF.js worker): **176/180**. The 4 misses are the `Σ` big operator in g-035, which hangs below the em box (3 zooms, a known limitation in ADR-0004), and the vector-drawn frame around "Critique" in g-027 at 200%, which is page graphics, not text. Placement error ≤ 0.03 px everywhere. Production build spot-checked in Chromium: real worker, exact highlights.
-- [ ] **Phase 6 — Hybrid search + RRF hardening** *(~1 wk)*
+- [x] **Phase 6 — Hybrid search + RRF hardening** *(~1 wk)*
   Hybrid beats dense-only on golden recall@k (numbers recorded).
+  <br>Done: see [ADR-0006](./docs/adr/0006-hybrid-search.md).
 - [ ] **Phase 7 — Reranking** *(~1 wk)*
   LLM reranker improves nDCG@5 / citation precision (numbers recorded).
+  <br>Built; final numbers pending ([ADR-0007](./docs/adr/0007-reranking.md)).
 - [ ] **Phase 8 — Query rewriting / advanced retrieval** *(~1 wk)*
   Multi-query improves recall on ambiguous questions without precision collapse.
+  <br>Built; final numbers pending ([ADR-0009](./docs/adr/0009-query-rewriting.md)).
 - [ ] **Phase 9 — Evals harness** *(~1.5 wk)*
   promptfoo produces recall@k, MRR/nDCG, faithfulness, citation precision on the golden set; gates CI.
-- [ ] **Phase 10 — Tracing / observability** *(~0.5 wk)*
+  <br>Built: the retrieval gate runs in CI; the first full LLM eval is pending ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)).
+- [x] **Phase 10 — Tracing / observability** *(~0.5 wk)*
   Every chat request produces a Langfuse trace with chunk + token metadata.
-- [ ] **Phase 11 — Rate limiting, demo mode, anti-abuse** *(~1 wk)*
+- [x] **Phase 11 — Rate limiting, demo mode, anti-abuse** *(~1 wk)*
   Exceeding caps returns clean 429; demo workspace works without login.
+  <br>Done: see [ADR-0010](./docs/adr/0010-abuse-protection.md).
 - [ ] **Phase 12 — UI polish + accessibility** *(~1.5 wk)*
   Lighthouse a11y/perf captured; keyboard-only citation flow works.
 - [ ] **Phase 13 — Testing (Vitest + Playwright)** *(~1.5 wk)*

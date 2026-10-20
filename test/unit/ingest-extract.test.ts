@@ -22,6 +22,13 @@ describe('normalizePage', () => {
     expect([...page.charItem]).toEqual([0, 0, -1, 1, 1])
     expect([...page.charOffset]).toEqual([0, 1, -1, 1, 2])
   })
+
+  it('drops control characters such as NUL, keeping the offset map aligned', () => {
+    const page = normalizePage([item('a\u0000b\u0007', true), item('\u0000c\u009f')])
+    expect(page.text).toBe('ab c')
+    expect([...page.charItem]).toEqual([0, 0, -1, 1])
+    expect([...page.charOffset]).toEqual([0, 2, -1, 1])
+  })
 })
 
 describe('extractPages on the golden PDFs', () => {

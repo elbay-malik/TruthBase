@@ -2,7 +2,8 @@
 // Groq's free-tier limits, for evals that run the production pipeline
 // unchanged (scripts/promptfoo). Interrupted runs resume for free: identical
 // calls (same model, messages including the system instructions, response
-// format and options) return the stored result.
+// format and options) return the stored result. Pacing is per model id, shared
+// with every other cached model in the process (Groq meters each model once).
 //
 // Cache: .cache/models/<namespace>/<hash>.json.
 
@@ -12,7 +13,7 @@ import { join } from 'node:path'
 import type { LanguageModelV4, LanguageModelV4GenerateResult } from '@ai-sdk/provider'
 import { wrapLanguageModel } from 'ai'
 import { ROOT } from './golden'
-import { MAX_WAIT_MS, retryAfterMs, stopOnSpentQuota } from './task-cache'
+import { MAX_WAIT_MS, nextCallAt, retryAfterMs, stopOnSpentQuota } from './task-cache'
 
 export interface ModelCallStats { calls: number, cached: number }
 
@@ -22,7 +23,6 @@ export interface ModelCallStats { calls: number, cached: number }
 export async function cachedLanguageModel(model: LanguageModelV4, namespace: string, tpm: number, stats?: ModelCallStats): Promise<LanguageModelV4> {
   const dir = join(ROOT, '.cache/models', namespace)
   await mkdir(dir, { recursive: true })
-  let nextCallAt = 0
   const id = `${model.provider}/${model.modelId}`
 
   return wrapLanguageModel({
@@ -43,11 +43,11 @@ export async function cachedLanguageModel(model: LanguageModelV4, namespace: str
           return stored
         }
         for (let attempt = 1; ; attempt++) {
-          await new Promise(r => setTimeout(r, Math.max(0, nextCallAt - Date.now())))
+          await new Promise(r => setTimeout(r, Math.max(0, (nextCallAt.get(id) ?? 0) - Date.now())))
           try {
             const result = await doGenerate()
             const tokens = (result.usage.inputTokens.total ?? 0) + (result.usage.outputTokens.total ?? 0)
-            if (tpm > 0) nextCallAt = Date.now() + (tokens / tpm) * 60_000
+            if (tpm > 0) nextCallAt.set(id, Date.now() + (tokens / tpm) * 60_000)
             // The request echo can hold the API key in headers; keep only what replays.
             const { request: _request, ...replayable } = result
             await writeFile(file, JSON.stringify(replayable))
@@ -58,7 +58,7 @@ export async function cachedLanguageModel(model: LanguageModelV4, namespace: str
             if (wait > MAX_WAIT_MS) stopOnSpentQuota(id, wait)
             if (attempt >= 6) throw error
             console.log(`  ${id} retry ${attempt}/5 in ${Math.ceil(wait / 1000)}s: ${String(error).slice(0, 140)}`)
-            nextCallAt = Date.now() + wait
+            nextCallAt.set(id, Date.now() + wait)
           }
         }
       },

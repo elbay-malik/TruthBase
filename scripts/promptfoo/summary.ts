@@ -4,6 +4,10 @@
 //   pnpm eval:llm && pnpm eval:llm:summary                    # check
 //   pnpm eval:llm:summary --update-baseline                   # accept
 //
+// eval:llm exits 0 when assertions fail or rows error
+// (PROMPTFOO_PASS_RATE_THRESHOLD=0): this is the gate, and it fails errored
+// rows. Only a crash or a spent quota (2) stops `&&` before the summary.
+//
 // Pooled, as SPEC defines them (promptfoo's own metric view averages per
 // test): faithfulness = supported claims / claims and citation precision =
 // supporting citations / citations, over all answered records. Judge results
@@ -12,12 +16,16 @@
 // Gate: the SPEC targets (faithfulness ≥ 0.90, citation precision ≥ 0.90,
 // 5/5 unanswerable refused, ≤ 1 false refusal), and no metric more than
 // TOLERANCE below the baseline: LLM output varies between uncached runs.
+// Records that failed an assertion count; errored records and an empty run
+// fail. --update-baseline skips the baseline comparison and writes only a run
+// of the full golden set that meets everything else.
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { ROOT } from '../lib/golden'
-import { judgeAnswer, type JudgeSource } from './judge'
+import { judgeAnswer } from './judge'
+import { isErrored, type Row } from './results'
 
 const { values } = parseArgs({
   options: {
@@ -29,18 +37,14 @@ const BASELINE_FILE = join(ROOT, 'docs/evals/llm-baseline.json')
 const TOLERANCE = 0.05
 const TARGETS = { faithfulness: 0.9, citationPrecision: 0.9 }
 
-interface Row {
-  vars: { id: string, question: string, answerable: boolean | string }
-  response?: { output?: string, metadata?: { refused?: boolean, sources?: JudgeSource[], expander?: string, reranker?: string, rewrites?: string[], reranked?: boolean, answeredBy?: string } }
-  namedScores?: Record<string, number>
-  error?: string
-}
-
 const raw = JSON.parse(await readFile(values.results!, 'utf8'))
 const rows: Row[] = raw.results?.results ?? raw.results
-const errors = rows.filter(r => r.error || !r.response?.metadata)
+const errors = rows.filter(isErrored)
 if (errors.length) console.warn(`${errors.length} rows errored and are left out: ${errors.map(r => r.vars.id).join(', ')}`)
-const ok = rows.filter(r => !r.error && r.response?.metadata)
+const ok = rows.filter(r => !isErrored(r))
+const goldenIds: string[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8')).map((r: { id: string }) => r.id)
+const notRun = goldenIds.filter(id => !rows.some(r => r.vars.id === id))
+if (notRun.length) console.log(`slice: ${goldenIds.length - notRun.length} of ${goldenIds.length} golden records (baseline comparison is indicative)`)
 
 const answerable = ok.filter(r => r.vars.answerable === true || r.vars.answerable === 'true')
 const unanswerable = ok.filter(r => !answerable.includes(r))
@@ -79,7 +83,8 @@ const pipeline = {
 }
 
 const pct = (x: number) => `${(100 * x).toFixed(1)}%`
-const baseline: typeof metrics | undefined = await readFile(BASELINE_FILE, 'utf8').then(s => JSON.parse(s).metrics, () => undefined)
+// Accepting replaces the baseline, so only the SPEC targets gate it.
+const baseline: typeof metrics | undefined = values['update-baseline'] ? undefined : await readFile(BASELINE_FILE, 'utf8').then(s => JSON.parse(s).metrics, () => undefined)
 const failures: string[] = []
 const rate = (name: keyof typeof metrics & ('faithfulness' | 'citationPrecision' | 'answerRelevance' | 'evidenceCitation'), target?: number) => {
   const now = metrics[name]
@@ -100,11 +105,18 @@ if (metrics.unanswerableRefused < metrics.unanswerable) failures.push(`${metrics
 if (metrics.falseRefusals > 1) failures.push(`${metrics.falseRefusals} false refusals`)
 console.log(`pipeline           expand ${pipeline.expander} (${pipeline.rewritten} rewritten) · rerank ${pipeline.reranker} (${pipeline.rerankFallbacks} fallbacks) · answered by ${JSON.stringify(pipeline.answeredBy)}`)
 
-if (values['update-baseline']) {
-  await writeFile(BASELINE_FILE, `${JSON.stringify({ date: new Date().toISOString().slice(0, 10), metrics, pooled, pipeline }, null, 1)}\n`)
-  console.log(`\nwrote ${BASELINE_FILE}`)
-}
+if (!ok.length) failures.push('no records')
 if (errors.length) failures.push(`${errors.length} errored rows`)
+if (values['update-baseline']) {
+  if (failures.length || notRun.length) {
+    console.error(`\nnot writing ${BASELINE_FILE}: ${failures.length ? 'the gate failed' : 'not a full run'}`)
+    process.exitCode = 1
+  }
+  else {
+    await writeFile(BASELINE_FILE, `${JSON.stringify({ date: new Date().toISOString().slice(0, 10), metrics, pooled, pipeline }, null, 1)}\n`)
+    console.log(`\nwrote ${BASELINE_FILE}`)
+  }
+}
 if (failures.length) {
   console.error(`\nLLM eval gate failed:\n- ${failures.join('\n- ')}`)
   process.exitCode = 1

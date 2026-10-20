@@ -1,4 +1,4 @@
-import { startActiveObservation } from '@langfuse/tracing'
+import { startActiveObservation, updateActiveObservation } from '@langfuse/tracing'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SourceRef } from '../../shared/types/chat'
 import type { Embedder } from '../ingest/embed'
@@ -11,9 +11,10 @@ import { searchChunks, type SearchHit } from './search'
 // Retrieval: embed the question (RETRIEVAL_QUERY) and run hybrid RRF search.
 // With an expander (Phase 8, ADR-0009), an LLM meanwhile rewrites an ambiguous
 // or multi-part question into extra queries, each searched too, and the lists
-// are fused with RRF. With a reranker (Phase 7, ADR-0007), an LLM picks the
-// top RERANK_HEAD of the fused candidates and the rest follow in fused order.
-// Keep the top-k chunks and number them as citable sources.
+// are fused with RRF; a failed rewrite search leaves the question's own hits.
+// With a reranker (Phase 7, ADR-0007), an LLM picks the top RERANK_HEAD of the
+// fused top RERANK_CANDIDATES and the rest follow in fused order. Keep the
+// top-k chunks and number them as citable sources.
 //
 // Traced as a Langfuse `retriever` observation with `rewrite` and `rerank`
 // steps (Phase 10); no-ops when tracing is off (server/plugins/tracing.ts).
@@ -85,23 +86,34 @@ async function retrieve(
     options.expander ? rewritesFor(supabase, options.expander, question, options) : Promise.resolve([]),
   ])
   let hits = questionHits
+  let searchedRewrites = rewrites
   if (rewrites.length) {
-    const embeddings = await embedQuery(rewrites)
-    const lists = await Promise.all(rewrites.map((text, i) => search(text, embeddings[i]!)))
-    hits = fuseRankings([questionHits, ...lists]).slice(0, matchCount)
+    try {
+      const embeddings = await embedQuery(rewrites)
+      const lists = await Promise.all(rewrites.map((text, i) => search(text, embeddings[i]!)))
+      hits = fuseRankings([questionHits, ...lists]).slice(0, matchCount)
+    }
+    catch (error) {
+      // Expansion is optional (ADR-0009): fall back to the question's own hits.
+      if (options.abortSignal?.aborted) throw error
+      console.warn(`[expand] rewrite search failed, retrieving the question alone: ${String(error).slice(0, 200)}`)
+      updateActiveObservation({ level: 'WARNING', statusMessage: `rewrite search failed, question searched alone: ${String(error).slice(0, 200)}` })
+      searchedRewrites = []
+    }
   }
 
   const filenameById = await filenames(supabase, hits)
   const reranker = options.reranker
   const ranked = reranker
     ? await startActiveObservation('rerank', async (observation) => {
-        observation.update({ input: { candidates: hits.map(h => h.id) } })
-        const result = await rerank(reranker, question, hits, filenameById, { abortSignal: options.abortSignal, timeoutMs: options.stepTimeoutMs })
+        const candidates = hits.slice(0, RERANK_CANDIDATES)
+        observation.update({ input: { candidates: candidates.map(h => h.id) } })
+        const result = await rerank(reranker, question, candidates, filenameById, { abortSignal: options.abortSignal, timeoutMs: options.stepTimeoutMs })
         observation.update({ output: { reranked: result.reranked, order: result.hits.slice(0, topK).map(h => h.id) } })
-        return result
+        return { hits: [...result.hits, ...hits.slice(RERANK_CANDIDATES)], reranked: result.reranked }
       }, { asType: 'chain' })
     : { hits, reranked: false }
-  return { sources: toSources(ranked.hits.slice(0, topK), filenameById), rewrites, reranked: ranked.reranked }
+  return { sources: toSources(ranked.hits.slice(0, topK), filenameById), rewrites: searchedRewrites, reranked: ranked.reranked }
 }
 
 /** Rewrites from the expander, which sees only the documents in scope; [] if unavailable. */
