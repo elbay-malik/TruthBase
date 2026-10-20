@@ -50,7 +50,7 @@ It is a portfolio project. It shows senior-level retrieval engineering (hybrid s
 
 ## Acceptance metrics
 
-All metrics are computed on [`docs/golden/golden.json`](./golden/golden.json) (50 records: 45 answerable, 5 unanswerable). Targets are **provisional** and get fixed in ADR-0008 once the Phase 4 baseline exists. Any regression beyond tolerance fails CI (Phase 9).
+All metrics are computed on [`docs/golden/golden.json`](./golden/golden.json) (50 records: 45 answerable, 5 unanswerable). Retrieval metrics are gated on every PR against a committed baseline; answer metrics are gated by a manual and weekly LLM eval on the targets below ([ADR-0008](./adr/0008-evals-and-ci-gate.md), [docs/evals](./evals/README.md)).
 
 | Metric | Definition | Measured from | Provisional target |
 |---|---|---|---|
@@ -78,7 +78,7 @@ These decisions get recorded as they are made, using the [ADR template](./adr/te
 | 0005 | **Citation format and grounding/refusal policy**: inline chunk-ID markers, prompt contract, refusal threshold | 4 |
 | 0006 | **Why hybrid search**: dense vs full-text vs hybrid, RRF `k` and weights, with measured golden numbers | 6 |
 | 0007 | **Reranker choice**: listwise LLM-as-reranker on Groq vs cross-encoders vs hosted rerank APIs | 📝 Proposed (final numbers pending) |
-| 0008 | **Eval methodology and CI gate**: metric definitions, judge model, thresholds, tolerance | 9 |
+| 0008 | **Eval methodology and CI gate**: metric definitions, judge model, thresholds, tolerance | 📝 Proposed (first full LLM eval pending) |
 | 0009 | **Query rewriting**: multi-query vs HyDE, guardrails (entity preservation, rerank after fusion) | 📝 Proposed (final numbers pending) |
 | 0010 | **Abuse protection and demo mode**: rate-limit store, caps, BYO-docs gating | 11 |
 | 0011 | **Deployment topology**: Workers Paid vs free Workers + Node ingestion host | 14 |

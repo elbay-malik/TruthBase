@@ -26,6 +26,8 @@ export interface RetrieveOptions {
   expander?: TaskModel
   /** Rerank the fused top RERANK_CANDIDATES before keeping topK. */
   reranker?: TaskModel
+  /** Time budget per LLM step; unset keeps each step's default (3 s rewrite, 4 s rerank). Evals raise it. */
+  stepTimeoutMs?: number
   abortSignal?: AbortSignal
 }
 
@@ -70,7 +72,7 @@ export async function retrieveSources(
 
   const filenameById = await filenames(supabase, hits)
   const ranked = options.reranker
-    ? await rerank(options.reranker, question, hits, filenameById, { abortSignal: options.abortSignal })
+    ? await rerank(options.reranker, question, hits, filenameById, { abortSignal: options.abortSignal, timeoutMs: options.stepTimeoutMs })
     : { hits, reranked: false }
   return { sources: toSources(ranked.hits.slice(0, topK), filenameById), rewrites, reranked: ranked.reranked }
 }
@@ -85,7 +87,7 @@ async function rewritesFor(supabase: SupabaseClient, expander: TaskModel, questi
     console.warn(`[expand] document catalog unavailable, retrieving the question alone: ${String(error).slice(0, 200)}`)
     return []
   }
-  return expand(expander, question, catalog.map(catalogLine), { abortSignal: options.abortSignal })
+  return expand(expander, question, catalog.map(catalogLine), { abortSignal: options.abortSignal, timeoutMs: options.stepTimeoutMs })
 }
 
 export function toSources(hits: SearchHit[], filenameById: Map<string, string>): SourceRef[] {

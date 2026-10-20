@@ -1,0 +1,83 @@
+name: llm-eval
+
+# The LLM eval of the full answer pipeline on the golden set (ADR-0008):
+# promptfoo runs retrieval, multi-query rewriting, reranking and grounded
+# generation for all 50 records, an LLM judge grades faithfulness, citation
+# precision and relevance, and scripts/promptfoo/summary.ts gates on the SPEC
+# targets and the committed baseline (docs/evals/llm-baseline.json).
+#
+# Not a PR gate: one run needs ~300K Groq tokens across four models, and each
+# model's free tier allows 200K/day, shared with the live demo. Model calls are
+# cached (.cache/models, kept by actions/cache), so a run stopped by a spent
+# quota (exit 2) finishes on a later run without paying twice.
+#
+# Secrets: NUXT_GROQ_API_KEY, NUXT_GEMINI_API_KEY, NUXT_SUPABASE_URL,
+# NUXT_SUPABASE_SERVICE_KEY.
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Comma-separated golden ids (empty = all 50)
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 3 * * 0' # Sundays 03:00 UTC, when the demo is quietest
+
+concurrency:
+  group: llm-eval
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      NUXT_GROQ_API_KEY: ${{ secrets.NUXT_GROQ_API_KEY }}
+      NUXT_GEMINI_API_KEY: ${{ secrets.NUXT_GEMINI_API_KEY }}
+      NUXT_SUPABASE_URL: ${{ secrets.NUXT_SUPABASE_URL }}
+      NUXT_SUPABASE_SERVICE_KEY: ${{ secrets.NUXT_SUPABASE_SERVICE_KEY }}
+      GOLDEN_ONLY: ${{ inputs.only }}
+      PROMPTFOO_DISABLE_TELEMETRY: '1'
+      PROMPTFOO_DISABLE_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Keyed per run so every run saves its new calls; restores the newest.
+      # Saved even when the eval stops on a spent quota: that's when it matters.
+      - uses: actions/cache/restore@v4
+        with:
+          path: .cache/models
+          key: llm-eval-models-${{ github.run_id }}
+          restore-keys: llm-eval-models-
+
+      - name: Eval
+        run: pnpm eval:llm
+
+      - name: Summary and gate
+        shell: bash # -eo pipefail: tee must not hide the gate's exit code
+        run: pnpm eval:llm:summary | tee summary.txt
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .cache/models
+          key: llm-eval-models-${{ github.run_id }}
+
+      - name: Job summary
+        if: always()
+        run: |
+          { echo '### LLM eval'; echo '```'; cat summary.txt 2>/dev/null || echo 'no summary (eval did not finish)'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: promptfoo-results
+          path: .cache/promptfoo-results.json
+          if-no-files-found: ignore

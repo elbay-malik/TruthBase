@@ -151,3 +151,12 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 - **Cache instructions, not just prompts.** The eval caches (`scripts/lib/task-cache.ts`) first keyed on the user prompt only, so changing the system instructions silently reused stale results. Entries now store an instructions hash, and a mismatch is a miss.
 - **Gemini Flash-Lite's free quota runs out** within a day of eval runs ("You exceeded your current quota"). It's also the answer fallback, so keep evals off it unless needed.
 
+## 14. Evals harness (Phase 9)
+
+- **promptfoo passes the provider's `metadata` to assertions and to `contextTransform`** (`context.metadata`, checked in 0.124.1's source), so retrieved sources can flow from a custom provider to graders without changing `output`. JS assertions get it as `context.metadata` (shortcut for `providerResponse.metadata`).
+- **promptfoo loads `.env` from the working directory itself** and loads `file://*.ts` providers and assertions directly; imports resolve from the project's `node_modules` even when promptfoo itself runs via `pnpm dlx`.
+- **Disable promptfoo's own cache** (`--no-cache`) for a custom pipeline provider: it keys on the prompt (the question), so it would hide retrieval changes. `scripts/lib/cached-model.ts` caches model calls instead (`wrapLanguageModel` middleware), keyed on the full request.
+- **`actions/cache` saves only on success**; use `actions/cache/restore` + `actions/cache/save` with `if: always()` to keep a partial cache from a run that stopped on a spent quota. And `run: a | tee b` hides `a`'s exit code unless the step sets `shell: bash` (which adds `-o pipefail`).
+- **`node --env-file` fails when the file is missing**; scripts that also run in CI use `--env-file-if-exists`.
+- **qwen3.8-27b produced valid structured output as a judge** in the smoke test, unlike as a reranker (§12); confirm over a full run.
+

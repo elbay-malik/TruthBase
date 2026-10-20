@@ -18,7 +18,14 @@ import type { TaskModel } from '../../server/rag/model'
 const CACHE_ROOT = join(resolve(import.meta.dirname, '../..'), '.cache')
 
 /** Longest rate-limit wait worth sitting through; beyond it (a spent daily quota) the run stops. */
-const MAX_WAIT_MS = 5 * 60_000
+export const MAX_WAIT_MS = 5 * 60_000
+
+/** Ends the run on a spent daily quota: an expected stop, so no stack trace or request dump. */
+export function stopOnSpentQuota(modelId: string, waitMs: number): never {
+  console.error(`\n${modelId}: rate limit needs a ${Math.ceil(waitMs / 60_000)} min wait, so its daily token quota is spent.`
+    + `\nIt refills gradually over 24 h; re-run later and the cached results are reused.`)
+  process.exit(2)
+}
 
 export interface Usage { inputTokens?: number, outputTokens?: number }
 
@@ -59,12 +66,7 @@ export async function taskCache(namespace: string, tm: TaskModel, tpm: number) {
       }
       catch (error) {
         const wait = retryAfterMs(error) ?? 15_000 * attempt
-        if (wait > MAX_WAIT_MS) {
-          // An expected stop, not a crash: no stack trace or request dump.
-          console.error(`\n${tm.id}: rate limit needs a ${Math.ceil(wait / 60_000)} min wait, so its daily token quota is spent.`
-            + `\nIt refills gradually over 24 h; re-run later and the cached results are reused.`)
-          process.exit(2)
-        }
+        if (wait > MAX_WAIT_MS) stopOnSpentQuota(tm.id, wait)
         if (attempt >= 6) throw error
         console.log(`  retry ${attempt}/5 in ${Math.ceil(wait / 1000)}s: ${String(error).slice(0, 140)}`)
         nextCallAt = Date.now() + wait
@@ -74,7 +76,7 @@ export async function taskCache(namespace: string, tm: TaskModel, tpm: number) {
 }
 
 /** The Retry-After of a 429, in ms. */
-function retryAfterMs(error: unknown): number | undefined {
+export function retryAfterMs(error: unknown): number | undefined {
   if (!APICallError.isInstance(error) || error.statusCode !== 429) return undefined
   const seconds = Number(error.responseHeaders?.['retry-after'])
   return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined

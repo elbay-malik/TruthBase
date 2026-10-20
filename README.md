@@ -9,7 +9,7 @@ What is built today (Phases 0–5):
 - **Hybrid search**: pgvector (dense, HNSW) and Postgres full-text search (`tsvector`), fused with Reciprocal Rank Fusion in SQL on Supabase.
 - **Grounded generation with citations**: Groq `openai/gpt-oss-120b`, falling back to Gemini 3.5 Flash-Lite when Groq rate-limits or fails, streamed with the Vercel AI SDK. Sources are delimited and treated as quoted material, never as instructions. When nothing retrieved supports an answer, the app refuses instead of guessing.
 - **Citation-to-highlight mapping**: per-line PDF rects are computed at ingestion from PDF.js glyph advances and checked against MuPDF to 0.05 pt. The viewer draws them as overlays. If the page text no longer matches, it falls back to an "approximate" highlight.
-- **Measured**: a 50-question golden set ([docs/golden](./docs/golden)), a retrieval + answer eval (`pnpm eval:answers`: recall@k, citation precision, refusal accuracy) and a headless-browser highlight check (`pnpm check:viewer`).
+- **Measured**: a 50-question golden set ([docs/golden](./docs/golden)), an offline retrieval gate in CI (`pnpm eval:retrieval`: recall@k, MRR, nDCG@5), a promptfoo LLM eval with a judge (`pnpm eval:llm`: faithfulness, citation precision, refusals) and a headless-browser highlight check (`pnpm check:viewer`). See [docs/evals](./docs/evals).
 
 Planned (see [ROADMAP.md](./ROADMAP.md)): hybrid tuning (Phase 6), an LLM reranker (Phase 7), promptfoo evals as a CI gate (Phase 9), Langfuse tracing (Phase 10) and bring-your-own-docs uploads (Phase 11).
 
@@ -29,7 +29,7 @@ pnpm lint           # eslint flat config
 pnpm test           # vitest (unit + nuxt projects)
 ```
 
-Operator scripts (need `.env`): `pnpm ingest:golden` seeds the golden PDFs, `pnpm eval:answers --label <name> [--model groq|gemini]` runs the golden-set eval, and `pnpm check:viewer` runs the highlight acceptance check against `NUXT_DISABLE_RATE_LIMIT=1 pnpm dev`. Install its browser once first with `pnpm exec playwright-core install chromium`.
+Operator scripts (need `.env`): `pnpm ingest:golden` seeds the golden PDFs, the evals are listed in [docs/evals](./docs/evals/README.md), and `pnpm check:viewer` runs the highlight acceptance check against `NUXT_DISABLE_RATE_LIMIT=1 pnpm dev`. Install its browser once first with `pnpm exec playwright-core install chromium`.
 
 Secrets are server-only via Nuxt `runtimeConfig` — copy [.env.example](./.env.example) to `.env` for local development. Nothing secret ever ships to the client.
 

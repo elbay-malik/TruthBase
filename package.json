@@ -22,7 +22,11 @@
     "check:viewer": "tsx --env-file=.env scripts/check-viewer.ts",
     "tune:retrieval": "tsx --env-file=.env scripts/tune-retrieval.ts",
     "eval:rerank": "tsx --env-file=.env scripts/eval-rerank.ts",
-    "eval:multiquery": "tsx --env-file=.env scripts/eval-multiquery.ts"
+    "eval:multiquery": "tsx --env-file=.env scripts/eval-multiquery.ts",
+    "fixtures:retrieval": "tsx --env-file=.env scripts/build-retrieval-fixture.ts",
+    "eval:retrieval": "tsx scripts/eval-retrieval.ts",
+    "eval:llm": "pnpm dlx promptfoo@0.124.1 eval -c scripts/promptfoo/promptfooconfig.yaml --no-cache -o .cache/promptfoo-results.json",
+    "eval:llm:summary": "tsx --env-file-if-exists=.env scripts/promptfoo/summary.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.9",

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# The LLM eval of the full answer pipeline on the golden set (ADR-0008).
+# Run from the repo root with `pnpm eval:llm` (see package.json), then
+# `pnpm eval:llm:summary` for the SPEC metrics and the baseline comparison.
+description: TruthBase grounded answers on the golden set
+
+prompts:
+  - '{{question}}'
+
+providers:
+  - id: file://provider.ts
+    label: truthbase
+
+tests: file://tests.ts
+
+# The provider caches every model call on disk itself; promptfoo's own cache
+# would key on the question only and hide retrieval changes.
+evaluateOptions:
+  cache: false
+  maxConcurrency: 1
