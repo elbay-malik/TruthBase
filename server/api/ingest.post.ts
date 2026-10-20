@@ -11,6 +11,9 @@ import { clearCatalogCache } from '../rag/catalog'
 //   event: done      data: { documentId, pageCount, chunkCount }
 //   event: error     data: { message, stage? }
 // Validation failures are plain JSON errors sent before the stream opens.
+// On Vercel, bodies over 4.5 MB never reach the route (ADR-0011): a larger
+// declared length gets a 413 that says so, and the corpus is ingested with
+// the CLI (pnpm ingest:golden) instead.
 //
 // Ingestion spends embedding quota and storage, so until Phase 11 adds
 // bring-your-own-docs auth it is operator-only: `Authorization: Bearer
@@ -32,8 +35,9 @@ export default defineEventHandler(async (event) => {
     // Chunked bodies would bypass the size limiter, which reads Content-Length.
     throw createError({ statusCode: 411, statusMessage: 'Length Required', message: 'Send the upload with a Content-Length header.' })
   }
-  if (declaredLength > MAX_PDF_BYTES + 1024 * 1024) {
-    throw createError({ statusCode: 413, statusMessage: 'Payload Too Large', message: 'PDFs are limited to 20 MB.' })
+  const limit = uploadLimit(onVercel(), MAX_PDF_BYTES)
+  if (declaredLength > limit.maxRequestBytes) {
+    throw createError({ statusCode: 413, statusMessage: 'Payload Too Large', message: limit.message })
   }
   if (!config.geminiApiKey) {
     throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Embeddings are not configured (set NUXT_GEMINI_API_KEY).' })

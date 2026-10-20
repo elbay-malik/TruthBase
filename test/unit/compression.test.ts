@@ -65,6 +65,25 @@ describe('compressResponse', () => {
     expect(JSON.parse(gunzipSync(response.body as Buffer).toString())).toEqual(data)
   })
 
+  it('with json: false (Vercel, whose CDN encodes JSON), compresses HTML only', async () => {
+    const data = Array.from({ length: 40 }, (_, i) => ({ id: `doc-${i}`, filename: `doc-${i}.pdf`, pageCount: i }))
+    const api = fakeEvent({ 'accept-encoding': 'br' })
+    const json: { body?: unknown } = { body: data }
+    await compressResponse(asEvent(api), json, { json: false })
+    expect(json.body).toBe(data) // left for h3 to serialise
+    expect(api.res['content-encoding']).toBeUndefined()
+
+    const typed = fakeEvent({ 'accept-encoding': 'br' }, { 'content-type': 'application/json' })
+    const text: { body?: unknown } = { body: JSON.stringify(data) }
+    await compressResponse(asEvent(typed), text, { json: false })
+    expect(typed.res['content-encoding']).toBeUndefined()
+
+    const page = fakeEvent({ 'accept-encoding': 'br' }, { 'content-type': 'text/html;charset=utf-8' })
+    const response: { body?: unknown } = { body: html }
+    await compressResponse(asEvent(page), response, { json: false })
+    expect(page.res['content-encoding']).toBe('br')
+  })
+
   it('leaves small bodies and clients without an encoding uncompressed', async () => {
     const small = fakeEvent({ 'accept-encoding': 'br' }, { 'content-type': 'application/json' })
     const tiny: { body?: unknown } = { body: { ok: true } }

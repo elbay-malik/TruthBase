@@ -59,6 +59,7 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
   <br>Done: see [ADR-0012](./docs/adr/0012-hermetic-e2e.md). **Vitest: 207 tests** (181 unit, 26 Nuxt). Chunking covers sentence packing, closing quotes, overlap and a seeded randomized check. Rects: glyph replay including mirrored and rotated runs, line grouping with the right edge as a running max, and server/viewer parity on the same lines. RRF: `fuseRankings` with 1-based ranks, weights and `k`. Mutation-checked: breaking any of these rules fails a test (only tie-break changes that can't alter the output survive). **Playwright (CI job `e2e`), against the production build with no secrets:** ask → click a chip → the right document and page, the passage scrolled into view, overlay boxes within 0.5 px of the stored rects at zoom 0.5/1/2, and canvas ink under the lines (desktop). All 45 answerable golden questions on desktop and 8 on the phone sheet, plus deep links, Range loading from a cross-origin Storage stub, the keyboard flow, `NO_ANSWER`, the daily cap, the stream's error part, PDF retry, an interrupted stream and a replayed real g-020 stream. 77 passed, 0 flaky in 3 consecutive CI-mode runs (~74 s each). Drawing the canvas 10% smaller fails all 52 desktop highlight tests, and moving the overlay 2 px fails all 67 tests that check geometry. Upload → ask isn't covered until Phase 11b; the live backend path stays with `pnpm check:viewer`. One phone tooltip bug is tracked as `test.fixme`.
 - [ ] **Phase 14 — Deployment** *(~1 wk)*
   Public URL, upload→ask→highlight works in prod, ≤ 5 EUR/month.
+  <br>In progress: target decided, **Vercel Hobby, free** ([ADR-0011](./docs/adr/0011-deployment-topology.md)): one Node 24 function in `dub1` next to Supabase, the corpus ingested with the CLI, per-minute limits moved into Postgres for serverless, and Langfuse spans flushed through `waitUntil`. CI builds the vercel preset and boots the function (`build-vercel`). Runbook: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md). Pending: the production deploy and its smoke checks.
 - [ ] **Phase 15 — README whitepaper, ADRs, demo video** *(~1 wk)*
   README with eval numbers, ADRs, metrics, video published.
 
@@ -75,7 +76,7 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 - [ ] Per-IP rate limiting + output caps enforced; public demo works without login.
 - [x] Playwright E2E covers the citation-to-highlight flow; Vitest covers chunking/rects/RRF.
 - [ ] TypeScript strict passes everywhere; accessibility pass done; Lighthouse/CWV captured.
-- [ ] Live demo deployed under 5 EUR/month with keep-alive; README whitepaper + ADRs + demo video published.
+- [ ] Live demo deployed for free (Vercel Hobby, ADR-0011; was: under 5 EUR/month) with keep-alive; README whitepaper + ADRs + demo video published.
 
 ## Stretch goals (deliberately out of core scope)
 

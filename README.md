@@ -1,6 +1,6 @@
 # TruthBase
 
-> 🚧 **Status: Phases 0–13 built**: grounded chat with citations, and clicking a citation scrolls the PDF to the exact highlighted passage (placement verified on all 60 golden spans at 3 zoom levels; one TeX math glyph is a known gap, see ADR-0004), on top of tuned hybrid search, LLM reranking, multi-query expansion, evals, tracing and daily quotas, in an accessible, keyboard-operable UI (Lighthouse accessibility 100, see [Quality](#quality)). Some final numbers are still pending (reranking, query rewriting, the first full LLM eval; see ADR-0007/0008/0009). Vitest covers chunking, highlight rects and RRF fusion, and a Playwright E2E checks citation → highlight on every golden span in CI. Next: Phase 14, deployment. See [ROADMAP.md](./ROADMAP.md) for progress.
+> 🚧 **Status: Phases 0–13 built**: grounded chat with citations, and clicking a citation scrolls the PDF to the exact highlighted passage (placement verified on all 60 golden spans at 3 zoom levels; one TeX math glyph is a known gap, see ADR-0004), on top of tuned hybrid search, LLM reranking, multi-query expansion, evals, tracing and daily quotas, in an accessible, keyboard-operable UI (Lighthouse accessibility 100, see [Quality](#quality)). Some final numbers are still pending (reranking, query rewriting, the first full LLM eval; see ADR-0007/0008/0009). Vitest covers chunking, highlight rects and RRF fusion, and a Playwright E2E checks citation → highlight on every golden span in CI. Next: Phase 14, deployment to Vercel Hobby: code, CI and runbook are ready, the production deploy is pending ([ADR-0011](./docs/adr/0011-deployment-topology.md)). See [ROADMAP.md](./ROADMAP.md) for progress.
 
 **TruthBase** is a verifiable, advanced-RAG knowledge base built on Nuxt 4. Ingest PDFs (operator-only until Phase 11b adds uploads), ask questions, and get grounded answers with inline citations — where **clicking a citation scrolls the PDF viewer to the exact page and highlights the exact supporting passage**.
 
@@ -12,9 +12,9 @@ What is built today (Phases 0–12):
 - **Citation-to-highlight mapping**: per-line PDF rects are computed at ingestion from PDF.js glyph advances and checked against MuPDF to 0.05 pt. The viewer draws them as overlays. If the page text no longer matches, it falls back to an "approximate" highlight.
 - **Measured**: a 50-question golden set ([docs/golden](./docs/golden)), an offline retrieval gate in CI (`pnpm eval:retrieval`: recall@k, MRR, nDCG@5), a manual and weekly promptfoo LLM eval with a judge (`pnpm eval:llm`: faithfulness, citation precision, refusals) and a headless-browser highlight check (`pnpm check:viewer`). See [docs/evals](./docs/evals). Each chat request is traced to Langfuse when its keys are set (retrieval steps, model calls, tokens, time to first token).
 - **Accessible UI**: WCAG AA contrast in light and dark, a visible focus ring on every control, and a keyboard-only citation flow (`/`, Tab, Enter, `[` `]`, Esc) with live announcements. Brotli/gzip for HTML, JSON and static assets; the landing page loads no PDF.js or PDF until a citation or document is opened.
-- **Abuse protection**: daily per-client and whole-demo caps in Postgres on top of the per-minute limiter, with a clean 429 ([ADR-0010](./docs/adr/0010-abuse-protection.md)). The demo workspace needs no login.
+- **Abuse protection**: per-minute limits and daily per-client and whole-demo caps in Postgres, shared by every serverless instance, with a clean 429 ([ADR-0010](./docs/adr/0010-abuse-protection.md)). The demo workspace needs no login.
 
-Planned (see [ROADMAP.md](./ROADMAP.md)): bring-your-own-docs uploads behind Supabase Auth (Phase 11b) and deployment (Phase 14).
+Planned (see [ROADMAP.md](./ROADMAP.md)): bring-your-own-docs uploads behind Supabase Auth (Phase 11b) and the live deployment (Phase 14, see [Deployment](#deployment)).
 
 📋 Full architecture and phase-by-phase plan: [docs/EXECUTION_PLAN.md](./docs/EXECUTION_PLAN.md)
 🔧 Version corrections & API deltas vs. the original brief: [docs/TECH_NOTES.md](./docs/TECH_NOTES.md)
@@ -58,6 +58,17 @@ The E2E suite runs the production build with the backend replaced by repo fixtur
 Operator scripts (need `.env`): `pnpm ingest:golden` seeds the golden PDFs, the evals are listed in [docs/evals](./docs/evals/README.md), and `pnpm check:viewer` runs the highlight acceptance check against `NUXT_DISABLE_RATE_LIMIT=1 pnpm dev`. It uses the same browser as the E2E suite.
 
 Secrets are server-only via Nuxt `runtimeConfig` — copy [.env.example](./.env.example) to `.env` for local development. Nothing secret ever ships to the client.
+
+## Deployment
+
+The demo deploys to **Vercel Hobby** (free, non-commercial) as one Node 24 function in `dub1`, next to the Supabase project in eu-west-1, with static assets on Vercel's CDN ([ADR-0011](./docs/adr/0011-deployment-topology.md)). Importing the repo into Vercel works with the defaults: Nitro builds its vercel preset when `VERCEL=1`, and `vercel.json` installs with pnpm 11 through Corepack.
+
+```bash
+pnpm build:vercel   # NITRO_PRESET=vercel → .vercel/output (Build Output API)
+pnpm check:vercel   # function config, static files, server assets, booted function smoke test
+```
+
+Before the first deploy, apply `supabase/migrations` to the hosted project, ingest the corpus with `pnpm ingest:golden`, and set the environment variables from `.env.example`. Leave `NUXT_INGEST_TOKEN` unset: ingestion runs from the CLI, because Vercel caps request bodies at 4.5 MB. `NUXT_TRUSTED_IP_HEADER` is `x-vercel-forwarded-for`. Step by step, with the smoke checks and the rollback: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 ## License
 

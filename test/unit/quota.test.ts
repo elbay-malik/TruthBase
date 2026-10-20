@@ -61,6 +61,24 @@ describe('clientIp', () => {
     expect(warn.mock.calls[0]![0]).toContain('NUXT_TRUSTED_IP_HEADER is unset')
   })
 
+  it('names the server\'s own local fetches (no socket address) without warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(quota.clientIp(asEvent(fakeEvent({}, '')), 'x-vercel-forwarded-for')).toBe(quota.INTERNAL_CLIENT)
+    expect(quota.clientIp(asEvent({ headers: {}, set: {}, node: { req: { socket: {} } } }), '')).toBe(quota.INTERNAL_CLIENT)
+    // A forwarded visitor header still wins (SSR's useFetch forwards it).
+    expect(quota.clientIp(asEvent(fakeEvent({ 'x-vercel-forwarded-for': '203.0.113.7' }, '')), 'x-vercel-forwarded-for')).toBe('203.0.113.7')
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('ignores a trusted header that is not an IP address (no limiter-exempt keys)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(quota.clientIp(asEvent(fakeEvent({ 'x-real-ip': quota.INTERNAL_CLIENT }, '198.51.100.4')), 'x-real-ip')).toBe('198.51.100.4')
+    expect(quota.clientIp(asEvent(fakeEvent({ 'x-real-ip': 'unknown' }, '198.51.100.4')), 'x-real-ip')).toBe('198.51.100.4')
+    expect(warn.mock.calls.some(([m]) => String(m).includes('is not an IP address'))).toBe(true)
+    expect(quota.clientIp(asEvent(fakeEvent({ 'x-real-ip': '[2001:db8::1]' })), 'x-real-ip')).toBe('2001:db8:0:0::/64')
+  })
+
   it('normalises the address it returns', () => {
     expect(quota.clientIp(asEvent(fakeEvent({}, '::ffff:1.2.3.4')), '')).toBe('1.2.3.4')
     expect(quota.clientIp(asEvent(fakeEvent({ 'x-real-ip': '2001:db8:1:2::abcd' })), 'x-real-ip')).toBe('2001:db8:1:2::/64')
@@ -117,6 +135,21 @@ describe('clientKey', () => {
   })
 })
 
+describe('secondsUntilWindowEnd', () => {
+  it('counts to the end of the clock-aligned window', () => {
+    expect(quota.secondsUntilWindowEnd(60, new Date('2026-10-20T12:00:15Z'))).toBe(45)
+    expect(quota.secondsUntilWindowEnd(60, new Date('2026-10-20T12:00:59.500Z'))).toBe(1)
+    expect(quota.secondsUntilWindowEnd(60, new Date('2026-10-20T12:00:00Z'))).toBe(60)
+  })
+})
+
+describe('quotaMessage', () => {
+  it('says "wait a minute" for the per-minute limit', () => {
+    expect(quota.quotaMessage('chat', 'minute', 10)).toBe('Too many questions in a short time (10 a minute). Wait a minute, then try again.')
+    expect(quota.quotaMessage('search', 'minute', 30)).toContain('30 a minute')
+  })
+})
+
 describe('secondsUntilUtcMidnight', () => {
   it('counts to the next 00:00 UTC', () => {
     expect(quota.secondsUntilUtcMidnight(new Date('2026-10-20T23:59:00Z'))).toBe(60)
@@ -124,39 +157,59 @@ describe('secondsUntilUtcMidnight', () => {
   })
 })
 
-describe('enforceDailyQuota', () => {
-  const limits = { perClient: 30, global: 80 }
+describe('enforceQuota', () => {
+  const limits = { perMinute: 10, perClient: 30, global: 80 }
   const options = { trustedIpHeader: '', secret: 's' }
   const supabaseReturning = (data: unknown, error: unknown = null) => {
-    const rpc = vi.fn(async () => ({ data, error }))
+    const rpc = vi.fn(async (_fn: string, _args: unknown) => ({ data, error }))
     return { rpc, supabase: { rpc } as unknown as SupabaseClient }
   }
 
-  it('consumes the client and global counters in one call', async () => {
+  it('consumes the per-minute, client and global counters in one call', async () => {
     const { rpc, supabase } = supabaseReturning([{ allowed: true, blocked_scope: null }])
-    await quota.enforceDailyQuota(asEvent(fakeEvent()), supabase, 'chat', limits, options)
+    await quota.enforceQuota(asEvent(fakeEvent()), supabase, 'chat', limits, options)
+    const key = quota.clientKey('s', '10.0.0.1')
     expect(rpc).toHaveBeenCalledWith('consume_quotas', {
-      p_scopes: ['chat:client', 'chat:global'],
-      p_keys: [quota.clientKey('s', '10.0.0.1'), 'all'],
-      p_limits: [30, 80],
+      p_scopes: ['chat:minute', 'chat:client', 'chat:global'],
+      p_keys: [key, key, 'all'],
+      p_limits: [10, 30, 80],
+      p_windows: [60, 86_400, 86_400],
     })
+  })
+
+  it('keys the counters on the trusted header', async () => {
+    const { rpc, supabase } = supabaseReturning([{ allowed: true, blocked_scope: null }])
+    await quota.enforceQuota(asEvent(fakeEvent({ 'x-vercel-forwarded-for': '203.0.113.7' })), supabase, 'search', limits, { trustedIpHeader: 'x-vercel-forwarded-for', secret: 's' })
+    expect(rpc.mock.calls[0]![1]).toMatchObject({ p_keys: [quota.clientKey('s', '203.0.113.7'), quota.clientKey('s', '203.0.113.7'), 'all'] })
+  })
+
+  it('throws a per-minute 429 that the UI reads as "wait a minute"', async () => {
+    const event = fakeEvent()
+    const { supabase } = supabaseReturning([{ allowed: false, blocked_scope: 'chat:minute' }])
+    const error = await quota.enforceQuota(asEvent(event), supabase, 'chat', limits, options).catch(e => e)
+    expect(error).toMatchObject({ statusCode: 429, statusMessage: 'Too Many Requests', data: { limit: 'minute', resource: 'chat' } })
+    // No data.quota: app/pages/index.vue treats that as a daily cap.
+    expect(error.data.quota).toBeUndefined()
+    expect(error.message).toContain('Wait a minute')
+    expect(event.set['Retry-After']).toBeGreaterThan(0)
+    expect(event.set['Retry-After']).toBeLessThanOrEqual(60)
   })
 
   it('throws a 429 with Retry-After and the blocked quota', async () => {
     const event = fakeEvent()
     const { supabase } = supabaseReturning([{ allowed: false, blocked_scope: 'chat:client' }])
-    const error = await quota.enforceDailyQuota(asEvent(event), supabase, 'chat', limits, options).catch(e => e)
+    const error = await quota.enforceQuota(asEvent(event), supabase, 'chat', limits, options).catch(e => e)
     expect(error).toMatchObject({ statusCode: 429, data: { quota: 'client', resource: 'chat' } })
     expect(error.message).toContain('limit of 30 questions')
     expect(event.set['Retry-After']).toBeGreaterThan(0)
 
-    const global = await quota.enforceDailyQuota(asEvent(fakeEvent()), supabaseReturning([{ allowed: false, blocked_scope: 'chat:global' }]).supabase, 'chat', limits, options).catch(e => e)
+    const global = await quota.enforceQuota(asEvent(fakeEvent()), supabaseReturning([{ allowed: false, blocked_scope: 'chat:global' }]).supabase, 'chat', limits, options).catch(e => e)
     expect(global).toMatchObject({ statusCode: 429, data: { quota: 'global' } })
   })
 
   it('lets the request through when the counter store fails', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { supabase } = supabaseReturning(null, { message: 'connection refused' })
-    await expect(quota.enforceDailyQuota(asEvent(fakeEvent()), supabase, 'search', limits, options)).resolves.toBeUndefined()
+    await expect(quota.enforceQuota(asEvent(fakeEvent()), supabase, 'search', limits, options)).resolves.toBeUndefined()
   })
 })

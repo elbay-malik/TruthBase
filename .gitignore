@@ -1,5 +1,7 @@
 # Nuxt dev/build outputs
 .output
+# Vercel: Build Output API (NITRO_PRESET=vercel) and `vercel link` state
+.vercel
 .data
 .nuxt
 .nitro

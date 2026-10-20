@@ -5,9 +5,21 @@ import { fileURLToPath } from 'node:url'
 // for `nuxt dev` — a production build always keeps it (audit finding).
 const rateLimitOff = process.env.NODE_ENV !== 'production' && process.env.NUXT_DISABLE_RATE_LIMIT === '1'
 
+/**
+ * Per-minute limits on the routes that spend LLM quota. Enforced twice: in
+ * Postgres across all instances (consume_quotas, server/utils/quota.ts), and
+ * first by nuxt-security's in-memory limiter per instance (routeLimit).
+ */
+const PER_MINUTE = { chat: 10, search: 30 }
+
 /** Per-route limits on top of the global one: these routes spend LLM quota. */
 const routeLimit = (tokensPerInterval: number) =>
   rateLimitOff ? false : { tokensPerInterval, interval: 60_000 }
+
+// Phase 14 (ADR-0011): production is a Vercel Function. Nitro picks its
+// vercel preset by itself when building on Vercel (VERCEL=1), or with
+// NITRO_PRESET=vercel locally and in CI; everything else builds node-server.
+const vercelBuild = process.env.VERCEL === '1' || !!process.env.NITRO_PRESET?.startsWith('vercel')
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -54,7 +66,31 @@ export default defineNuxtConfig({
   nitro: {
     // Prebuilt .gz/.br next to every compressible public asset (_nuxt, /pdfjs);
     // SSR HTML and API JSON are compressed by server/plugins/compression.ts.
-    compressPublicAssets: { gzip: true, brotli: true },
+    // Not on Vercel: its CDN serves static files as they are and negotiates
+    // gzip/brotli itself, so the sidecars would only be dead weight.
+    compressPublicAssets: vercelBuild ? false : { gzip: true, brotli: true },
+    // Vercel preset only (ignored by node-server), written to the function's
+    // .vc-config.json (ADR-0011). One function serves every route.
+    vercel: {
+      functions: {
+        // Nitro 2 would write nodejs22.x (its list stops at 22); CI tests 24.
+        runtime: 'nodejs24.x',
+        // Next to the Supabase project (AWS eu-west-1, Ireland): every chat
+        // makes several database round trips. Hobby allows one region.
+        regions: ['dub1'],
+        // Above chat's worst case, so its own timeouts always fire first and
+        // the stream ends with a message instead of being cut off: quota RPC
+        // 15 s + question embedding 8 s and search 15 s (the catalog lookup and
+        // 3 s rewrite run alongside) + rewrite embeddings 8 s and searches 15 s
+        // + title lookup 15 s + rerank 4 s + generation 45 s = 125 s. Typical
+        // answers finish in a few seconds; this only bounds a hung invocation,
+        // under Hobby's 300 s.
+        maxDuration: 150,
+        // Pass client disconnects (Stop, closed tab) to the function, so the
+        // routes' abort handling stops LLM calls (verify on a preview).
+        supportsCancellation: true,
+      },
+    },
     // The same PDF.js data files for the browser viewer, same-origin
     // (app/utils/pdf-highlight.ts PDFJS_ASSET_OPTIONS). Versioned with
     // pdfjs-dist, so they can be cached for a day.
@@ -85,20 +121,25 @@ export default defineNuxtConfig({
     supabaseUrl: '', // NUXT_SUPABASE_URL
     supabaseServiceKey: '', // NUXT_SUPABASE_SERVICE_KEY
     ingestToken: '', // NUXT_INGEST_TOKEN — operator-only ingestion
-    // Behind a proxy: the header it sets with the client IP (cf-connecting-ip,
-    // fly-client-ip, x-real-ip, x-forwarded-for). Empty: the socket address.
+    // Behind a proxy: the header it sets with the client IP (x-vercel-forwarded-for,
+    // cf-connecting-ip, fly-client-ip, x-real-ip, x-forwarded-for). Empty: the
+    // socket address.
     // Keys the daily caps and the per-minute limiter (server/plugins/client-ip.ts).
     // With chained proxies, use the outermost one's header; x-forwarded-for's
     // last entry is only the nearest proxy.
+    // On Vercel, unset means x-vercel-forwarded-for (server/utils/platform.ts).
     trustedIpHeader: '', // NUXT_TRUSTED_IP_HEADER
-    // Daily caps per client IP and for the whole demo (ADR-0010); a limit
+    // Per-minute limits and daily caps per client IP, and a daily budget for
+    // the whole demo (ADR-0010); a limit
     // below 1, or one that isn't a whole number, closes the route. Chat's
     // global budget keeps gpt-oss-120b inside its 200K tokens/day (~100
     // answers) with room for evals.
     quota: {
       enabled: !rateLimitOff, // off only with NUXT_DISABLE_RATE_LIMIT=1 in `nuxt dev`
+      chatPerMinute: PER_MINUTE.chat, // NUXT_QUOTA_CHAT_PER_MINUTE
       chatPerClient: 30, // NUXT_QUOTA_CHAT_PER_CLIENT
       chatGlobal: 80, // NUXT_QUOTA_CHAT_GLOBAL
+      searchPerMinute: PER_MINUTE.search, // NUXT_QUOTA_SEARCH_PER_MINUTE
       searchPerClient: 100, // NUXT_QUOTA_SEARCH_PER_CLIENT
       searchGlobal: 300, // NUXT_QUOTA_SEARCH_GLOBAL
     },
@@ -113,13 +154,14 @@ export default defineNuxtConfig({
     // Chat spends generation + embedding quota (Groq free tier: 1K req/day),
     // search spends embedding quota: a few per minute per IP is plenty.
     '/api/chat': {
-      security: { xssValidator: false, rateLimiter: routeLimit(10) },
+      security: { xssValidator: false, rateLimiter: routeLimit(PER_MINUTE.chat) },
     },
     '/api/search': {
-      security: { xssValidator: false, rateLimiter: routeLimit(30) },
+      security: { xssValidator: false, rateLimiter: routeLimit(PER_MINUTE.search) },
     },
     // PDF uploads exceed nuxt-security's 8 MB default; matches the 20 MB
-    // `documents` bucket limit enforced in server/api/ingest.post.ts.
+    // `documents` bucket limit enforced in server/api/ingest.post.ts. On
+    // Vercel the platform caps bodies at 4.5 MB first (the route says so).
     '/api/ingest': {
       security: {
         // Binary upload: the XSS validator would buffer and stringify the
@@ -131,8 +173,9 @@ export default defineNuxtConfig({
   },
 
   // nuxt-security runs with OWASP defaults, including an in-memory
-  // per-IP rate limiter (150 req / 5 min) as the burst limit; the daily caps
-  // live in Postgres (server/utils/quota.ts, ADR-0010).
+  // per-IP rate limiter (150 req / 5 min) as a cheap per-instance burst
+  // limit; the per-minute limits on chat/search and the daily caps live in
+  // Postgres, shared by all instances (server/utils/quota.ts, ADR-0010).
   security: {
     rateLimiter: rateLimitOff
       ? false
@@ -140,6 +183,9 @@ export default defineNuxtConfig({
           // CLIENT_IP_HEADER (server/utils/quota.ts): set on every request
           // from the trusted client IP by server/plugins/client-ip.ts.
           ipHeader: 'x-truthbase-client-ip',
+          // INTERNAL_CLIENT: the server's own local fetches during SSR (Nuxt
+          // Icon), which would otherwise share one bucket for all visitors.
+          whiteList: ['internal'],
           // One small entry per client and rule; LRU-evicted past this.
           driver: { name: 'lruCache', options: { max: 10_000 } },
         },

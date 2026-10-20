@@ -51,7 +51,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/keep-alive.yml/enable" --silent
 
+      # Optional (Phase 14): a liveness check of the deployed app when the
+      # DEPLOY_URL repo variable is set (e.g. https://truthbase.vercel.app).
+      # Last, so a failing app can't skip the steps above. The Supabase ping
+      # alone keeps the database awake: /api/health doesn't query it.
+      - name: Check the deployed app
+        if: ${{ vars.DEPLOY_URL != '' }}
+        env:
+          DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+        run: |
+          curl --fail --silent --show-error --max-time 30 "${DEPLOY_URL%/}/api/health" -o /dev/null
+          echo "Deployed app OK."
+
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   SUPABASE_URL       https://<project-ref>.supabase.co   (Project Settings → API)
 #   SUPABASE_ANON_KEY  the anon / publishable key          (RLS-gated, safe to use here)
 # Do NOT use the service_role / secret key — it bypasses RLS and is not needed.
+# Optional repo variable (Settings → Secrets and variables → Actions → Variables):
+#   DEPLOY_URL         the production URL; adds a /api/health check of the deployed app

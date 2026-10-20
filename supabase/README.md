@@ -20,6 +20,7 @@ Applied in filename (timestamp) order:
 | `migrations/20261016205210_documents_bucket.sql` | Private `documents` Storage bucket (PDF only, 20 MB limit) for ingested PDFs; served through short-lived signed URLs (Phase 3) |
 | `migrations/20261019120000_hybrid_search_v2.sql` | Phase 6 `hybrid_search` v2: OR'ed keyword terms, tuned defaults (keyword weight 0.5, k 60, 40 candidates per arm), exact-scan semantic arm, deterministic ties ([ADR-0006](../docs/adr/0006-hybrid-search.md)) |
 | `migrations/20261020120000_usage_quota.sql` | Phase 11 `usage_counters` table + `consume_quotas(...)` RPC: daily per-client and global caps, all-or-nothing increments; `service_role` only ([ADR-0010](../docs/adr/0010-abuse-protection.md)). Without it the quota check fails open with a warning per request |
+| `migrations/20261021120000_burst_quota.sql` | Phase 14 `burst_counters` table; `consume_quotas(...)` gains `p_windows` (seconds per counter: 86400 = the UTC day, 1..3600 = a clock-aligned window) for the per-minute limits shared by all serverless instances. A 3-argument call still counts per day ([ADR-0011](../docs/adr/0011-deployment-topology.md)). Apply it before deploying the Phase 14 code, or the quota check fails open |
 
 ## How to apply
 
@@ -51,7 +52,10 @@ weights, the document filter, English stemming, OR matching of query terms
 RLS, no RPC execute, keep_alive readable), prints the fused ranking, and
 **rolls back**. [`tests/usage_quota.sql`](./tests/usage_quota.sql) checks
 `consume_quotas` (counts up to each limit, all or nothing, a limit of 0 is
-closed, old days pruned, server-only) and also rolls back. Run them on an empty
+closed, old days pruned, server-only) and also rolls back, as does
+[`tests/burst_quota.sql`](./tests/burst_quota.sql) for the per-minute windows
+(clock-aligned, all or nothing with the daily counters, old windows pruned,
+the 3-argument call, server-only). Run them on an empty
 database:
 
 - **Hosted:** paste `hybrid_search.sql` into the SQL Editor and run. Expect three `NOTICE …
@@ -60,7 +64,7 @@ database:
   0.5; v1 printed `0.038839, 0.038476, 0.019231, 0.018519`).
 - **CI:** the `db` job in [`ci.yml`](../.github/workflows/ci.yml) applies the
   migrations to `supabase/postgres` (the image Supabase hosts) and runs it on
-  every push, then runs `usage_quota.sql`.
+  every push, then runs `usage_quota.sql` and `burst_quota.sql`.
 - **Locally (OrbStack/Docker):**
 
   ```bash
@@ -68,6 +72,7 @@ database:
   for f in supabase/migrations/*.sql; do docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 -q < "$f"; done
   docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 < supabase/tests/hybrid_search.sql
   docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 < supabase/tests/usage_quota.sql
+  docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 < supabase/tests/burst_quota.sql
   ```
 
 ## Configuration

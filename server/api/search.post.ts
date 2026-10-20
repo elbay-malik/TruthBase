@@ -19,9 +19,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Query embeddings are not configured (set NUXT_GEMINI_API_KEY).' })
   }
   const supabase = serverSupabase()
-  // Daily caps (ADR-0010): search spends embedding quota only.
-  const quota = dailyQuotaConfig('search')
-  if (quota) await enforceDailyQuota(event, supabase, 'search', quota.limits, quota.options)
+  // Per-minute and daily limits (ADR-0010): search spends embedding quota only.
+  const quota = quotaConfig('search')
+  if (quota) await enforceQuota(event, supabase, 'search', quota.limits, quota.options)
   try {
     return await retrieveSources(supabase, geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_QUERY', abort.signal, INTERACTIVE_EMBED_LIMITS), query, {
       topK, documentId, abortSignal: abort.signal,

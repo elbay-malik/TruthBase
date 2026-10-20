@@ -6,6 +6,8 @@ import type { H3Event } from 'h3'
 // API JSON as is (prebuilt assets are covered by nitro.compressPublicAssets).
 // Only finished text bodies are touched: streams (the chat SSE), Web Responses
 // and binary bodies pass through, as does anything an edge already encoded.
+// On Vercel (ADR-0011) the CDN compresses JSON itself but not text/html (its
+// published allowlist), so only HTML is compressed there: `json: false`.
 
 const brotli = promisify(brotliCompress)
 const gzipAsync = promisify(gzip)
@@ -30,13 +32,14 @@ export function pickEncoding(acceptEncoding: string | undefined): Encoding | und
 const isPlainJson = (body: unknown): body is object =>
   Array.isArray(body) || (body !== null && typeof body === 'object' && Object.getPrototypeOf(body) === Object.prototype)
 
-/** Compresses `response.body` in place when it is HTML or JSON text. */
-export async function compressResponse(event: H3Event, response: { body?: unknown }) {
+/** Compresses `response.body` in place when it is HTML or (unless `json: false`) JSON text. */
+export async function compressResponse(event: H3Event, response: { body?: unknown }, options: { json?: boolean } = {}) {
+  const json = options.json ?? true
   let text: string
   if (typeof response.body === 'string') {
     text = response.body
   }
-  else if (isPlainJson(response.body)) {
+  else if (json && isPlainJson(response.body)) {
     // h3 would serialise it after this hook; do it here so it can be encoded.
     text = JSON.stringify(response.body)
     if (!getResponseHeader(event, 'content-type')) setResponseHeader(event, 'content-type', 'application/json')
@@ -47,7 +50,8 @@ export async function compressResponse(event: H3Event, response: { body?: unknow
 
   // A string body without a type is sent as HTML by h3.
   const type = String(getResponseHeader(event, 'content-type') ?? 'text/html')
-  if (!/^(text\/html|application\/json)\b/.test(type) || getResponseHeader(event, 'content-encoding')) return
+  const compressible = json ? /^(text\/html|application\/json)\b/ : /^text\/html\b/
+  if (!compressible.test(type) || getResponseHeader(event, 'content-encoding')) return
   appendResponseHeader(event, 'vary', 'Accept-Encoding')
 
   const encoding = pickEncoding(getRequestHeader(event, 'accept-encoding'))

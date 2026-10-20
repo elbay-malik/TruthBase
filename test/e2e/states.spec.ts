@@ -29,7 +29,7 @@ test('daily cap: 429 from the quota shows the reset time and keeps the box read-
   // Fixed, not secondsUntilUtcMidnight(): near midnight the cap could lift mid-test.
   const retryAfter = 3 * 3600
   const message = quotaMessage('chat', 'client', 30)
-  // createError's JSON body as Nitro sends it (server/utils/quota.ts enforceDailyQuota).
+  // createError's JSON body as Nitro sends it (server/utils/quota.ts enforceQuota).
   api.chat = route => route.fulfill({
     status: 429,
     headers: { 'retry-after': String(retryAfter) },
@@ -55,6 +55,29 @@ test('daily cap: 429 from the quota shows the reset time and keeps the box read-
   await page.getByRole('button', { name: 'Ask' }).click({ force: true })
   await expect(liveStatus(page)).toHaveText(/^Daily demo limit reached\./)
   expect(api.questions).toEqual([question])
+})
+
+test('per-minute limit: the Postgres 429 reads as "wait a minute", not a daily cap', async ({ page, api }) => {
+  const record = RECORDS.find(r => r.id === 'g-020')!
+  let calls = 0
+  // createError's JSON body for a blocked chat:minute counter (enforceQuota): no data.quota.
+  api.chat = route => calls++ === 0
+    ? route.fulfill({
+        status: 429,
+        headers: { 'retry-after': '42' },
+        json: { error: true, url: route.request().url(), statusCode: 429, statusMessage: 'Too Many Requests', message: quotaMessage('chat', 'minute', 10), data: { limit: 'minute', resource: 'chat', retryAfter: 42 } },
+      })
+    : streamReply(route, answerStream(record.sources, answerFor(record)))
+  await open(page)
+  await ask(page, record.question)
+
+  const conversation = page.getByRole('region', { name: 'Conversation' })
+  await expect(conversation.getByText('Slow down a moment', { exact: true })).toBeVisible()
+  await expect(page.getByText('Daily demo limit reached', { exact: true })).toHaveCount(0)
+  await expect(questionBox(page)).not.toHaveAttribute('readonly')
+  await conversation.getByRole('button', { name: 'Retry' }).click()
+  await expect(liveStatus(page)).toHaveText('Answer ready, 1 source.')
+  expect(api.questions).toEqual([record.question, record.question])
 })
 
 test('error part: the alert shows the route\'s message, Retry answers again', async ({ page, api }) => {

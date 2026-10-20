@@ -68,6 +68,24 @@ jobs:
       - if: failure()
         run: cat server.log
 
+  # The production target (Phase 14, ADR-0011): the same app built with Nitro's
+  # vercel preset into .vercel/output (Build Output API), checked without a
+  # Vercel account or secrets: the function config (Node 24, dub1, maxDuration,
+  # streaming, cancellation), the static PDF.js files, the bundled server
+  # assets, and the function booted as Vercel's Node launcher calls it.
+  build-vercel:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:vercel
+      - run: pnpm check:vercel
+
   # Playwright E2E (Phase 13) against the production build, started without
   # secrets: ask → click a citation chip → the highlight overlay sits on the
   # right page where the stored rects say, at 50/100/200% zoom, desktop and
@@ -101,7 +119,7 @@ jobs:
 
   # Applies supabase/migrations to the same Postgres image Supabase hosts
   # (pgvector, anon/authenticated/service_role roles), runs the
-  # hybrid_search acceptance check and the retrieval quality gate. Connects as non-superuser `postgres`,
+  # hybrid_search and quota acceptance checks and the retrieval quality gate. Connects as non-superuser `postgres`,
   # like the hosted SQL Editor.
   db:
     runs-on: ubuntu-24.04
@@ -139,6 +157,9 @@ jobs:
 
       - name: usage quota acceptance check
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/usage_quota.sql
+
+      - name: per-minute quota acceptance check
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/burst_quota.sql
 
       # The retrieval quality gate (ADR-0008): the real corpus and golden-question
       # embeddings from test/fixtures/retrieval-corpus.json.gz, hybrid_search as

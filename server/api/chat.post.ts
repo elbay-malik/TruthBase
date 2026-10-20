@@ -43,9 +43,9 @@ export default defineEventHandler(async (event) => {
   }
   const { model, id: modelId, providerOptions } = chatModel({ groqApiKey: config.groqApiKey, geminiApiKey: config.geminiApiKey })
   const supabase = serverSupabase()
-  // Daily caps (ADR-0010): a clean 429 before any model call or stream.
-  const quota = dailyQuotaConfig('chat')
-  if (quota) await enforceDailyQuota(event, supabase, 'chat', quota.limits, quota.options)
+  // Per-minute and daily limits (ADR-0010): a clean 429 before any model call or stream.
+  const quota = quotaConfig('chat')
+  if (quota) await enforceQuota(event, supabase, 'chat', quota.limits, quota.options)
 
   const expander = configuredTaskModel(config, config.expandModel)
   const reranker = configuredReranker(config)

@@ -22,7 +22,7 @@ One Nuxt 4 (4.4.x) project; all secret-bearing and compute-heavy work in Nitro s
 | Viewer / highlight | `pdfjs-dist` (legacy build, client-only component, no wrapper library); overlay-div model `{pageNumber, boundingRect, rects[], pageWidth/Height, char offsets}` |
 | AI SDK | Vercel AI SDK **v7** (`ai@7.x`, `@ai-sdk/vue@4.x` `useChat`, `@ai-sdk/groq@4.x`, `@ai-sdk/google@4.x`) — amended from the brief's v6; see [TECH_NOTES.md](../TECH_NOTES.md) |
 | Evals / tracing | promptfoo (offline, CI gate) + Langfuse Hobby (runtime traces) |
-| Deployment | Cloudflare Workers Paid ($5/mo) whole-app, OR CF free + ingestion offloaded to a Node host (decided in Phase 14) |
+| Deployment | Cloudflare Workers Paid ($5/mo) whole-app, OR CF free + ingestion offloaded to a Node host (decided in Phase 14). **Decided: Vercel Hobby, one Node 24 function, ingestion via CLI ([ADR-0011](./0011-deployment-topology.md)).** |
 
 ## Rationale
 
@@ -45,4 +45,4 @@ The most defensible free/near-free architecture that still demonstrates senior-l
 - Free-tier limits are architectural inputs: per-IP caps and provider fallbacks are mandatory features (Phase 11), not hardening.
 - 768-dim embeddings trade some retrieval quality for fitting the 500MB budget; re-embedding later is cheap, so this is reversible.
 - The highlight data model must be captured **at ingestion** (Phase 3) — retrofitting positions later would mean re-parsing everything.
-- Deployment topology stays open until Phase 14, hinging on whether 5 EUR/month is acceptable vs. a free split deployment.
+- Deployment topology stays open until Phase 14, hinging on whether 5 EUR/month is acceptable vs. a free split deployment. *(Resolved in [ADR-0011](./0011-deployment-topology.md): Vercel Hobby, free.)*
