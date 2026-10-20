@@ -93,3 +93,54 @@ export function withFallback(primary: LanguageModelV4, fallback: LanguageModelV4
     doStream: (options: LanguageModelV4CallOptions) => attempt(m => m.doStream(options)),
   }
 }
+
+// ── Task models: small structured calls around retrieval ─────────────────
+// Reranking (ADR-0007) and query rewriting (ADR-0009). Groq's free tier meters
+// each model separately (8K tokens/min, 200K tokens/day), so a task on a
+// different model than the answer's (gpt-oss-120b) draws on its own quota.
+
+export type TaskModelChoice = 'groq-20b' | 'groq-120b' | 'groq-qwen' | 'gemini'
+
+const TASK_MODEL_CHOICES: readonly string[] = ['groq-20b', 'groq-120b', 'groq-qwen', 'gemini'] satisfies TaskModelChoice[]
+
+export interface TaskModel {
+  model: LanguageModelV4
+  /** "provider/model", for logs and eval reports. */
+  id: string
+  providerOptions: SharedProviderOptions
+}
+
+const GROQ_TASK_MODELS = {
+  'groq-20b': 'openai/gpt-oss-20b',
+  'groq-120b': GROQ_MODEL,
+  'groq-qwen': 'qwen/qwen3.8-27b',
+} as const
+
+/** The model for a task choice, or undefined when its API key is missing. */
+export function taskModel(keys: ModelKeys, choice: TaskModelChoice): TaskModel | undefined {
+  if (choice === 'gemini') {
+    if (!keys.geminiApiKey) return undefined
+    return { model: createGoogle({ apiKey: keys.geminiApiKey })(GEMINI_MODEL), id: `google/${GEMINI_MODEL}`, providerOptions: {} }
+  }
+  if (!keys.groqApiKey) return undefined
+  const id = GROQ_TASK_MODELS[choice]
+  return {
+    model: createGroq({ apiKey: keys.groqApiKey })(id),
+    id: `groq/${id}`,
+    providerOptions: {
+      groq: choice === 'groq-qwen'
+        ? { reasoningEffort: 'none' }
+        : { reasoningEffort: 'low', reasoningFormat: 'hidden' },
+    },
+  }
+}
+
+/**
+ * The task model a runtimeConfig value names (e.g. NUXT_RERANK_MODEL), or
+ * undefined when it is "off", unknown, or its API key is missing.
+ */
+export function configuredTaskModel(keys: ModelKeys, choice: unknown): TaskModel | undefined {
+  const name = String(choice ?? '')
+  return TASK_MODEL_CHOICES.includes(name) ? taskModel(keys, name as TaskModelChoice) : undefined
+}
+

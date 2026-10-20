@@ -144,3 +144,10 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 - **qwen/qwen3.8-27b fails Groq's JSON validation** often with `Output.object` (`json_validate_failed`, echoing the prompt's `[source`); don't use it for structured output.
 - **AI SDK v7 structured output:** `generateText({ output: Output.object({ schema }) })` → `result.output`; a schema mismatch throws (`NoObjectGeneratedError`). Mock models for tests: `MockLanguageModelV4` from `ai/test`, with V4 results shaped `{ content, finishReason: { unified, raw }, usage: { inputTokens: {…}, outputTokens: {…} }, warnings }`.
 
+## 13. Query rewriting (Phase 8)
+
+- **Expanding every question hurts.** Rewrites of clear questions pull in near-misses: recall@8 fell from 87% to 84%. The rewriter now returns an empty list unless the question is ambiguous or multi-part ([ADR-0009](./adr/0009-query-rewriting.md)).
+- **Filenames aren't enough context.** Given only `nist-csf-2.0.pdf`, `raptor.pdf` …, gpt-oss wrote "which function" queries for the RAG papers. A catalog line with the start of each document's first page fixed it (`server/rag/catalog.ts`). The topmost page-1 chunk is the one with the largest `highlight.rects` y (PDF space has a bottom-left origin).
+- **Cache instructions, not just prompts.** The eval caches (`scripts/lib/task-cache.ts`) first keyed on the user prompt only, so changing the system instructions silently reused stale results. Entries now store an instructions hash, and a mismatch is a miss.
+- **Gemini Flash-Lite's free quota runs out** within a day of eval runs ("You exceeded your current quota"). It's also the answer fallback, so keep evals off it unless needed.
+

@@ -1,7 +1,8 @@
 import { APICallError } from '@ai-sdk/provider'
 import { MockLanguageModelV4 } from 'ai/test'
 import { describe, expect, it, vi } from 'vitest'
-import { blendRanking, buildRerankPrompt, rerank, repairRanking, type RerankModel } from '../../server/rag/rerank'
+import type { TaskModel } from '../../server/rag/model'
+import { blendRanking, buildRerankPrompt, rerank, repairRanking } from '../../server/rag/rerank'
 import type { SearchHit } from '../../server/rag/search'
 
 const hit = (id: string, content = `text ${id}`): SearchHit => ({
@@ -14,7 +15,7 @@ const usage = {
   inputTokens: { total: 100, noCache: 100, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 10, text: 10, reasoning: undefined },
 }
-const modelReturning = (doGenerate: () => Promise<unknown>): RerankModel => ({
+const modelReturning = (doGenerate: () => Promise<unknown>): TaskModel => ({
   model: new MockLanguageModelV4({ doGenerate: doGenerate as never }),
   id: 'mock/model',
   providerOptions: {},

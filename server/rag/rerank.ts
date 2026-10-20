@@ -1,8 +1,6 @@
-import { createGoogle } from '@ai-sdk/google'
-import { createGroq } from '@ai-sdk/groq'
-import type { LanguageModelV4 } from '@ai-sdk/provider'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
+import { configuredTaskModel, type TaskModel, type TaskModelChoice } from './model'
 import { neutralise } from './prompt'
 import type { SearchHit } from './search'
 
@@ -32,46 +30,8 @@ export const RERANK_CANDIDATES = 15
  */
 export const RERANK_HEAD = 4
 
-export type RerankModelChoice = 'groq-20b' | 'groq-120b' | 'groq-qwen' | 'gemini'
-
 /** The app's reranker unless NUXT_RERANK_MODEL says otherwise (keep nuxt.config.ts in sync). */
-export const DEFAULT_RERANK_MODEL: RerankModelChoice = 'groq-20b'
-
-export interface RerankModel {
-  model: LanguageModelV4
-  /** "provider/model", for logs and eval reports. */
-  id: string
-  providerOptions: NonNullable<Parameters<typeof generateText>[0]['providerOptions']>
-}
-
-const GROQ_MODELS = {
-  'groq-20b': 'openai/gpt-oss-20b',
-  'groq-120b': 'openai/gpt-oss-120b',
-  'groq-qwen': 'qwen/qwen3.8-27b',
-} as const
-
-/**
- * The reranking model. Groq's free tier meters tokens per model, so a rerank
- * on a different model than the answer's (gpt-oss-120b) draws on its own quota.
- */
-export function rerankModel(keys: { groqApiKey?: string, geminiApiKey?: string }, choice: RerankModelChoice): RerankModel | undefined {
-  if (choice === 'gemini') {
-    if (!keys.geminiApiKey) return undefined
-    const id = 'gemini-3.5-flash-lite'
-    return { model: createGoogle({ apiKey: keys.geminiApiKey })(id), id: `google/${id}`, providerOptions: {} }
-  }
-  if (!keys.groqApiKey) return undefined
-  const id = GROQ_MODELS[choice]
-  return {
-    model: createGroq({ apiKey: keys.groqApiKey })(id),
-    id: `groq/${id}`,
-    providerOptions: {
-      groq: choice === 'groq-qwen'
-        ? { reasoningEffort: 'none' }
-        : { reasoningEffort: 'low', reasoningFormat: 'hidden' },
-    },
-  }
-}
+export const DEFAULT_RERANK_MODEL: TaskModelChoice = 'groq-20b'
 
 export const RERANK_INSTRUCTIONS = `You rank passages for a document question-answering system.
 
@@ -134,7 +94,7 @@ export interface Ranking {
 
 /** One listwise ranking call. Throws on model or schema errors (see `rerank`). */
 export async function rankPassages(
-  rm: RerankModel,
+  rm: TaskModel,
   question: string,
   hits: SearchHit[],
   filenameById: Map<string, string>,
@@ -169,7 +129,7 @@ export interface RerankResult {
  * unavailable. Never throws, except when the caller's own signal aborts.
  */
 export async function rerank(
-  rm: RerankModel | undefined,
+  rm: TaskModel | undefined,
   question: string,
   hits: SearchHit[],
   filenameById: Map<string, string>,
@@ -195,14 +155,10 @@ export async function rerank(
   }
 }
 
-const CHOICES: readonly string[] = ['groq-20b', 'groq-120b', 'groq-qwen', 'gemini'] satisfies RerankModelChoice[]
-
 /**
  * The reranker named by runtimeConfig.rerankModel (NUXT_RERANK_MODEL), or
  * undefined when it is "off", unknown, or its API key is missing.
  */
-export function configuredReranker(config: { rerankModel?: string, groqApiKey?: string, geminiApiKey?: string }): RerankModel | undefined {
-  const choice = String(config.rerankModel ?? '')
-  if (!CHOICES.includes(choice)) return undefined
-  return rerankModel(config, choice as RerankModelChoice)
+export function configuredReranker(config: { rerankModel?: string, groqApiKey?: string, geminiApiKey?: string }): TaskModel | undefined {
+  return configuredTaskModel(config, config.rerankModel)
 }

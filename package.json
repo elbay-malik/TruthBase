@@ -21,7 +21,8 @@
     "eval:answers": "tsx --env-file=.env scripts/eval-answers.ts",
     "check:viewer": "tsx --env-file=.env scripts/check-viewer.ts",
     "tune:retrieval": "tsx --env-file=.env scripts/tune-retrieval.ts",
-    "eval:rerank": "tsx --env-file=.env scripts/eval-rerank.ts"
+    "eval:rerank": "tsx --env-file=.env scripts/eval-rerank.ts",
+    "eval:multiquery": "tsx --env-file=.env scripts/eval-multiquery.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.9",

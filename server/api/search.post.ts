@@ -1,5 +1,6 @@
 import { searchRequestSchema } from '#shared/schemas'
 import { geminiEmbedder } from '../ingest/embed'
+import { configuredTaskModel } from '../rag/model'
 import { configuredReranker } from '../rag/rerank'
 import { retrieveSources } from '../rag/retrieve'
 import { SearchError } from '../rag/search'
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
   }
   try {
     return await retrieveSources(serverSupabase(), geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_QUERY'), query, {
-      topK, documentId, reranker: configuredReranker(config),
+      topK, documentId, expander: configuredTaskModel(config, config.expandModel), reranker: configuredReranker(config),
     })
   }
   catch (error) {

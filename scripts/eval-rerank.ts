@@ -25,16 +25,16 @@
 // order) and shipped (the reranked top RERANK_HEAD, then fused order: what
 // the chat route uses).
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
-import { geminiEmbedder } from '../server/ingest/embed'
-import { blendRanking, RERANK_CANDIDATES, RERANK_HEAD, rerankModel, type RerankModelChoice } from '../server/rag/rerank'
+import { taskModel, type TaskModelChoice } from '../server/rag/model'
+import { blendRanking, RERANK_CANDIDATES, RERANK_HEAD } from '../server/rag/rerank'
 import { searchChunks, type SearchHit } from '../server/rag/search'
+import { answerableRecords, documentMaps, metrics, pct, queryEmbeddings, ROOT, summarize, type Evidence } from './lib/golden'
 import { rankingCache } from './lib/ranking-cache'
 
-const ROOT = resolve(import.meta.dirname, '..')
 const { values } = parseArgs({
   options: {
     model: { type: 'string', default: 'groq-20b' },
@@ -47,67 +47,23 @@ const { values } = parseArgs({
     only: { type: 'string' },
   },
 })
-const choice = values.model as RerankModelChoice
+const choice = values.model as TaskModelChoice
 const candidates = Number(values.candidates)
 const tpm = Number(values.tpm)
 
-interface Evidence { document: string, page: number, text: string }
-interface GoldenRecord { id: string, question: string, answer: string | null, evidence: Evidence[], tags: string[] }
-
 const env = (name: string) => process.env[name] || (() => { throw new Error(`${name} is not set (run via pnpm eval:rerank, which loads .env)`) })()
 const supabase = createClient(env('NUXT_SUPABASE_URL'), env('NUXT_SUPABASE_SERVICE_KEY'), { auth: { persistSession: false } })
-const rm = rerankModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: process.env.NUXT_GEMINI_API_KEY }, choice)
+const rm = taskModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: process.env.NUXT_GEMINI_API_KEY }, choice)
 if (!rm) throw new Error(`--model ${choice} is not configured (missing API key) or unknown`)
 
-let golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
-golden = golden.filter(r => r.answer !== null && r.evidence.length > 0)
-if (values.only) {
-  const ids = new Set(values.only.split(','))
-  golden = golden.filter(r => ids.has(r.id))
-}
+const golden = await answerableRecords(values.only)
+const { filenameById, idByFilename } = await documentMaps(supabase)
+const embed = await queryEmbeddings(env('NUXT_GEMINI_API_KEY'))
+const embeddings = Object.fromEntries((await embed(golden.map(r => r.question))).map((v, i) => [golden[i]!.question, v]))
 
-const { data: docs, error } = await supabase.from('documents').select('id, filename')
-if (error) throw new Error(error.message)
-const filenameById = new Map(docs.map(d => [d.id as string, d.filename as string]))
-const idByFilename = new Map(docs.map(d => [d.filename as string, d.id as string]))
-
-// Query embeddings: shared cache with scripts/tune-retrieval.ts.
-const embeddingFile = join(ROOT, '.cache/golden-query-embeddings.json')
-const embeddings: Record<string, number[]> = await readFile(embeddingFile, 'utf8').then(JSON.parse, () => ({}))
-const missing = golden.filter(r => !embeddings[r.question])
-if (missing.length) {
-  const vectors = await geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_QUERY')(missing.map(r => r.question))
-  missing.forEach((r, i) => (embeddings[r.question] = vectors[i]!))
-  await mkdir(join(ROOT, '.cache'), { recursive: true })
-  await writeFile(embeddingFile, JSON.stringify(embeddings))
-}
-
-// ── metrics ──────────────────────────────────────────────────────────────
-const covers = (hit: SearchHit, e: Evidence) =>
-  hit.documentId === idByFilename.get(e.document) && hit.pageNumber === e.page && hit.content.includes(e.text)
-
-/** Rank (1-based) at which every evidence span is covered, or null. */
-function coverageRank(hits: SearchHit[], evidence: Evidence[]): number | null {
-  let worst = 0
-  for (const e of evidence) {
-    const rank = hits.findIndex(h => covers(h, e)) + 1
-    if (rank === 0) return null
-    worst = Math.max(worst, rank)
-  }
-  return worst
-}
-
-function ndcgAt(k: number, hits: SearchHit[], evidence: Evidence[]): number {
-  const relevant = hits.map(h => evidence.some(e => covers(h, e)))
-  const dcg = (flags: boolean[]) => flags.slice(0, k).reduce((s, rel, i) => s + (rel ? 1 / Math.log2(i + 2) : 0), 0)
-  const ideal = dcg([...relevant].sort((a, b) => Number(b) - Number(a)))
-  return ideal === 0 ? 0 : dcg(relevant) / ideal
-}
-
-function scores(hits: SearchHit[], evidence: Evidence[]) {
-  const rank = coverageRank(hits, evidence)
-  return { rank, ndcg5: ndcgAt(5, hits, evidence) }
-}
+// ── metrics (scripts/lib/golden.ts) ──────────────────────────────────────
+const { coverageRank, ndcgAt } = metrics(idByFilename)
+const scores = (hits: SearchHit[], evidence: Evidence[]) => ({ rank: coverageRank(hits, evidence), ndcg5: ndcgAt(5, hits, evidence) })
 
 // ── rerank calls (cached, paced: scripts/lib/ranking-cache.ts) ──────────
 const cachedRanking = await rankingCache(rm, filenameById, tpm)
@@ -160,21 +116,10 @@ for (const filtered of values.filtered ? [false, true] : [false]) {
 }
 
 function summary(subset: Row[]) {
-  const n = subset.length
-  const side = (key: 'fused' | 'reranked' | 'shipped') => {
-    const at = (k: number) => subset.filter(r => r[key].rank !== null && r[key].rank! <= k).length / n
-    return {
-      recall5: at(5),
-      recall8: at(8),
-      recall10: at(10),
-      mrr: subset.reduce((s, r) => s + (r[key].rank ? 1 / r[key].rank! : 0), 0) / n,
-      ndcg5: subset.reduce((s, r) => s + r[key].ndcg5, 0) / n,
-    }
-  }
-  return { n, fused: side('fused'), reranked: side('reranked'), shipped: side('shipped') }
+  const side = (key: 'fused' | 'reranked' | 'shipped') => summarize(subset.map(r => r[key]))
+  return { n: subset.length, fused: side('fused'), reranked: side('reranked'), shipped: side('shipped') }
 }
 
-const pct = (x: number) => `${(100 * x).toFixed(0)}%`.padStart(4)
 const line = (name: string, s: ReturnType<typeof summary>) => {
   const f = (x: ReturnType<typeof summary>['fused']) => `@5 ${pct(x.recall5)} @8 ${pct(x.recall8)} MRR ${x.mrr.toFixed(3)} nDCG@5 ${x.ndcg5.toFixed(3)}`
   console.log(`${name.padEnd(18)} n=${String(s.n).padStart(2)}  fused ${f(s.fused)}  │  reranked ${f(s.reranked)}  │  shipped ${f(s.shipped)}`)

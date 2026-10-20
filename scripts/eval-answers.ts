@@ -12,9 +12,12 @@
 // and each result records the model that actually answered.
 //
 // Generation sees exactly what POST /api/chat retrieves: hybrid search with
-// the SQL's tuned defaults (no weights sent, docs/adr/0006), the fused top
-// RERANK_CANDIDATES reranked by --rerank (default: the app's, ADR-0007; "off"
-// for fused order), cut to DEFAULT_TOP_K. Recall@k is measured on a separate top-10 call per arm. (v1
+// the SQL's tuned defaults (no weights sent, docs/adr/0006), plus the searches
+// of --expand's rewrites fused with RRF (default: the app's, ADR-0009; "off"
+// for the question alone), the fused top RERANK_CANDIDATES reranked by
+// --rerank (default: the app's, ADR-0007; "off" for fused order), cut to
+// DEFAULT_TOP_K. Rewrites and rankings come from the eval caches
+// (scripts/lib/task-cache.ts) when eval:multiquery or eval:rerank made them. Recall@k is measured on a separate top-10 call per arm. (v1
 // of the RPC sized its candidate pools from matchCount, so a top-10 list cut
 // to 8 was not the chat's list; v2's pools are fixed, but the calls stay
 // separate so the eval never depends on that.)
@@ -39,12 +42,15 @@ import { createClient } from '@supabase/supabase-js'
 import { generateText } from 'ai'
 import type { SourceRef } from '../shared/types/chat'
 import { geminiEmbedder } from '../server/ingest/embed'
-import { chatModel } from '../server/rag/model'
 import { buildPrompt, GROUNDING_INSTRUCTIONS, isRefusal, parseCitations } from '../server/rag/prompt'
-import { blendRanking, DEFAULT_RERANK_MODEL, RERANK_CANDIDATES, rerankModel, type RerankModelChoice } from '../server/rag/rerank'
+import { chatModel, taskModel, type TaskModelChoice } from '../server/rag/model'
+import { blendRanking, DEFAULT_RERANK_MODEL, RERANK_CANDIDATES } from '../server/rag/rerank'
 import { DEFAULT_TOP_K, toSources } from '../server/rag/retrieve'
 import { searchChunks, type SearchHit } from '../server/rag/search'
 import { rankingCache } from './lib/ranking-cache'
+import { taskCache } from './lib/task-cache'
+import { catalogLine, documentCatalog } from '../server/rag/catalog'
+import { buildExpandPrompt, DEFAULT_EXPAND_MODEL, EXPAND_INSTRUCTIONS, fuseRankings, rewriteQuery } from '../server/rag/expand'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const { values } = parseArgs({
@@ -55,6 +61,7 @@ const { values } = parseArgs({
     only: { type: 'string' },
     force: { type: 'boolean', default: false },
     rerank: { type: 'string', default: DEFAULT_RERANK_MODEL }, // groq-20b | groq-120b | groq-qwen | gemini | off
+    expand: { type: 'string', default: DEFAULT_EXPAND_MODEL }, // same choices
   },
 })
 if (!values.label || !/^[\w.-]+$/.test(values.label)) {
@@ -86,8 +93,12 @@ const { model, id: modelId, providerOptions } = chatModel(
 
 const reranker = values.rerank === 'off'
   ? undefined
-  : rerankModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') }, values.rerank as RerankModelChoice)
+  : taskModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') }, values.rerank as TaskModelChoice)
 if (values.rerank !== 'off' && !reranker) throw new Error(`--rerank ${values.rerank} is unknown or its API key is missing`)
+const expander = values.expand === 'off'
+  ? undefined
+  : taskModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') }, values.expand as TaskModelChoice)
+if (values.expand !== 'off' && !expander) throw new Error(`--expand ${values.expand} is unknown or its API key is missing`)
 
 let golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
 if (values.only) {
@@ -128,8 +139,10 @@ async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): 
   }
 }
 
-console.log(`model ${modelId} · rerank ${reranker?.id ?? 'off'} · ${golden.length} questions · top-${DEFAULT_TOP_K} sources`)
+console.log(`model ${modelId} · expand ${expander?.id ?? 'off'} · rerank ${reranker?.id ?? 'off'} · ${golden.length} questions · top-${DEFAULT_TOP_K} sources`)
 const rankCached = reranker ? await rankingCache(reranker, filenameById, 7500) : undefined
+const expansionCached = expander ? await taskCache('expand', expander, 7500) : undefined
+const catalog = (await documentCatalog(supabase)).map(catalogLine)
 const embeddings = await withRetry('embed questions', () => embed(golden.map(r => r.question)))
 
 const results = []
@@ -139,17 +152,28 @@ for (const [i, record] of golden.entries()) {
     queryText: record.question, queryEmbedding: embeddings[i]!, matchCount, ...weights,
   })
   const [fusedHits, hybrid, dense, keyword] = await withRetry(`${record.id} search`, () => Promise.all([
-    search(reranker ? RERANK_CANDIDATES : DEFAULT_TOP_K), // what the chat route retrieves
+    search(reranker || expander ? RERANK_CANDIDATES : DEFAULT_TOP_K), // what the chat route retrieves
     search(10),
     // v1 of hybrid_search returned a zero-weight arm's rows with score 0 (v2
     // drops them itself); either way they are not this arm's hits.
     search(10, { fullTextWeight: 0 }).then(hits => hits.filter(h => h.score > 0)),
     search(10, { semanticWeight: 0 }).then(hits => hits.filter(h => h.score > 0)),
   ]))
+  // Multi-query: the rewrites' searches fused with the question's (retrieveSources).
+  const rewrites = expansionCached
+    ? (await expansionCached(EXPAND_INSTRUCTIONS, buildExpandPrompt(record.question, catalog), () => rewriteQuery(expander!, record.question, catalog))).queries
+    : []
+  let candidates = fusedHits
+  if (rewrites.length) {
+    const vectors = await withRetry(`${record.id} embed rewrites`, () => embed(rewrites))
+    const lists = await withRetry(`${record.id} rewrite search`, () => Promise.all(rewrites.map((text, j) =>
+      searchChunks(supabase, { queryText: text, queryEmbedding: vectors[j]!, matchCount: RERANK_CANDIDATES }))))
+    candidates = fuseRankings([fusedHits, ...lists]).slice(0, RERANK_CANDIDATES)
+  }
   // The chat route's order (reranked head, fused tail), from rankings eval:rerank
   // may already have cached: both evals spend the reranker's daily token quota.
-  const ranking = rankCached ? await rankCached(record.question, fusedHits) : undefined
-  const ordered = ranking ? blendRanking(fusedHits, ranking.order.map(i => fusedHits[i]!)) : fusedHits
+  const ranking = rankCached ? await rankCached(record.question, candidates) : undefined
+  const ordered = ranking ? blendRanking(candidates, ranking.order.map(i => candidates[i]!)) : candidates
   const sources: SourceRef[] = toSources(ordered.slice(0, DEFAULT_TOP_K), filenameById)
 
   const { text, response } = await withRetry(`${record.id} generate`, () => generateText({
@@ -170,6 +194,7 @@ for (const [i, record] of golden.entries()) {
     tags: record.tags,
     answerable: record.answer !== null,
     reranked: ranking !== undefined,
+    rewrites,
     rank: { hybrid: fullCoverageRank(hybrid, record.evidence), dense: fullCoverageRank(dense, record.evidence), keyword: fullCoverageRank(keyword, record.evidence) },
     /** All evidence inside the sources the model actually saw. */
     evidenceInSources: record.evidence.length > 0 && record.evidence.every(e => sources.some(s => contains(s, e))),
@@ -200,6 +225,7 @@ const summary = {
   label: values.label,
   model: modelId,
   rerank: reranker?.id ?? 'off',
+  expand: expander?.id ?? 'off',
   only: values.only ?? null,
   date: new Date().toISOString().slice(0, 10),
   topK: DEFAULT_TOP_K,

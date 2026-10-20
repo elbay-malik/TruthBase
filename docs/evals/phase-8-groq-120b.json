@@ -1,0 +1,1884 @@
+{
+ "model": "groq/openai/gpt-oss-120b",
+ "candidates": 15,
+ "weights": [
+  1,
+  0.5
+ ],
+ "date": "2026-10-19",
+ "overall": {
+  "single": {
+   "n": 45,
+   "recall5": 0.7555555555555555,
+   "recall8": 0.8666666666666667,
+   "recall10": 0.8666666666666667,
+   "recall15": 0.8666666666666667,
+   "mrr": 0.5148677248677248,
+   "ndcg5": 0.6380280013926369
+  },
+  "multi 1": {
+   "n": 45,
+   "recall5": 0.7777777777777778,
+   "recall8": 0.8222222222222222,
+   "recall10": 0.8444444444444444,
+   "recall15": 0.8666666666666667,
+   "mrr": 0.5495753629086961,
+   "ndcg5": 0.655383260551948
+  },
+  "multi 0.5": {
+   "n": 45,
+   "recall5": 0.7777777777777778,
+   "recall8": 0.8444444444444444,
+   "recall10": 0.8444444444444444,
+   "recall15": 0.8666666666666667,
+   "mrr": 0.5428734228734229,
+   "ndcg5": 0.6592150678555764
+  }
+ },
+ "slices": {
+  "ambiguous": {
+   "single": {
+    "n": 4,
+    "recall5": 0.75,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5416666666666666,
+    "ndcg5": 0.811019236584229
+   },
+   "multi 1": {
+    "n": 4,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.6458333333333333,
+    "ndcg5": 0.9492340261215593
+   },
+   "multi 0.5": {
+    "n": 4,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.6875,
+    "ndcg5": 0.9693038288345124
+   }
+  },
+  "comparison": {
+   "single": {
+    "n": 3,
+    "recall5": 0.6666666666666666,
+    "recall8": 0.6666666666666666,
+    "recall10": 0.6666666666666666,
+    "recall15": 0.6666666666666666,
+    "mrr": 0.5,
+    "ndcg5": 0.8769765845238192
+   },
+   "multi 1": {
+    "n": 3,
+    "recall5": 0.6666666666666666,
+    "recall8": 0.6666666666666666,
+    "recall10": 0.6666666666666666,
+    "recall15": 0.6666666666666666,
+    "mrr": 0.4444444444444444,
+    "ndcg5": 0.8065735963827292
+   },
+   "multi 0.5": {
+    "n": 3,
+    "recall5": 0.6666666666666666,
+    "recall8": 0.6666666666666666,
+    "recall10": 0.6666666666666666,
+    "recall15": 0.6666666666666666,
+    "mrr": 0.5,
+    "ndcg5": 0.8769765845238192
+   }
+  },
+  "cross-document": {
+   "single": {
+    "n": 4,
+    "recall5": 0.5,
+    "recall8": 0.75,
+    "recall10": 0.75,
+    "recall15": 0.75,
+    "mrr": 0.25,
+    "ndcg5": 0.7909494338712759
+   },
+   "multi 1": {
+    "n": 4,
+    "recall5": 0.75,
+    "recall8": 0.75,
+    "recall10": 0.75,
+    "recall15": 0.75,
+    "mrr": 0.22916666666666663,
+    "ndcg5": 0.8041642234086062
+   },
+   "multi 0.5": {
+    "n": 4,
+    "recall5": 0.75,
+    "recall8": 0.75,
+    "recall10": 0.75,
+    "recall15": 0.75,
+    "mrr": 0.2708333333333333,
+    "ndcg5": 0.8569664645144237
+   }
+  },
+  "definition": {
+   "single": {
+    "n": 4,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.8125,
+    "ndcg5": 0.8576691395183482
+   },
+   "multi 1": {
+    "n": 4,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.8125,
+    "ndcg5": 0.8576691395183482
+   },
+   "multi 0.5": {
+    "n": 4,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.8125,
+    "ndcg5": 0.8576691395183482
+   }
+  },
+  "distractor": {
+   "single": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   },
+   "multi 1": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   },
+   "multi 0.5": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   }
+  },
+  "duplicate-passage": {
+   "single": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.25,
+    "ndcg5": 0.43067655807339306
+   },
+   "multi 1": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.25,
+    "ndcg5": 0.43067655807339306
+   },
+   "multi 0.5": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.25,
+    "ndcg5": 0.43067655807339306
+   }
+  },
+  "factoid": {
+   "single": {
+    "n": 9,
+    "recall5": 0.7777777777777778,
+    "recall8": 0.8888888888888888,
+    "recall10": 0.8888888888888888,
+    "recall15": 0.8888888888888888,
+    "mrr": 0.275,
+    "ndcg5": 0.3871138044990434
+   },
+   "multi 1": {
+    "n": 9,
+    "recall5": 0.7777777777777778,
+    "recall8": 0.7777777777777778,
+    "recall10": 0.7777777777777778,
+    "recall15": 0.8888888888888888,
+    "mrr": 0.31780626780626786,
+    "ndcg5": 0.4241699294786594
+   },
+   "multi 0.5": {
+    "n": 9,
+    "recall5": 0.7777777777777778,
+    "recall8": 0.7777777777777778,
+    "recall10": 0.7777777777777778,
+    "recall15": 0.8888888888888888,
+    "mrr": 0.3178062678062678,
+    "ndcg5": 0.4268053755104184
+   }
+  },
+  "figure-caption": {
+   "single": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.25,
+    "ndcg5": 0.43067655807339306
+   },
+   "multi 1": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.25,
+    "ndcg5": 0.43067655807339306
+   },
+   "multi 0.5": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.25,
+    "ndcg5": 0.43067655807339306
+   }
+  },
+  "figure-reference": {
+   "single": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   },
+   "multi 1": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.3333333333333333,
+    "ndcg5": 0.5
+   },
+   "multi 0.5": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   }
+  },
+  "front-matter": {
+   "single": {
+    "n": 2,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.75,
+    "ndcg5": 0.8154648767857288
+   },
+   "multi 1": {
+    "n": 2,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.6666666666666666,
+    "ndcg5": 0.75
+   },
+   "multi 0.5": {
+    "n": 2,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.6666666666666666,
+    "ndcg5": 0.75
+   }
+  },
+  "keyword": {
+   "single": {
+    "n": 5,
+    "recall5": 0.8,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.475,
+    "ndcg5": 0.5385072130432615
+   },
+   "multi 1": {
+    "n": 5,
+    "recall5": 0.8,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5733333333333334,
+    "ndcg5": 0.6035565121611999
+   },
+   "multi 0.5": {
+    "n": 5,
+    "recall5": 0.8,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.47333333333333333,
+    "ndcg5": 0.5297424628754913
+   }
+  },
+  "list": {
+   "single": {
+    "n": 8,
+    "recall5": 0.875,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.7678571428571428,
+    "ndcg5": 0.8707221995221313
+   },
+   "multi 1": {
+    "n": 8,
+    "recall5": 0.875,
+    "recall8": 0.875,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.8263888888888888,
+    "ndcg5": 0.916855980325699
+   },
+   "multi 0.5": {
+    "n": 8,
+    "recall5": 0.875,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.8303571428571428,
+    "ndcg5": 0.916855980325699
+   }
+  },
+  "multi-hop": {
+   "single": {
+    "n": 2,
+    "recall5": 0.5,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "recall15": 0.5,
+    "mrr": 0.16666666666666666,
+    "ndcg5": 0.7753252713598225
+   },
+   "multi 1": {
+    "n": 2,
+    "recall5": 0.5,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "recall15": 0.5,
+    "mrr": 0.16666666666666666,
+    "ndcg5": 0.7098603945740938
+   },
+   "multi 0.5": {
+    "n": 2,
+    "recall5": 0.5,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "recall15": 0.5,
+    "mrr": 0.16666666666666666,
+    "ndcg5": 0.7753252713598225
+   }
+  },
+  "multi-page": {
+   "single": {
+    "n": 3,
+    "recall5": 0,
+    "recall8": 0.3333333333333333,
+    "recall10": 0.3333333333333333,
+    "recall15": 0.3333333333333333,
+    "mrr": 0.047619047619047616,
+    "ndcg5": 0.20438239758848611
+   },
+   "multi 1": {
+    "n": 3,
+    "recall5": 0,
+    "recall8": 0.3333333333333333,
+    "recall10": 0.3333333333333333,
+    "recall15": 0.3333333333333333,
+    "mrr": 0.047619047619047616,
+    "ndcg5": 0.10219119879424306
+   },
+   "multi 0.5": {
+    "n": 3,
+    "recall5": 0,
+    "recall8": 0.3333333333333333,
+    "recall10": 0.3333333333333333,
+    "recall15": 0.3333333333333333,
+    "mrr": 0.047619047619047616,
+    "ndcg5": 0.20438239758848611
+   }
+  },
+  "multi-span": {
+   "single": {
+    "n": 4,
+    "recall5": 0.25,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "recall15": 0.5,
+    "mrr": 0.2857142857142857,
+    "ndcg5": 0.42597952225853364
+   },
+   "multi 1": {
+    "n": 4,
+    "recall5": 0.25,
+    "recall8": 0.25,
+    "recall10": 0.5,
+    "recall15": 0.5,
+    "mrr": 0.2777777777777778,
+    "ndcg5": 0.42597952225853364
+   },
+   "multi 0.5": {
+    "n": 4,
+    "recall5": 0.25,
+    "recall8": 0.5,
+    "recall10": 0.5,
+    "recall15": 0.5,
+    "mrr": 0.2857142857142857,
+    "ndcg5": 0.42597952225853364
+   }
+  },
+  "numeric": {
+   "single": {
+    "n": 11,
+    "recall5": 0.6363636363636364,
+    "recall8": 0.7272727272727273,
+    "recall10": 0.7272727272727273,
+    "recall15": 0.7272727272727273,
+    "mrr": 0.4751082251082251,
+    "ndcg5": 0.5653204375965758
+   },
+   "multi 1": {
+    "n": 11,
+    "recall5": 0.6363636363636364,
+    "recall8": 0.7272727272727273,
+    "recall10": 0.7272727272727273,
+    "recall15": 0.7272727272727273,
+    "mrr": 0.45995670995670995,
+    "ndcg5": 0.5039839773489865
+   },
+   "multi 0.5": {
+    "n": 11,
+    "recall5": 0.6363636363636364,
+    "recall8": 0.7272727272727273,
+    "recall10": 0.7272727272727273,
+    "recall15": 0.7272727272727273,
+    "mrr": 0.4751082251082251,
+    "ndcg5": 0.5437570091630035
+   }
+  },
+  "paraphrase": {
+   "single": {
+    "n": 3,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.7333333333333334,
+    "ndcg5": 0.7956176024115139
+   },
+   "multi 1": {
+    "n": 3,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   },
+   "multi 0.5": {
+    "n": 3,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  },
+  "reverse-lookup": {
+   "single": {
+    "n": 2,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   },
+   "multi 1": {
+    "n": 2,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.75,
+    "ndcg5": 0.8154648767857288
+   },
+   "multi 0.5": {
+    "n": 2,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5,
+    "ndcg5": 0.6309297535714575
+   }
+  },
+  "table": {
+   "single": {
+    "n": 6,
+    "recall5": 0.6666666666666666,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.5029761904761905,
+    "ndcg5": 0.6124589174017182
+   },
+   "multi 1": {
+    "n": 6,
+    "recall5": 0.6666666666666666,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.42658730158730157,
+    "ndcg5": 0.4998516102665062
+   },
+   "multi 0.5": {
+    "n": 6,
+    "recall5": 0.6666666666666666,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 0.42658730158730157,
+    "ndcg5": 0.5509472096636278
+   }
+  },
+  "yes-no": {
+   "single": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   },
+   "multi 1": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   },
+   "multi 0.5": {
+    "n": 1,
+    "recall5": 1,
+    "recall8": 1,
+    "recall10": 1,
+    "recall15": 1,
+    "mrr": 1,
+    "ndcg5": 1
+   }
+  }
+ },
+ "meanRewrites": 1.2,
+ "dropped": 0,
+ "meanTokens": 639.9333333333333,
+ "latency": {
+  "calls": 40,
+  "p50": 434.1056660000031,
+  "p95": 721.2072499999776
+ },
+ "rows": [
+  {
+   "id": "g-001",
+   "tags": [
+    "list"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: four functions of the AI RMF Core"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 386.67704200000003,
+   "cached": false,
+   "tokens": 636
+  },
+  {
+   "id": "g-002",
+   "tags": [
+    "definition"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: definition of risk in the AI Risk Management Framework"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 316.69737499999974,
+   "cached": false,
+   "tokens": 632
+  },
+  {
+   "id": "g-003",
+   "tags": [
+    "factoid",
+    "figure-caption"
+   ],
+   "rewrites": [
+    "AI RMF 1.0 trustworthiness characteristic foundation for all others"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    },
+    "multi 1": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    },
+    "multi 0.5": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    }
+   },
+   "ms": 540.3886660000007,
+   "cached": false,
+   "tokens": 623
+  },
+  {
+   "id": "g-004",
+   "tags": [
+    "list"
+   ],
+   "rewrites": [
+    "NIST AI RMF 1.0 three major categories of AI bias"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 331.2386250000018,
+   "cached": false,
+   "tokens": 637
+  },
+  {
+   "id": "g-005",
+   "tags": [
+    "paraphrase"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: criteria or decision points for when an organization should cease development or deployment of an AI system"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 5,
+     "ndcg5": 0.38685280723454163
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 389.9885830000021,
+   "cached": false,
+   "tokens": 673
+  },
+  {
+   "id": "g-006",
+   "tags": [
+    "comparison",
+    "multi-span"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: definitions and distinctions of transparency, explainability, and interpretability in the AI Risk Management Framework"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 390.3363750000026,
+   "cached": false,
+   "tokens": 648
+  },
+  {
+   "id": "g-007",
+   "tags": [
+    "yes-no"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: Does the AI RMF define or prescribe a risk tolerance level?"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 301.51133399999526,
+   "cached": false,
+   "tokens": 631
+  },
+  {
+   "id": "g-008",
+   "tags": [
+    "numeric",
+    "front-matter"
+   ],
+   "rewrites": [
+    "When is a formal review of the AI RMF with input from the AI community expected?"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 528.0299579999992,
+   "cached": false,
+   "tokens": 650
+  },
+  {
+   "id": "g-009",
+   "tags": [
+    "factoid"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: which law directed the development of the AI Risk Management Framework"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 5,
+     "ndcg5": 0.38685280723454163
+    },
+    "multi 1": {
+     "rank": 3,
+     "ndcg5": 0.5
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 700.8159589999996,
+   "cached": false,
+   "tokens": 638
+  },
+  {
+   "id": "g-010",
+   "tags": [
+    "keyword",
+    "table"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: GOVERN 1.6 requirement"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 8,
+     "ndcg5": 0
+    },
+    "multi 1": {
+     "rank": 6,
+     "ndcg5": 0
+    },
+    "multi 0.5": {
+     "rank": 6,
+     "ndcg5": 0
+    }
+   },
+   "ms": 448.3942919999972,
+   "cached": false,
+   "tokens": 650
+  },
+  {
+   "id": "g-011",
+   "tags": [
+    "keyword",
+    "table",
+    "reverse-lookup"
+   ],
+   "rewrites": [
+    "AI RMF 1.0 MEASURE subcategory documenting test sets and metrics used during TEVV"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 1": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 442.4359170000025,
+   "cached": false,
+   "tokens": 679
+  },
+  {
+   "id": "g-012",
+   "tags": [
+    "definition"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: definition of residual risk in the AI Risk Management Framework",
+    "nist-csf-2.0.pdf: explanation of residual risk within the Cybersecurity Framework"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 347.1235830000005,
+   "cached": false,
+   "tokens": 648
+  },
+  {
+   "id": "g-013",
+   "tags": [
+    "ambiguous",
+    "cross-document"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: What are the AI RMF 1.0 functions and which is recommended as the starting function?",
+    "nist-csf-2.0.pdf: What are the NIST CSF 2.0 core functions and which should be implemented first?"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 6,
+     "ndcg5": 0.6131471927654584
+    },
+    "multi 1": {
+     "rank": 4,
+     "ndcg5": 0.8772153153380493
+    },
+    "multi 0.5": {
+     "rank": 4,
+     "ndcg5": 0.8772153153380493
+    }
+   },
+   "ms": 685.3311249999999,
+   "cached": true,
+   "tokens": 683
+  },
+  {
+   "id": "g-014",
+   "tags": [
+    "ambiguous",
+    "cross-document",
+    "comparison"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: definition and distinction between current profile and target profile in the AI Risk Management Framework",
+    "nist-csf-2.0.pdf: explanation of current profile versus target profile within the Cybersecurity Framework"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 2,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 3,
+     "ndcg5": 0.9197207891481876
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 1
+    }
+   },
+   "ms": 526.5874999999996,
+   "cached": true,
+   "tokens": 671
+  },
+  {
+   "id": "g-015",
+   "tags": [
+    "list"
+   ],
+   "rewrites": [
+    "What are the six Functions defined in NIST CSF 2.0?"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 1": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 493.44279099999403,
+   "cached": false,
+   "tokens": 640
+  },
+  {
+   "id": "g-016",
+   "tags": [
+    "ambiguous",
+    "list"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: What are the tiers defined in the AI Risk Management Framework?",
+    "nist-csf-2.0.pdf: What are the tiers described in the NIST Cybersecurity Framework?"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 683.0213750000003,
+   "cached": true,
+   "tokens": 667
+  },
+  {
+   "id": "g-017",
+   "tags": [
+    "factoid",
+    "front-matter"
+   ],
+   "rewrites": [
+    "What was the Cybersecurity Framework called prior to version 2.0 in the NIST CSF 2.0 document?"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 1": {
+     "rank": 3,
+     "ndcg5": 0.5
+    },
+    "multi 0.5": {
+     "rank": 3,
+     "ndcg5": 0.5
+    }
+   },
+   "ms": 434.1056660000031,
+   "cached": false,
+   "tokens": 653
+  },
+  {
+   "id": "g-018",
+   "tags": [
+    "factoid",
+    "figure-reference"
+   ],
+   "rewrites": [
+    "Why is GOVERN placed at the center of the CSF Functions wheel in the NIST CSF 2.0 document"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 1": {
+     "rank": 3,
+     "ndcg5": 0.5
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 395.7930420000048,
+   "cached": false,
+   "tokens": 641
+  },
+  {
+   "id": "g-019",
+   "tags": [
+    "keyword"
+   ],
+   "rewrites": [
+    "nist-csf-2.0.pdf: PR.DS-11 requirement description"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 341.0687089999992,
+   "cached": false,
+   "tokens": 622
+  },
+  {
+   "id": "g-020",
+   "tags": [
+    "keyword",
+    "reverse-lookup",
+    "distractor"
+   ],
+   "rewrites": [
+    "nist-csf-2.0.pdf: CSF subcategory that requires backups to be checked before use for system restoration"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 425.1713330000057,
+   "cached": false,
+   "tokens": 646
+  },
+  {
+   "id": "g-021",
+   "tags": [
+    "factoid"
+   ],
+   "rewrites": [
+    "Explain why NIST CSF 2.0 subcategory numbers are not sequential in the nist-csf-2.0.pdf document"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 5,
+     "ndcg5": 0.38685280723454163
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 702.4424169999984,
+   "cached": false,
+   "tokens": 669
+  },
+  {
+   "id": "g-022",
+   "tags": [
+    "list",
+    "multi-span"
+   ],
+   "rewrites": [
+    "nist-csf-2.0.pdf: steps for creating a CSF Organizational Profile and how to use it"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 7,
+     "ndcg5": 0.7039180890341347
+    },
+    "multi 1": {
+     "rank": 9,
+     "ndcg5": 0.7039180890341347
+    },
+    "multi 0.5": {
+     "rank": 7,
+     "ndcg5": 0.7039180890341347
+    }
+   },
+   "ms": 330.4817919999914,
+   "cached": false,
+   "tokens": 640
+  },
+  {
+   "id": "g-023",
+   "tags": [
+    "definition",
+    "duplicate-passage"
+   ],
+   "rewrites": [
+    "nist-csf-2.0.pdf: definition of CSF Community Profile"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    },
+    "multi 1": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    },
+    "multi 0.5": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    }
+   },
+   "ms": 348.2277919999906,
+   "cached": false,
+   "tokens": 627
+  },
+  {
+   "id": "g-024",
+   "tags": [
+    "table"
+   ],
+   "rewrites": [
+    "In NIST CSF 2.0, Adaptive tier executives' approach to treating cybersecurity risks"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 704.4668749999983,
+   "cached": false,
+   "tokens": 676
+  },
+  {
+   "id": "g-025",
+   "tags": [
+    "list"
+   ],
+   "rewrites": [
+    "nist-csf-2.0.pdf: ways an organization can handle risk according to the CSF"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 394.7906249999942,
+   "cached": false,
+   "tokens": 652
+  },
+  {
+   "id": "g-026",
+   "tags": [
+    "cross-document",
+    "multi-hop"
+   ],
+   "rewrites": [
+    "nist-ai-rmf-1.0.pdf: benefit of treating AI risks together with other enterprise risks",
+    "nist-csf-2.0.pdf: benefit of integrating AI risk management with overall enterprise risk management"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 3,
+     "ndcg5": 0.9197207891481876
+    },
+    "multi 1": {
+     "rank": 3,
+     "ndcg5": 0.9197207891481876
+    },
+    "multi 0.5": {
+     "rank": 3,
+     "ndcg5": 0.9197207891481876
+    }
+   },
+   "ms": 537.2432499999995,
+   "cached": false,
+   "tokens": 668
+  },
+  {
+   "id": "g-027",
+   "tags": [
+    "table",
+    "list"
+   ],
+   "rewrites": [
+    "Self-RAG four types of reflection tokens"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 482.7176659999968,
+   "cached": false,
+   "tokens": 607
+  },
+  {
+   "id": "g-028",
+   "tags": [
+    "factoid"
+   ],
+   "rewrites": [
+    "Self-RAG base language model used for the generator",
+    "Self-RAG base language model used for the critic"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 8,
+     "ndcg5": 0
+    },
+    "multi 1": {
+     "rank": 13,
+     "ndcg5": 0
+    },
+    "multi 0.5": {
+     "rank": 13,
+     "ndcg5": 0
+    }
+   },
+   "ms": 249.04220799999894,
+   "cached": false,
+   "tokens": 625
+  },
+  {
+   "id": "g-029",
+   "tags": [
+    "numeric",
+    "multi-span",
+    "multi-page"
+   ],
+   "rewrites": [
+    "self-rag.pdf: number of training examples used to train the generator in SELF-RAG"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 1": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 0.5": {
+     "rank": null,
+     "ndcg5": 0
+    }
+   },
+   "ms": 508.98958300001686,
+   "cached": false,
+   "tokens": 618
+  },
+  {
+   "id": "g-030",
+   "tags": [
+    "numeric"
+   ],
+   "rewrites": [
+    "Self-RAG default weights assigned to critique tokens during inference"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 1": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 0.5": {
+     "rank": null,
+     "ndcg5": 0
+    }
+   },
+   "ms": 721.2072499999776,
+   "cached": false,
+   "tokens": 612
+  },
+  {
+   "id": "g-031",
+   "tags": [
+    "factoid",
+    "numeric"
+   ],
+   "rewrites": [
+    "Self-RAG default retriever and number of documents retrieved"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 1": {
+     "rank": 3,
+     "ndcg5": 0.5
+    },
+    "multi 0.5": {
+     "rank": 2,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 610.1405420000083,
+   "cached": false,
+   "tokens": 645
+  },
+  {
+   "id": "g-032",
+   "tags": [
+    "table",
+    "numeric"
+   ],
+   "rewrites": [
+    "Self-RAG 13B accuracy on PopQA in the SELF-RAG paper"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    },
+    "multi 1": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    },
+    "multi 0.5": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    }
+   },
+   "ms": 462.3135830000101,
+   "cached": false,
+   "tokens": 616
+  },
+  {
+   "id": "g-033",
+   "tags": [
+    "paraphrase"
+   ],
+   "rewrites": [
+    "Self-RAG avoid critic model during generator training mechanism"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 311.07320800001617,
+   "cached": false,
+   "tokens": 610
+  },
+  {
+   "id": "g-034",
+   "tags": [
+    "numeric",
+    "paraphrase"
+   ],
+   "rewrites": [
+    "Self-RAG correct answers not present in retrieved evidence frequency"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 507.80937500001164,
+   "cached": false,
+   "tokens": 616
+  },
+  {
+   "id": "g-035",
+   "tags": [
+    "factoid"
+   ],
+   "rewrites": [
+    "Self-RAG training hardware specifications"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 1": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 0.5": {
+     "rank": null,
+     "ndcg5": 0
+    }
+   },
+   "ms": 318.17458299998543,
+   "cached": false,
+   "tokens": 631
+  },
+  {
+   "id": "g-036",
+   "tags": [
+    "definition",
+    "list"
+   ],
+   "rewrites": [
+    "Self-RAG evidence support judgment scale"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 346.10216599999694,
+   "cached": false,
+   "tokens": 635
+  },
+  {
+   "id": "g-037",
+   "tags": [
+    "ambiguous",
+    "numeric"
+   ],
+   "rewrites": [
+    "self-rag.pdf: what is the chunk size used in SELF-RAG model",
+    "raptor.pdf: what chunk length or size is used for retrieval in RAPTOR"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 644.4380830000009,
+   "cached": true,
+   "tokens": 637
+  },
+  {
+   "id": "g-038",
+   "tags": [
+    "multi-span",
+    "multi-page"
+   ],
+   "rewrites": [
+    "RAPTOR clustering method for text chunks in the RAPTOR: RECURSIVE ABSTRACTIVE PROCESSING FOR TREE-ORGANIZED RETRIEVAL paper"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 1": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 0.5": {
+     "rank": null,
+     "ndcg5": 0
+    }
+   },
+   "ms": 356.8721249999944,
+   "cached": false,
+   "tokens": 625
+  },
+  {
+   "id": "g-039",
+   "tags": [
+    "factoid"
+   ],
+   "rewrites": [
+    "RAPTOR choose number of clusters clustering method described in RAPTOR paper"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 5,
+     "ndcg5": 0.38685280723454163
+    },
+    "multi 1": {
+     "rank": 5,
+     "ndcg5": 0.38685280723454163
+    },
+    "multi 0.5": {
+     "rank": 5,
+     "ndcg5": 0.38685280723454163
+    }
+   },
+   "ms": 244.64470799997798,
+   "cached": false,
+   "tokens": 609
+  },
+  {
+   "id": "g-040",
+   "tags": [
+    "numeric"
+   ],
+   "rewrites": [
+    "RAPTOR main results querying configuration"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 1": {
+     "rank": null,
+     "ndcg5": 0
+    },
+    "multi 0.5": {
+     "rank": null,
+     "ndcg5": 0
+    }
+   },
+   "ms": 542.6953339999891,
+   "cached": false,
+   "tokens": 621
+  },
+  {
+   "id": "g-041",
+   "tags": [
+    "numeric"
+   ],
+   "rewrites": [
+    "RAPTOR generated summaries hallucinations count"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 3,
+     "ndcg5": 0.5437713091520254
+    },
+    "multi 1": {
+     "rank": 3,
+     "ndcg5": 0.3065735963827292
+    },
+    "multi 0.5": {
+     "rank": 3,
+     "ndcg5": 0.3065735963827292
+    }
+   },
+   "ms": 513.4016249999986,
+   "cached": false,
+   "tokens": 605
+  },
+  {
+   "id": "g-042",
+   "tags": [
+    "numeric"
+   ],
+   "rewrites": [
+    "RAPTOR summarization compression rate of child nodes in the RAPTOR paper"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 1": {
+     "rank": 1,
+     "ndcg5": 1
+    },
+    "multi 0.5": {
+     "rank": 1,
+     "ndcg5": 1
+    }
+   },
+   "ms": 652.2427500000049,
+   "cached": false,
+   "tokens": 616
+  },
+  {
+   "id": "g-043",
+   "tags": [
+    "numeric",
+    "table",
+    "multi-page"
+   ],
+   "rewrites": [
+    "RAPTOR with GPT-4 accuracy on the QuALITY benchmark",
+    "size of the improvement achieved by RAPTOR GPT-4 compared to prior methods on QuALITY"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 7,
+     "ndcg5": 0.6131471927654584
+    },
+    "multi 1": {
+     "rank": 7,
+     "ndcg5": 0.3065735963827292
+    },
+    "multi 0.5": {
+     "rank": 7,
+     "ndcg5": 0.6131471927654584
+    }
+   },
+   "ms": 803.9134579999954,
+   "cached": false,
+   "tokens": 695
+  },
+  {
+   "id": "g-044",
+   "tags": [
+    "keyword"
+   ],
+   "rewrites": [
+    "RAPTOR embedding model used for tree nodes"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": 4,
+     "ndcg5": 0.43067655807339306
+    },
+    "multi 1": {
+     "rank": 5,
+     "ndcg5": 0.38685280723454163
+    },
+    "multi 0.5": {
+     "rank": 5,
+     "ndcg5": 0.38685280723454163
+    }
+   },
+   "ms": 242.43029200000456,
+   "cached": false,
+   "tokens": 619
+  },
+  {
+   "id": "g-045",
+   "tags": [
+    "cross-document",
+    "multi-hop",
+    "comparison"
+   ],
+   "rewrites": [
+    "self-rag.pdf: How does SELF-RAG utilize GPT-4 in its retrieval, generation, and self‑reflection components?",
+    "raptor.pdf: How does RAPTOR employ GPT-4 within its recursive abstractive processing for tree‑organized retrieval?"
+   ],
+   "dropped": 0,
+   "scores": {
+    "single": {
+     "rank": null,
+     "ndcg5": 0.6309297535714575
+    },
+    "multi 1": {
+     "rank": null,
+     "ndcg5": 0.5
+    },
+    "multi 0.5": {
+     "rank": null,
+     "ndcg5": 0.6309297535714575
+    }
+   },
+   "ms": 526.1454999999987,
+   "cached": true,
+   "tokens": 655
+  }
+ ]
+}
