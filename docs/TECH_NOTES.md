@@ -132,7 +132,7 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 
 **Deferred (tracked):**
 - ~~RRF score ties have no tie-breaker~~ and ~~the keyword arm ANDs every term (keyword-only recall@10 27%)~~: both fixed by `hybrid_search` v2 in Phase 6 ([ADR-0006](./adr/0006-hybrid-search.md)).
-- The rate limiter trusts `X-Forwarded-For`; set `security.rateLimiter.ipHeader` to the host's trusted header and use a shared storage driver at deploy (Phases 11 and 14). `/api/chat` (10/min) and `/api/search` (30/min) now have tighter per-route limits.
+- The rate limiter trusts `X-Forwarded-For`; set `security.rateLimiter.ipHeader` to the host's trusted header at deploy (Phase 14). `/api/chat` (10/min) and `/api/search` (30/min) have tighter per-route limits. ~~Shared storage~~: the daily caps that bound quota live in Postgres since Phase 11 ([ADR-0010](./adr/0010-abuse-protection.md)); the in-memory limiter is only the burst limit.
 - A document row is listed while its chunks are still being inserted (a `status` column comes with Phase 11 uploads).
 - `check:viewer` drives the deep-link path. Clicking chips in a live answer is covered by the Phase 13 Playwright E2E.
 
@@ -170,4 +170,11 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 - **Serverless (Phase 14):** spans export in batches and flush on Nitro's `close` hook, which suits a long-running Node server. On a per-request runtime, call the processor's `forceFlush()` in `event.waitUntil` or traces are lost.
 - **Privacy:** questions and answers are sent to Langfuse (EU region here). Fine for the public demo's documents; Phase 11 uploads should reconsider `mask` or `recordInputs/recordOutputs: false`.
 - **Dashboards:** Langfuse's built-in dashboard covers latency and cost per model and trace volume. For TTFT, filter `chat` observations on metadata `ttftMs`; for fallback rates, count `rerank`/`rewrite` observations at level `WARNING`.
+
+## 16. Abuse protection (Phase 11)
+
+- **Daily caps live in Postgres** (`consume_quotas`, [ADR-0010](./adr/0010-abuse-protection.md)): all counters for a request are locked in a fixed order and incremented together or not at all. A `plpgsql` loop with `select … for update` per row, after an `insert … on conflict do nothing` that makes sure the rows exist; a single `insert … on conflict do update … where count < limit` can't express "all or none" across rows.
+- **h3 isn't resolvable from the unit test project** (pnpm doesn't hoist it), so tests of server utils that use Nitro's auto-imported helpers stub them with `vi.stubGlobal` (`test/unit/quota.test.ts`).
+- **h3's typed `setResponseHeader` wants a number for `Retry-After`**, not a string.
+- **The chat UI reads a 429 body**: `DefaultChatTransport` puts the response text in `error.message`, so the page parses it as JSON and shows `message` when `data.quota` is set.
 

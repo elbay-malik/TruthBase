@@ -9,5 +9,6 @@
     "types": ["node"],
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "include": ["scripts/**/*.ts", "test/unit/**/*.ts"]
+  // Nitro's auto-imports, for server utils a unit test imports (quota.ts).
+  "include": ["scripts/**/*.ts", "test/unit/**/*.ts", ".nuxt/types/nitro-imports.d.ts"]
 }

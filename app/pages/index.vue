@@ -72,15 +72,31 @@ watch(error, (failed) => {
   if (failed && !input.value) input.value = lastQuestion.value
 })
 
+/** Set when the failure is a daily quota: retrying won't help until it resets. */
+const dailyCap = computed(() => dailyCapMessage(error.value?.message ?? ''))
+
 /** What the reader sees for a failed request; server detail stays in the console. */
 const errorMessage = computed(() => {
   const raw = error.value?.message ?? ''
+  // A daily cap (server/utils/quota.ts) explains itself; the per-minute limiter doesn't.
+  if (dailyCap.value) return dailyCap.value
   if (/\b429\b|too many requests/i.test(raw)) return 'Too many questions in a short time. Wait a minute, then try again.'
   if (/\b400\b|bad request/i.test(raw)) return `Questions must be 1–${MAX_QUESTION} characters.`
   // Messages written by the chat route's onError are already meant for readers.
   if (raw && raw.length < 200 && !raw.trimStart().startsWith('{') && !/<html/i.test(raw)) return raw
   return 'Please try again in a moment.'
 })
+
+/** The message of a daily-quota 429 body ({ data: { quota } }), if the error is one. */
+function dailyCapMessage(raw: string): string | undefined {
+  try {
+    const body = JSON.parse(raw) as { message?: string, data?: { quota?: string } }
+    return body.data?.quota && body.message ? body.message : undefined
+  }
+  catch {
+    return undefined
+  }
+}
 
 function onKeydown(event: KeyboardEvent) {
   // Enter while an IME is composing (Japanese, Chinese, …) confirms the candidate.
@@ -398,7 +414,7 @@ onMounted(async () => {
             variant="subtle"
             title="The answer didn't come through."
             :description="errorMessage"
-            :actions="[{ label: 'Retry', color: 'error', variant: 'outline', onClick: retry }]"
+            :actions="dailyCap ? [] : [{ label: 'Retry', color: 'error', variant: 'outline', onClick: retry }]"
           />
         </section>
       </div>

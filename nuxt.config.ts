@@ -67,7 +67,20 @@ export default defineNuxtConfig({
     expandModel: 'groq-20b', // NUXT_EXPAND_MODEL — same choices; multi-query rewriting (ADR-0009)
     supabaseUrl: '', // NUXT_SUPABASE_URL
     supabaseServiceKey: '', // NUXT_SUPABASE_SERVICE_KEY
-    ingestToken: '', // NUXT_INGEST_TOKEN — operator-only ingestion until Phase 11
+    ingestToken: '', // NUXT_INGEST_TOKEN — operator-only ingestion
+    // Behind a proxy: the header it sets with the client IP (cf-connecting-ip,
+    // fly-client-ip, x-real-ip, x-forwarded-for). Empty: the socket address.
+    trustedIpHeader: '', // NUXT_TRUSTED_IP_HEADER
+    // Daily caps per client IP and for the whole demo (ADR-0010); a limit
+    // below 1 closes the route. Chat's global budget keeps gpt-oss-120b inside
+    // its 200K tokens/day (~100 answers) with room for evals.
+    quota: {
+      enabled: !rateLimitOff, // off only with NUXT_DISABLE_RATE_LIMIT=1 in `nuxt dev`
+      chatPerClient: 30, // NUXT_QUOTA_CHAT_PER_CLIENT
+      chatGlobal: 80, // NUXT_QUOTA_CHAT_GLOBAL
+      searchPerClient: 100, // NUXT_QUOTA_SEARCH_PER_CLIENT
+      searchGlobal: 300, // NUXT_QUOTA_SEARCH_GLOBAL
+    },
     public: {},
   },
 
@@ -95,8 +108,8 @@ export default defineNuxtConfig({
   },
 
   // nuxt-security runs with OWASP defaults, including an in-memory
-  // per-IP rate limiter (150 req / 5 min). Route-specific overrides and a
-  // shared-storage driver come with Phase 11 (docs/EXECUTION_PLAN.md).
+  // per-IP rate limiter (150 req / 5 min) as the burst limit; the daily caps
+  // live in Postgres (server/utils/quota.ts, ADR-0010).
   security: {
     rateLimiter: rateLimitOff ? false : undefined,
     headers: {

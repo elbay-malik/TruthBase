@@ -103,6 +103,9 @@ jobs:
       - name: hybrid_search acceptance check
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/hybrid_search.sql
 
+      - name: usage quota acceptance check
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/usage_quota.sql
+
       # The retrieval quality gate (ADR-0008): the real corpus and golden-question
       # embeddings from test/fixtures/retrieval-corpus.json.gz, hybrid_search as
       # migrated above, compared with docs/evals/retrieval-baseline.json. No API
