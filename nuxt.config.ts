@@ -6,9 +6,11 @@ import { fileURLToPath } from 'node:url'
 const rateLimitOff = process.env.NODE_ENV !== 'production' && process.env.NUXT_DISABLE_RATE_LIMIT === '1'
 
 /**
- * Per-minute limits on the routes that spend LLM quota. Enforced twice: in
- * Postgres across all instances (consume_quotas, server/utils/quota.ts), and
- * first by nuxt-security's in-memory limiter per instance (routeLimit).
+ * Per-minute limits on the routes that spend LLM quota, enforced in Postgres
+ * across all instances (consume_quotas, server/utils/quota.ts). nuxt-security's
+ * in-memory limiter (routeLimit) runs first, per instance, at twice the limit:
+ * at the same count it would answer first with a bare 429, without the quota
+ * message and Retry-After.
  */
 const PER_MINUTE = { chat: 10, search: 30 }
 
@@ -154,10 +156,10 @@ export default defineNuxtConfig({
     // Chat spends generation + embedding quota (Groq free tier: 1K req/day),
     // search spends embedding quota: a few per minute per IP is plenty.
     '/api/chat': {
-      security: { xssValidator: false, rateLimiter: routeLimit(PER_MINUTE.chat) },
+      security: { xssValidator: false, rateLimiter: routeLimit(2 * PER_MINUTE.chat) },
     },
     '/api/search': {
-      security: { xssValidator: false, rateLimiter: routeLimit(PER_MINUTE.search) },
+      security: { xssValidator: false, rateLimiter: routeLimit(2 * PER_MINUTE.search) },
     },
     // PDF uploads exceed nuxt-security's 8 MB default; matches the 20 MB
     // `documents` bucket limit enforced in server/api/ingest.post.ts. On
