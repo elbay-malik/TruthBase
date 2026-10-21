@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { ChatMessage, SourceRef } from '#shared/types/chat'
-import { isRefusal, looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '#shared/utils/citations'
+import { claimSentence, isRefusal, looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '#shared/utils/citations'
 import type { AnswerSegment } from '#shared/utils/citations'
 import { MAX_QUESTION_LENGTH } from '#shared/limits'
+import { documentInfo, pageName, passageText, sourceName } from '~/utils/corpus'
 import { loadDocument } from '~/utils/pdf-documents'
 import { loadPdfjs } from '~/utils/pdf-highlight'
 
@@ -26,12 +27,31 @@ const { data: documents } = await useFetch('/api/documents', { default: () => []
 const documentId = ref<string>('all')
 const documentItems = computed(() => [
   { label: 'All documents', value: 'all' },
-  ...documents.value.map(d => ({ label: d.filename, value: d.id })),
+  ...documents.value.map(d => ({ label: documentInfo(d.filename).short, value: d.id })),
 ])
+
+/** The active scope, as the composer chip names it ("NIST CSF 2.0"); undefined: all documents. */
+const scopeName = computed(() => {
+  if (documentId.value === 'all') return undefined
+  const doc = documents.value.find(d => d.id === documentId.value)
+  return doc ? documentInfo(doc.filename).short : undefined
+})
+
+function clearScope() {
+  documentId.value = 'all'
+  void announceNotice('Searching all documents.')
+  focusQuestion()
+}
 
 const input = ref('')
 const lastQuestion = ref('')
 const questionBox = ref<{ textareaRef?: HTMLTextAreaElement | null }>()
+/** The scrolling conversation column: each new question is scrolled to its top. */
+const chatScroller = ref<HTMLElement>()
+/** The scope each question was asked in, by user message id (shown under "You" when it was one document). */
+const askedIn = shallowReactive(new Map<string, string>())
+/** A short status of the page's own (no answer state to report): "New conversation.", "Searching all documents.". */
+const notice = ref('')
 /** How the last answer ended early, if it did: cut off by the network, or by Stop. */
 const ending = ref<'interrupted' | 'stopped'>()
 const { messages, sendMessage, regenerate, status, stop, error, clearError, warm: warmChat } = useLazyChat<ChatMessage>(ai => ({
@@ -58,8 +78,21 @@ onNuxtReady(warmChat)
 
 const busy = computed(() => status.value === 'submitted' || status.value === 'streaming')
 
+/** The examples not yet asked, offered again below the conversation. */
+const moreExamples = computed(() => {
+  const asked = new Set(messages.value.filter(m => m.role === 'user').map(m => textOf(m).trim()))
+  return EXAMPLES.filter(example => !asked.has(example))
+})
+
 function focusQuestion() {
   nextTick(() => questionBox.value?.textareaRef?.focus())
+}
+
+async function announceNotice(text: string) {
+  // Cleared first: the same text again would not be announced.
+  notice.value = ''
+  await nextTick()
+  notice.value = text
 }
 
 function ask(question: string) {
@@ -74,6 +107,7 @@ function ask(question: string) {
   input.value = ''
   lastQuestion.value = text
   ending.value = undefined
+  notice.value = ''
   clearError()
   sendMessage({ text })
   focusQuestion()
@@ -83,8 +117,84 @@ function retry() {
   if (busy.value || capped.value) return
   if (input.value === lastQuestion.value) input.value = ''
   ending.value = undefined
+  notice.value = ''
   clearError()
+  // Asked again in the scope set now, so its label follows.
+  const question = messages.value.findLast(m => m.role === 'user')
+  if (question) setAskedIn(question.id)
   void regenerate()
+  focusQuestion()
+}
+
+function setAskedIn(messageId: string) {
+  if (scopeName.value) askedIn.set(messageId, scopeName.value)
+  else askedIn.delete(messageId)
+}
+
+// A new question: record its scope (the request reads the same `documentId`)
+// and bring it to the top of the conversation, so its answer streams in below
+// it instead of out of sight under the earlier ones. While the answer is too
+// short for the question to reach the top, the column follows it as it grows,
+// until it gets there, the answer ends, or the reader scrolls themselves.
+const conversationEl = ref<HTMLElement>()
+let following: string | undefined
+
+/** Scrolls question `id` toward the top (24 px below it); true once it is there or can't get closer. */
+function scrollToQuestion(id: string): boolean {
+  const el = chatScroller.value
+  const article = el?.querySelector<HTMLElement>(`[data-message-id="${id}"]`)
+  if (!el || !article) return true
+  const top = Math.max(0, el.scrollTop + article.getBoundingClientRect().top - el.getBoundingClientRect().top - 24)
+  const target = Math.min(top, el.scrollHeight - el.clientHeight)
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (Math.abs(el.scrollTop - target) > 1) el.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' })
+  return target >= top
+}
+
+watch(() => messages.value.findLast(m => m.role === 'user')?.id, (id, previous) => {
+  if (!id || id === previous) return
+  setAskedIn(id)
+  following = id
+  nextTick(() => {
+    if (following === id && scrollToQuestion(id)) following = undefined
+  })
+})
+useResizeObserver(conversationEl, () => {
+  if (following && scrollToQuestion(following)) following = undefined
+})
+watch(busy, (now) => {
+  if (now || !following) return
+  const id = following
+  following = undefined
+  nextTick(() => scrollToQuestion(id))
+})
+// The reader takes over: no more following.
+const stopFollowing = () => (following = undefined)
+useEventListener(chatScroller, ['wheel', 'touchstart', 'pointerdown'], stopFollowing, { passive: true })
+useEventListener(chatScroller, 'keydown', (event: KeyboardEvent) => {
+  if (['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown', ' '].includes(event.key)) stopFollowing()
+})
+
+/**
+ * Starts over: the conversation, its open citation and the URL's passage are
+ * cleared; the scope and an unsent draft stay. Offered only while nothing is
+ * being answered (Stop comes first), so no stream writes into the new one.
+ */
+function newConversation() {
+  if (busy.value) return
+  messages.value = []
+  askedIn.clear()
+  clearError()
+  ending.value = undefined
+  lastQuestion.value = ''
+  active.value = undefined
+  viewerTarget.value = undefined
+  targetKind.value = undefined
+  viewerDocumentId.value = documentId.value === 'all' ? undefined : documentId.value
+  returnFocusTo = null
+  following = undefined
+  chatScroller.value?.scrollTo({ top: 0 })
+  void announceNotice('New conversation.')
   focusQuestion()
 }
 
@@ -164,7 +274,11 @@ const errorKind = computed((): ErrorKind => {
 const errorMessage = computed(() => {
   const raw = error.value?.message ?? ''
   switch (errorKind.value) {
-    case 'rate': return 'Too many questions in a short time. Wait a minute, then try again.'
+    // The quota's own message states the limit ("… (5 a minute) …"); nuxt-security's has none.
+    case 'rate': {
+      const quota = errorBody(raw)?.message
+      return quota?.startsWith('Too many') ? quota : 'Too many questions in a short time. Wait a minute, then try again.'
+    }
     case 'length': return `Questions must be 1–${MAX_QUESTION_LENGTH} characters.`
     case 'network': return 'The connection dropped. Check your network, then try again.'
   }
@@ -173,10 +287,15 @@ const errorMessage = computed(() => {
   return 'Please try again in a moment.'
 })
 
+/** Status titles name the state in a few words, without a full stop (DESIGN.md "Status messages"). */
 const errorTitle = computed(() => {
-  if (errorKind.value === 'rate') return 'Slow down a moment'
-  if (errorKind.value === 'provider') return 'The answer service is unavailable right now.'
-  return 'The answer didn\'t come through.'
+  switch (errorKind.value) {
+    case 'rate': return 'Per-minute limit reached'
+    case 'length': return 'Question not accepted'
+    case 'provider': return 'Answer service unavailable'
+    case 'network': return 'Connection lost'
+    default: return 'Answer failed'
+  }
 })
 
 /** Shown as an alert; a cut stream gets the quieter "Answer interrupted." notice instead. */
@@ -255,35 +374,44 @@ function relatedOf(message: ChatMessage): SourceRef[] {
   }).slice(0, 3)
 }
 
-/** A source's page for labels: "unknown" when the chunk has none ("?" in visible text). */
-function pageLabel(source: SourceRef | undefined, unknown: 'unknown' | '?' = 'unknown'): string {
-  return String(source?.pageNumber ?? unknown)
-}
+/** Where a source is, as shown: "NIST CSF 2.0 · p. 23 (PDF 28)". */
+const shortName = (source: SourceRef) => documentInfo(source.filename).short
+const pageText = (source: SourceRef) => pageName(source.filename, source.pageNumber).text
 
+/** The start of the passage, without the running head or folio the chunk picked up. */
 function excerpt(source: SourceRef): string {
-  return source.content.length > 140 ? `${source.content.slice(0, 140).trimEnd()}…` : source.content
+  const text = passageText(source)
+  return text.length > 140 ? `${text.slice(0, 140).trimEnd()}…` : text
 }
 
 /** Tooltip for a citation chip: where it points, and the start of the passage. */
-function citationTooltip(source: SourceRef | undefined): string {
-  if (!source) return ''
-  return `${source.filename} · p. ${pageLabel(source, '?')} — “${excerpt(source)}”`
+function citationTip(source: SourceRef | undefined): { where: string, quote: string } | undefined {
+  if (!source) return undefined
+  return { where: `${shortName(source)} · ${pageText(source)}`, quote: excerpt(source) }
 }
+
+/**
+ * Chip tooltips need a hovering pointer. On touch a tap opens the citation, so
+ * a tooltip only got stuck open over the answer, and reopened when closing the
+ * sheet handed focus back to the chip.
+ */
+const canHover = useMediaQuery('(hover: hover) and (pointer: fine)')
 
 function citationAriaLabel(message: ChatMessage, index: number): string {
   const source = sourcesOf(message)[index - 1]
-  return `Citation ${index}: ${source?.filename ?? 'source'}, page ${pageLabel(source)}`
+  return `Citation ${index}: ${source ? sourceName(source) : 'source'}`
 }
 
 // One status line for screen readers instead of announcing every streamed token.
 const liveStatus = computed(() => {
   if (status.value === 'submitted') return 'Searching the documents…'
   if (status.value === 'streaming') return 'Answering…'
+  if (notice.value) return notice.value
   // No countdown here: the minute tick would re-announce it. The alert shows it.
   if (capped.value) return `Daily demo limit reached. ${cap.value!.message} Back at ${capResetTime.value}.`
   if (ending.value === 'interrupted') return 'Answer interrupted.'
   if (ending.value === 'stopped') return 'Stopped.'
-  if (error.value) return `The answer failed. ${errorMessage.value}`
+  if (error.value) return `${errorTitle.value}. ${errorMessage.value}`
   const last = messages.value.at(-1)
   if (last?.role !== 'assistant') return ''
   if (refused(last)) return 'Not found in the documents.'
@@ -307,6 +435,10 @@ const zoomQuery = Number(route.query.zoom)
 /** Manual zoom, kept across viewer remounts (the phone sheet unmounts on close); undefined = fit width. */
 const viewerZoom = ref(Number.isFinite(zoomQuery) && zoomQuery > 0 ? Math.min(3, Math.max(0.5, zoomQuery)) : undefined)
 const viewerFilename = computed(() => documents.value.find(d => d.id === viewerDocumentId.value)?.filename)
+/** The sentence of the answer that the open citation backs (the phone sheet shows it with the evidence). */
+const viewerClaim = computed(() => targetKind.value === 'citation' && activeMessage.value && active.value
+  ? claimSentence(segmentsOf(activeMessage.value), active.value.index) || undefined
+  : undefined)
 let returnFocusTo: HTMLElement | null = null
 /** Where focus goes once the phone sheet has closed (instead of its default: the element that opened it). */
 let focusOnSheetClose: HTMLElement | null = null
@@ -336,6 +468,14 @@ function selectDocument(id: string) {
   viewerTarget.value = undefined
   active.value = undefined
   targetKind.value = undefined
+}
+
+/** A row of the corpus index: the document from page 1 (on phones, in the sheet). */
+function openDocument(id: string, from: HTMLElement | null) {
+  returnFocusTo = from
+  selectDocument(id)
+  if (!isDesktop.value) viewerOpen.value = true
+  nextTick(() => viewer.value?.focus())
 }
 
 /** Warm PDF.js (and, while the viewer is empty, the first cited document) before a chip is clicked. */
@@ -414,6 +554,31 @@ function onViewerKeydown(event: KeyboardEvent) {
   }
 }
 
+/**
+ * The passage the viewer shows as evidence (a citation or a deep link; a
+ * "possibly related" page is not one), while it is on screen. The address bar
+ * carries it as ?chunk=<id>, and "Copy link" copies the same link.
+ */
+const sharedChunk = computed(() => {
+  if (!viewerTarget.value || targetKind.value === 'related') return undefined
+  if (!isDesktop.value && !viewerOpen.value) return undefined
+  return viewerTarget.value.chunkId
+})
+const passageLink = computed(() => sharedChunk.value && import.meta.client
+  ? new URL(`/?chunk=${encodeURIComponent(sharedChunk.value)}`, window.location.origin).href
+  : undefined)
+
+// replaceState, not the router: no navigation, no new history entry per
+// citation, and Vue Router's own history.state is kept. Other parameters
+// (?zoom=) stay as they are.
+watch(sharedChunk, (id) => {
+  if (!import.meta.client) return
+  const url = new URL(window.location.href)
+  if (id) url.searchParams.set('chunk', id)
+  else url.searchParams.delete('chunk')
+  if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
+})
+
 const isActive = (message: ChatMessage, index: number) =>
   active.value?.messageId === message.id && active.value.index === index
 
@@ -440,10 +605,13 @@ onMounted(async () => {
       class="flex min-w-0 flex-1 flex-col lg:max-w-[42%] lg:border-r lg:border-default"
       aria-label="Chat"
     >
-      <div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-6 sm:px-6">
+      <div
+        ref="chatScroller"
+        class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-6 sm:px-6"
+      >
         <header class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 class="text-2xl font-bold">
+            <h1 class="font-serif text-[1.75rem] leading-tight font-semibold tracking-tight text-highlighted">
               TruthBase
             </h1>
             <p class="text-sm text-muted">
@@ -463,9 +631,9 @@ onMounted(async () => {
           class="flex flex-col gap-2"
           aria-label="Example questions"
         >
-          <p class="text-sm text-muted">
-            Try:
-          </p>
+          <h2 class="text-xs font-semibold tracking-wider uppercase text-muted">
+            Try a question
+          </h2>
           <UButton
             v-for="example in EXAMPLES"
             :key="example"
@@ -482,6 +650,15 @@ onMounted(async () => {
           </p>
         </section>
 
+        <!-- Phones: the corpus index in short rows (desktop: the empty viewer pane). -->
+        <CorpusIndex
+          v-if="messages.length === 0"
+          class="lg:hidden"
+          compact
+          :documents="documents"
+          @open="openDocument"
+        />
+
         <p
           class="sr-only"
           role="status"
@@ -490,6 +667,7 @@ onMounted(async () => {
         </p>
 
         <section
+          ref="conversationEl"
           class="flex flex-col gap-6"
           aria-label="Conversation"
           :aria-busy="busy"
@@ -501,17 +679,25 @@ onMounted(async () => {
             v-for="message in visibleMessages"
             :key="message.id"
             class="flex flex-col gap-3"
+            :data-message-id="message.id"
           >
             <template v-if="message.role === 'user'">
-              <h3 class="text-xs font-semibold uppercase text-muted">
-                You
-              </h3>
-              <p>{{ textOf(message) }}</p>
+              <div class="flex flex-wrap items-baseline gap-x-2">
+                <h3 class="text-xs font-semibold tracking-wider uppercase text-muted">
+                  You
+                </h3>
+                <!-- A question asked in one document says so, after the scope has moved on. -->
+                <span
+                  v-if="askedIn.get(message.id)"
+                  class="text-xs text-muted"
+                >in {{ askedIn.get(message.id) }} only</span>
+              </div>
+              <p class="break-words">{{ textOf(message) }}</p>
             </template>
 
             <template v-else>
               <div class="flex items-center gap-2">
-                <h3 class="text-xs font-semibold uppercase text-muted">
+                <h3 class="text-xs font-semibold tracking-wider uppercase text-muted">
                   TruthBase
                 </h3>
                 <span
@@ -527,15 +713,25 @@ onMounted(async () => {
                 </span>
               </div>
 
-              <!-- Grounded refusal: neutral, not an error (WIREFRAMES §4). -->
+              <!-- Grounded refusal: a correct answer, so neutral and in the
+                   document voice, not an alert (WIREFRAMES §4). The dashed
+                   rule means "no evidence" (DESIGN.md "The Dashed Line Rule"). -->
               <template v-if="refused(message)">
-                <UAlert
-                  color="info"
-                  variant="subtle"
-                  icon="i-lucide-info"
-                  title="Not found in the documents."
-                  description="None of the retrieved passages answers this, so I won't guess."
-                />
+                <div class="flex gap-3 rounded-md border border-dashed border-accented px-4 py-3">
+                  <UIcon
+                    name="i-lucide-search-x"
+                    class="mt-1 size-5 shrink-0 text-muted"
+                    aria-hidden="true"
+                  />
+                  <div class="flex flex-col gap-1">
+                    <p class="font-serif text-[1.0625rem] font-semibold text-highlighted">
+                      Not found in the documents.
+                    </p>
+                    <p class="text-sm text-muted">
+                      None of the retrieved passages answers this. TruthBase doesn’t guess.
+                    </p>
+                  </div>
+                </div>
                 <div
                   v-if="sourcesOf(message).length"
                   class="text-sm text-muted"
@@ -549,15 +745,10 @@ onMounted(async () => {
                       <button
                         type="button"
                         class="inline-flex min-h-6 cursor-pointer items-center gap-1 underline decoration-dotted underline-offset-2 hover:text-default"
-                        :aria-label="`Open ${source.filename}, page ${pageLabel(source)} (possibly related, not a source)`"
+                        :aria-label="`Open ${sourceName(source)}: possibly related, not a source`"
                         @click="openRelated(source, $event.currentTarget)"
                       >
-                        {{ source.filename }} · p. {{ pageLabel(source, '?') }}
-                        <UIcon
-                          name="i-lucide-arrow-up-right"
-                          class="size-3.5 shrink-0"
-                          aria-hidden="true"
-                        />
+                        {{ shortName(source) }} · {{ pageText(source) }}
                       </button>
                     </li>
                   </ul>
@@ -567,7 +758,7 @@ onMounted(async () => {
               <template v-else>
                 <p
                   v-if="!looksLikeRefusalPrefix(textOf(message))"
-                  class="leading-relaxed whitespace-pre-wrap"
+                  class="font-serif text-[1.0625rem] leading-relaxed whitespace-pre-wrap text-highlighted"
                 >
                   <template
                     v-for="(segment, i) in displaySegments(message)"
@@ -576,13 +767,24 @@ onMounted(async () => {
                     <span v-if="segment.type === 'text'">{{ segment.text }}</span>
                     <UTooltip
                       v-else
-                      :text="citationTooltip(sourcesOf(message)[segment.index - 1])"
+                      :disabled="!canHover"
+                      ignore-non-keyboard-focus
                       :content="{ side: 'top' }"
+                      :ui="{ content: 'h-auto max-w-[min(20rem,calc(100vw-1rem))] py-1.5' }"
                     >
+                      <template #content>
+                        <span
+                          v-if="citationTip(sourcesOf(message)[segment.index - 1])"
+                          class="flex flex-col gap-0.5"
+                        >
+                          <span class="font-medium tabular-nums">{{ citationTip(sourcesOf(message)[segment.index - 1])!.where }}</span>
+                          <span class="font-serif text-toned">“{{ citationTip(sourcesOf(message)[segment.index - 1])!.quote }}”</span>
+                        </span>
+                      </template>
                       <UButton
                         size="xs"
                         :variant="isActive(message, segment.index) ? 'solid' : 'soft'"
-                        class="ml-0.5 min-w-6 cursor-pointer justify-center align-baseline tabular-nums"
+                        class="ml-0.5 min-w-6 cursor-pointer justify-center align-baseline font-semibold tabular-nums"
                         :data-cite="`${message.id}-${segment.index}`"
                         :aria-current="isActive(message, segment.index) ? 'true' : undefined"
                         :aria-label="citationAriaLabel(message, segment.index)"
@@ -606,7 +808,7 @@ onMounted(async () => {
                   v-if="citedIndexes(message).size && !isStreaming(message)"
                   class="flex flex-col gap-2"
                 >
-                  <h4 class="text-xs font-semibold uppercase text-muted">
+                  <h4 class="text-xs font-semibold tracking-wider uppercase text-muted">
                     Sources
                   </h4>
                   <ol class="flex flex-col gap-2">
@@ -616,29 +818,29 @@ onMounted(async () => {
                     >
                       <button
                         type="button"
-                        class="w-full cursor-pointer rounded-md border p-3 text-left text-sm transition-colors hover:bg-elevated"
+                        class="w-full cursor-pointer rounded-md border p-3 text-left text-sm transition-colors hover:bg-muted"
                         :class="isActive(message, source.index) ? 'border-primary bg-primary/5' : 'border-default'"
                         :aria-current="isActive(message, source.index) ? 'true' : undefined"
-                        :aria-label="`Source ${source.index}: ${source.filename}, page ${pageLabel(source)}`"
+                        :aria-label="`Source ${source.index}: ${sourceName(source)}`"
                         :aria-describedby="`${message.id}-source-${source.index}`"
                         @click="openCitation(message, source.index, $event.currentTarget)"
                       >
                         <span class="mb-1 flex items-center gap-2 font-medium">
                           <span
-                            class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm px-1 text-xs tabular-nums"
+                            class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm px-1 font-serif text-xs font-semibold tabular-nums"
                             :class="isActive(message, source.index) ? 'bg-primary text-inverted' : 'bg-primary/10 text-primary'"
                           >{{ source.index }}</span>
-                          <span class="min-w-0 truncate">{{ source.filename }}</span>
+                          <span class="min-w-0 truncate">{{ shortName(source) }}</span>
                           <span
                             class="ms-auto shrink-0 text-xs font-normal tabular-nums"
                             :class="isActive(message, source.index) ? 'text-toned' : 'text-muted'"
-                          >p. {{ pageLabel(source, '?') }}</span>
+                          >{{ pageText(source) }}</span>
                         </span>
                         <span
-                          class="line-clamp-3"
+                          class="line-clamp-3 font-serif"
                           :class="isActive(message, source.index) ? 'text-toned' : 'text-muted'"
                         >
-                          {{ source.content }}
+                          {{ passageText(source) }}
                         </span>
                         <span
                           :id="`${message.id}-source-${source.index}`"
@@ -658,7 +860,7 @@ onMounted(async () => {
             class="flex items-center gap-2"
             aria-hidden="true"
           >
-            <span class="text-xs font-semibold uppercase text-muted">TruthBase</span>
+            <span class="text-xs font-semibold tracking-wider uppercase text-muted">TruthBase</span>
             <span class="flex items-center gap-1.5 text-xs text-muted">
               <UIcon
                 name="i-lucide-loader-circle"
@@ -715,9 +917,83 @@ onMounted(async () => {
             :actions="errorKind === 'length' ? [] : [{ label: 'Retry', color: errorKind === 'rate' ? 'warning' : 'error', variant: 'outline', onClick: retry }]"
           />
         </section>
+
+        <!-- The examples stay reachable after the first question. -->
+        <section
+          v-if="messages.length && !busy && !capped && !showError && moreExamples.length"
+          class="flex flex-col gap-1 border-t border-default pt-4"
+          aria-labelledby="more-examples"
+        >
+          <h2
+            id="more-examples"
+            class="text-xs font-semibold tracking-wider uppercase text-muted"
+          >
+            Try another question
+          </h2>
+          <ul class="flex flex-col">
+            <li
+              v-for="example in moreExamples"
+              :key="example"
+            >
+              <button
+                type="button"
+                class="inline-flex min-h-8 cursor-pointer items-center gap-2 text-left text-sm text-toned transition-colors hover:text-highlighted"
+                @click="ask(example)"
+              >
+                <UIcon
+                  name="i-lucide-message-circle-question"
+                  class="size-4 shrink-0 text-muted"
+                  aria-hidden="true"
+                />
+                {{ example }}
+              </button>
+            </li>
+          </ul>
+        </section>
       </div>
 
       <div class="border-t border-default px-4 py-3 sm:px-6">
+        <!-- What the next question runs against, and a way to start over: both
+             stay beside the box, where the header's select has scrolled away. -->
+        <div
+          v-if="scopeName || (messages.length && !busy)"
+          class="mb-2 flex min-h-8 flex-wrap items-center gap-2"
+        >
+          <span
+            v-if="scopeName"
+            class="inline-flex max-w-full min-w-0 items-center rounded-sm border border-default bg-elevated ps-2 text-xs text-toned"
+          >
+            <UIcon
+              name="i-lucide-filter"
+              class="me-1.5 size-3.5 shrink-0 text-muted"
+              aria-hidden="true"
+            />
+            <span
+              id="ask-scope"
+              class="min-w-0 truncate"
+            >Searching {{ scopeName }} only</span>
+            <UButton
+              icon="i-lucide-x"
+              color="neutral"
+              variant="link"
+              size="xs"
+              class="-my-px min-h-7 shrink-0 px-1.5 [--focus-ring-offset:-2px]"
+              :aria-label="`Search all documents (remove filter ${scopeName})`"
+              @click="clearScope"
+            />
+          </span>
+          <UButton
+            v-if="messages.length && !busy"
+            icon="i-lucide-rotate-ccw"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            class="ms-auto min-h-7 text-muted hover:text-highlighted"
+            @click="newConversation"
+          >
+            New conversation
+          </UButton>
+        </div>
         <form
           class="flex items-end gap-2"
           aria-label="Ask a question"
@@ -727,14 +1003,15 @@ onMounted(async () => {
             ref="questionBox"
             v-model="input"
             :rows="1"
+            :maxrows="6"
             autoresize
             class="flex-1"
-            :placeholder="capped ? `Back at ${capResetTime}` : 'Ask a question…'"
+            :placeholder="capped ? `Back at ${capResetTime}` : scopeName ? `Ask ${scopeName}…` : 'Ask a question…'"
             aria-label="Question"
             aria-keyshortcuts="/"
             :readonly="capped || undefined"
             :aria-invalid="lengthError || undefined"
-            :aria-describedby="lengthError ? 'ask-error' : undefined"
+            :aria-describedby="[lengthError && 'ask-error', scopeName && 'ask-scope'].filter(Boolean).join(' ') || undefined"
             :maxlength="MAX_QUESTION_LENGTH"
             @keydown="onKeydown"
           >
@@ -783,6 +1060,7 @@ onMounted(async () => {
           :target="viewerTarget"
           :target-nonce="targetNonce"
           :citation-label="citationLabel"
+          :passage-link="passageLink"
           :can-step="canStep"
           :documents="documents"
           :initial-scale="viewerZoom"
@@ -790,7 +1068,14 @@ onMounted(async () => {
           @select-document="selectDocument"
           @prev="stepCitation(-1)"
           @next="stepCitation(1)"
-        />
+        >
+          <template #empty>
+            <CorpusIndex
+              :documents="documents"
+              @open="openDocument"
+            />
+          </template>
+        </PdfViewer>
       </div>
 
       <!-- Small screens: the viewer as a full-height sheet (WIREFRAMES §6). -->
@@ -798,7 +1083,7 @@ onMounted(async () => {
         v-else
         v-model:open="viewerOpen"
         side="bottom"
-        :title="viewerFilename ?? 'Document'"
+        :title="viewerFilename ? documentInfo(viewerFilename).short : 'Document'"
         description="PDF viewer. Press Escape to close."
         :ui="{ content: 'h-dvh max-h-dvh' }"
         :content="{ onCloseAutoFocus: onSheetCloseAutoFocus }"
@@ -816,10 +1101,12 @@ onMounted(async () => {
               :target="viewerTarget"
               :target-nonce="targetNonce"
               :citation-label="citationLabel"
+              :passage-link="passageLink"
               :can-step="canStep"
               :documents="documents"
               :initial-scale="viewerZoom"
               layout="sheet"
+              :claim="viewerClaim"
               @update:zoom="viewerZoom = $event"
               @select-document="selectDocument"
               @close="closeViewer"

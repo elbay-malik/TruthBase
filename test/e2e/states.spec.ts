@@ -1,5 +1,6 @@
 import { quotaMessage } from '../../server/utils/quota'
-import { ask, chip, closeSheet, expectHighlight, isPhone, liveStatus, open, openCitation, questionBox, viewer } from './app'
+import { announcedPage, ask, chip, closeSheet, expectHighlight, isPhone, liveStatus, open, openCitation, pagesRegion, questionBox, viewer } from './app'
+import { pageName, sourceName } from '../../app/utils/corpus'
 import { answerFor, answerStream, errorStream, expect, RECORDS, refusalStream, sourceOf, SPANS, streamReply, test } from './fixtures'
 
 // The answer and viewer states of WIREFRAMES §4 and §7: a grounded refusal,
@@ -18,9 +19,9 @@ test('NO_ANSWER: a neutral refusal, related passages open without a highlight', 
   await expect(page.getByText('NO_ANSWER')).toHaveCount(0)
 
   const target = related[1]!
-  await page.getByRole('button', { name: `Open ${target.filename}, page ${target.pageNumber} (possibly related, not a source)` }).click()
+  await page.getByRole('button', { name: `Open ${sourceName(target)}: possibly related, not a source` }).click()
   await expect(viewer(page)).toHaveAttribute('data-document-id', target.documentId)
-  await expect(viewer(page).getByText(`Possibly related, not a source · p. ${target.pageNumber}`)).toBeVisible()
+  await expect(viewer(page).getByText(`Possibly related, not a source · ${pageName(target.filename, target.pageNumber).text}`)).toBeVisible()
   await expect(viewer(page).getByRole('group', { name: `Page ${target.pageNumber}`, exact: true }).locator('canvas')).toBeVisible()
   await expect(viewer(page).locator('.pdf-highlight')).toHaveCount(0)
 })
@@ -72,7 +73,9 @@ test('per-minute limit: the Postgres 429 reads as "wait a minute", not a daily c
   await ask(page, record.question)
 
   const conversation = page.getByRole('region', { name: 'Conversation' })
-  await expect(conversation.getByText('Slow down a moment', { exact: true })).toBeVisible()
+  await expect(conversation.getByText('Per-minute limit reached', { exact: true })).toBeVisible()
+  // The quota's own message, with the limit it enforces.
+  await expect(conversation.getByText(quotaMessage('chat', 'minute', 10), { exact: true })).toBeVisible()
   await expect(page.getByText('Daily demo limit reached', { exact: true })).toHaveCount(0)
   await expect(questionBox(page)).not.toHaveAttribute('readonly')
   await conversation.getByRole('button', { name: 'Retry' }).click()
@@ -89,10 +92,10 @@ test('error part: the alert shows the route\'s message, Retry answers again', as
   await ask(page, record.question)
 
   const conversation = page.getByRole('region', { name: 'Conversation' })
-  const title = conversation.getByText('The answer service is unavailable right now.', { exact: true })
+  const title = conversation.getByText('Answer service unavailable', { exact: true })
   await expect(title).toBeVisible()
   await expect(conversation.getByText(busy, { exact: true })).toBeVisible()
-  await expect(liveStatus(page)).toHaveText(`The answer failed. ${busy}`)
+  await expect(liveStatus(page)).toHaveText(`Answer service unavailable. ${busy}`)
   await expect(page.getByRole('button', { name: /^Citation \d+:/ })).toHaveCount(0)
   // The failed question is back in the box, ready to edit or re-send.
   await expect(questionBox(page)).toHaveValue(record.question)
@@ -114,16 +117,16 @@ test('PDF load failure: the viewer offers Retry, then shows the highlight', asyn
   await ask(page, record.question)
   await chip(page, source).click()
 
-  await expect(viewer(page).getByText('Couldn\'t load this document.')).toBeVisible()
-  await expect(viewer(page).locator('[aria-live="polite"]')).toHaveText(`Couldn't load ${source.filename}. Retry available.`)
+  await expect(viewer(page).getByText('Document failed to load', { exact: true })).toBeVisible()
+  await expect(viewer(page).locator('[aria-live="polite"]')).toHaveText('NIST CSF 2.0 failed to load. Retry available.')
   // The cited passage is still readable.
   await expect(viewer(page).locator('blockquote')).toContainText('RC.RP-03: The integrity of backups')
 
   api.pdfDown = false
   await viewer(page).getByRole('button', { name: 'Retry' }).click()
-  await expect(viewer(page).getByRole('region', { name: `${source.filename}, PDF pages` })).toBeFocused()
+  await expect(pagesRegion(page, source.filename)).toBeFocused()
   await expectHighlight(page, record.spans[0]!, source, 1)
-  await expect(viewer(page).locator('[aria-live="polite"]')).toHaveText(/^Page 28, Citation 1 of 1$/)
+  await expect(viewer(page).locator('[aria-live="polite"]')).toHaveText(announcedPage(source, 'Citation 1 of 1'))
 })
 
 test('interrupted stream: partial citations stay clickable, Regenerate answers again', async ({ page, api }) => {
@@ -154,10 +157,9 @@ test('interrupted stream: partial citations stay clickable, Regenerate answers a
   if (isPhone(page)) await expect(viewer(page)).toBeHidden()
 })
 
-// Known app issue (phones): closing the sheet returns focus to the chip, whose
-// UTooltip then opens on that programmatic focus and can cover the chip next
-// to it (closeSheet in ./app.ts dismisses it to keep the other tests going).
-test.fixme('phone: closing the sheet does not open the chip\'s tooltip', async ({ page, api }) => {
+// Phones: closing the sheet hands focus back to the chip. Touch has no hover,
+// so the chip has no tooltip to open there and cover the answer.
+test('phone: closing the sheet does not open the chip\'s tooltip', async ({ page, api }) => {
   test.skip(!isPhone(page), 'the sheet exists only on phones')
   const record = RECORDS.find(r => r.id === 'g-029')!
   api.chat = route => streamReply(route, answerStream(record.sources, answerFor(record)))
@@ -166,5 +168,7 @@ test.fixme('phone: closing the sheet does not open the chip\'s tooltip', async (
   await openCitation(page, record.sources[0]!)
   await viewer(page).getByRole('button', { name: 'Close document' }).click()
   await expect(chip(page, record.sources[0]!)).toBeFocused()
+  // Give a delayed tooltip time to open, if one were going to.
+  await page.waitForTimeout(800)
   await expect(page.getByRole('tooltip')).toHaveCount(0)
 })

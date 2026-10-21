@@ -1,3 +1,4 @@
+import { pageName } from '../../app/utils/corpus'
 import { expectHighlight, isPhone, open, viewer } from './app'
 import { chunkIdOf, expect, sourceOf, SPANS, test } from './fixtures'
 
@@ -8,7 +9,7 @@ for (const [id, zoom] of [['g-020#1', 1], ['g-038#2', 2], ['g-045#1', 0.5]] as c
   const span = SPANS.find(s => s.id === id)!
   test(`/?chunk= ${id} (${span.document} p. ${span.page}) at zoom ${zoom}`, async ({ page, api, fakeWorker }) => {
     await open(page, `/?chunk=${chunkIdOf(span)}&zoom=${zoom}`)
-    await expect(viewer(page).getByText(`Linked citation · p. ${span.page}`)).toBeVisible()
+    await expect(viewer(page).getByText(`Linked citation · ${pageName(span.document, span.page).text}`)).toBeVisible()
     await expectHighlight(page, span, sourceOf(span), zoom)
     expect(api.questions).toEqual([])
     expect(fakeWorker.used).toBe(false)
@@ -31,6 +32,6 @@ test('an unknown chunk id leaves the viewer empty', async ({ page, api }) => {
   await open(page, '/?chunk=00000000-0000-4000-a000-000000000000')
   await expect(page.getByRole('heading', { name: 'TruthBase', level: 1 })).toBeVisible()
   if (isPhone(page)) await expect(viewer(page)).toBeHidden()
-  else await expect(viewer(page).getByText('Click a citation to see the exact passage here.')).toBeVisible()
+  else await expect(viewer(page).getByRole('heading', { name: 'The documents' })).toBeVisible()
   expect(api.questions).toEqual([])
 })

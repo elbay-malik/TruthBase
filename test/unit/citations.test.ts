@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseCitations, isRefusal } from '../../server/rag/prompt'
-import { looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '../../shared/utils/citations'
+import { claimSentence, looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '../../shared/utils/citations'
 
 describe('splitCitations', () => {
   it('splits text and adjacent / comma-separated markers', () => {
@@ -88,5 +88,37 @@ describe('parseCitations / isRefusal', () => {
     expect(looksLikeRefusalPrefix('NO_ANSWER')).toBe(true)
     expect(looksLikeRefusalPrefix('No, the')).toBe(false)
     expect(looksLikeRefusalPrefix('')).toBe(false)
+  })
+})
+
+describe('claimSentence', () => {
+  const claim = (answer: string, index: number) => claimSentence(splitCitations(answer, 4), index)
+
+  it('returns the sentence carrying the chip, without markers', () => {
+    const answer = 'The CSF has six Functions [1]. Recovery restores assets [2][3]. Backups are verified before use [3].'
+    expect(claim(answer, 1)).toBe('The CSF has six Functions.')
+    expect(claim(answer, 2)).toBe('Recovery restores assets.')
+    // The first sentence citing it.
+    expect(claim(answer, 3)).toBe('Recovery restores assets.')
+  })
+
+  it('keeps the rest of a sentence cited mid-way, and decimals inside it', () => {
+    expect(claim('CSF 2.0 adds Govern [1] and keeps Identify [2]. Next.', 1)).toBe('CSF 2.0 adds Govern and keeps Identify.')
+  })
+
+  it('stops at line breaks and drops list bullets', () => {
+    expect(claim('Functions:\n- Govern sets strategy [1]\n- Identify [2]', 1)).toBe('Govern sets strategy')
+    expect(claim('Steps:\n1. Cluster the chunks [4].\n2. Summarize.', 4)).toBe('Cluster the chunks.')
+  })
+
+  it('takes the sentence a chip follows when it comes after the full stop', () => {
+    const answer = '“In total, we use 150k pairs.” [1] “We use 145,619 instances.” [2]'
+    expect(claim(answer, 1)).toBe('“In total, we use 150k pairs.”')
+    expect(claim(answer, 2)).toBe('“We use 145,619 instances.”')
+    expect(claim('Backups are verified. [3] Next one.', 3)).toBe('Backups are verified.')
+  })
+
+  it('is empty when the answer does not cite the index', () => {
+    expect(claim('No citations here.', 1)).toBe('')
   })
 })

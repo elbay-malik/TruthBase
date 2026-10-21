@@ -81,7 +81,7 @@ describe('PdfViewer', () => {
     loadDocument.mockRejectedValueOnce(new Error('500'))
     const viewer = await mountSuspended(PdfViewer, { props: { documentId: 'a', filename: 'a.pdf', target, citationLabel: 'Citation 1 of 3' } })
     await flushPromises()
-    expect(live(viewer)).toBe('Couldn\'t load a.pdf. Retry available.')
+    expect(live(viewer)).toBe('a.pdf failed to load. Retry available.')
     expect(viewer.text()).toContain('The cited passage.')
     expect(viewer.find('button[aria-label="Zoom in"]').attributes('aria-disabled')).toBe('true')
 
@@ -90,15 +90,63 @@ describe('PdfViewer', () => {
     await retry.trigger('click')
     await flushPromises()
     expect(loadDocument).toHaveBeenCalledTimes(2)
-    expect(live(viewer)).toBe('Page 2, Citation 1 of 3')
+    expect(live(viewer)).toBe('PDF page 2, Citation 1 of 3')
+  })
+
+  it('pane layout: the stepper sits on its label and shows its [ ] keys', async () => {
+    loadDocument.mockResolvedValue({ documentId: 'a', pages: [fakePage(1), fakePage(2)] })
+    const viewer = await mountSuspended(PdfViewer, { props: { documentId: 'a', filename: 'a.pdf', target, citationLabel: 'Citation 1 of 3', canStep: true } })
+    await flushPromises()
+    const prev = viewer.find('button[aria-label="Previous citation"]')
+    expect(prev.attributes('aria-keyshortcuts')).toBe('[')
+    expect(viewer.find('button[aria-label="Next citation"]').attributes('aria-keyshortcuts')).toBe(']')
+    const row = prev.element.parentElement!.parentElement!
+    expect(row.textContent).toContain('Citation 1 of 3 · PDF p. 2')
+    expect([...row.querySelectorAll('kbd')].map(k => k.textContent)).toEqual(['[', ']'])
+  })
+
+  it('copies the link to the passage and reads the passage out with the page', async () => {
+    loadDocument.mockResolvedValue({ documentId: 'a', pages: [fakePage(1), fakePage(2)] })
+    const writeText = vi.fn(() => Promise.resolve())
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    const link = 'https://truthbase.test/?chunk=c1'
+    const viewer = await mountSuspended(PdfViewer, { props: { documentId: 'a', filename: 'a.pdf', target, citationLabel: 'Citation 1 of 3', passageLink: link } })
+    await flushPromises()
+    expect(live(viewer)).toBe('PDF page 2, Citation 1 of 3. Passage: The cited passage.')
+    expect(viewer.find('[role="region"] p.sr-only').text()).toBe('Cited passage, PDF page 2: The cited passage.')
+
+    const copy = viewer.find('button[aria-label="Copy link to this passage"]')
+    expect(copy.text()).toBe('Copy link')
+    await copy.trigger('click')
+    await flushPromises()
+    expect(writeText).toHaveBeenCalledWith(link)
+    expect(live(viewer)).toBe('Link to this passage copied.')
+    expect(viewer.find('button[aria-label="Link copied"]').text()).toBe('Link copied')
+
+    writeText.mockImplementationOnce(() => Promise.reject(new Error('denied')))
+    await viewer.find('button[aria-label="Link copied"]').trigger('click')
+    await flushPromises()
+    expect(live(viewer)).toBe('Could not copy. The link to this passage is in the address bar.')
+    vi.unstubAllGlobals()
+  })
+
+  it('offers no link and reads no passage for a page that is not evidence', async () => {
+    loadDocument.mockResolvedValue({ documentId: 'a', pages: [fakePage(1), fakePage(2)] })
+    const viewer = await mountSuspended(PdfViewer, { props: { documentId: 'a', filename: 'a.pdf', target, citationLabel: 'Possibly related, not a source' } })
+    await flushPromises()
+    expect(live(viewer)).toBe('PDF page 2, Possibly related, not a source')
+    expect(viewer.find('button[aria-label="Copy link to this passage"]').exists()).toBe(false)
   })
 
   it('sheet layout: close in the header, citation stepper at the bottom', async () => {
     loadDocument.mockResolvedValue({ documentId: 'a', pages: [fakePage(1), fakePage(2)] })
     const viewer = await mountSuspended(PdfViewer, {
-      props: { documentId: 'a', filename: 'a.pdf', layout: 'sheet', target, citationLabel: 'Citation 1 of 3', canStep: true },
+      props: { documentId: 'a', filename: 'a.pdf', layout: 'sheet', target, citationLabel: 'Citation 1 of 3', canStep: true, claim: 'Backups are verified.' },
     })
     await flushPromises()
+    // The claim the citation backs sits with the stepper, below the pages.
+    const bar = viewer.find('button[aria-label="Next citation"]').element.parentElement!.parentElement!
+    expect(bar.textContent).toContain('The answer says: Backups are verified.')
     await viewer.find('header button[aria-label="Close document"]').trigger('click')
     expect(viewer.emitted('close')).toHaveLength(1)
     const next = viewer.find('button[aria-label="Next citation"]')

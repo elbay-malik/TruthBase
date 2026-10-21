@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import type { SourceRef } from '../../shared/types/chat'
+import { documentInfo, pageName, passageText, sourceName } from '../../app/utils/corpus'
 import { expect, type SpanFixture } from './fixtures'
 
 // Page helpers and the highlight geometry check shared by the specs.
@@ -47,7 +48,22 @@ export type Cited = Pick<SourceRef, 'index' | 'documentId' | 'filename' | 'pageN
 
 /** The answer's chip for `source` (the first, when it is cited more than once). */
 export const chip = (page: Page, source: Cited) =>
-  page.getByRole('button', { name: `Citation ${source.index}: ${source.filename}, page ${source.pageNumber}`, exact: true }).first()
+  page.getByRole('button', { name: `Citation ${source.index}: ${sourceName(source)}`, exact: true }).first()
+
+/** The viewer's scroll region for a document: named by its short title ("NIST CSF 2.0, PDF pages"). */
+export const pagesRegion = (page: Page, filename: string) =>
+  viewer(page).getByRole('region', { name: `${documentInfo(filename).short}, PDF pages` })
+
+/**
+ * What the viewer announces on opening a citation: "Page 23 (PDF page 28),
+ * Citation 1 of 2", then, for a source with its text, ". Passage: …" (the
+ * cited text without running head or folio, as the excerpts show it).
+ */
+export function announcedPage(source: Pick<Cited, 'filename' | 'pageNumber'> & Partial<Pick<SourceRef, 'content' | 'highlight'>>, label: string): string {
+  const spoken = pageName(source.filename, source.pageNumber).spoken
+  const where = `${spoken[0]!.toUpperCase()}${spoken.slice(1)}, ${label}`
+  return source.content === undefined ? where : `${where}. Passage: ${passageText({ ...source, content: source.content })}`
+}
 
 /** The zoom shown on the viewer's fit button ("Fit to width (zoom 50%)"), as a scale. */
 export async function viewerZoom(page: Page): Promise<number> {
@@ -73,15 +89,13 @@ export async function openCitation(page: Page, source: Cited) {
 
 /**
  * Phones: closes the sheet so the answer's chips can be tapped again. Focus
- * returns to the chip, which opens its tooltip; that can cover the chip next
- * to it, so it is dismissed (Escape) like a keyboard user would.
+ * returns to the chip, and no tooltip opens over the answer (touch has none).
  */
 export async function closeSheet(page: Page, opener: Cited) {
   if (!isPhone(page)) return
   await viewer(page).getByRole('button', { name: 'Close document' }).click()
   await expect(viewer(page)).toBeHidden()
   await expect(chip(page, opener)).toBeFocused()
-  await page.keyboard.press('Escape')
   await expect(page.getByRole('tooltip')).toHaveCount(0)
 }
 
@@ -219,7 +233,7 @@ async function highlightProblems(page: Page, span: SpanFixture, zoom: number): P
 export async function expectHighlight(page: Page, span: SpanFixture, source: Cited, zoom: number) {
   const v = viewer(page)
   await expect(v).toHaveAttribute('data-document-id', source.documentId)
-  await expect(v.getByRole('region', { name: `${source.filename}, PDF pages` })).toBeVisible()
+  await expect(pagesRegion(page, source.filename)).toBeVisible()
   expect(await viewerZoom(page)).toBeCloseTo(zoom, 6)
   await expect.poll(() => highlightProblems(page, span, zoom), {
     message: `${span.id} (${source.filename} p. ${span.page}) at zoom ${zoom}`,

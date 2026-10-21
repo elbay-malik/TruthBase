@@ -1,10 +1,10 @@
 import type { Locator } from '@playwright/test'
-import { chip, isPhone, liveStatus, open, questionBox, viewer } from './app'
+import { announcedPage, chip, isPhone, liveStatus, open, pagesRegion, questionBox, viewer } from './app'
 import { answerFor, answerStream, expect, RECORDS, streamReply, test } from './fixtures'
 
 // The keyboard-only showcase flow (WIREFRAMES "Keyboard and accessibility"):
 // "/" → question → Enter → Tab to a chip → Enter → focus in the viewer and
-// "Page N, Citation i of m" announced → "[" / "]" → Esc back to the chip.
+// "Page N (PDF page M), Citation i of m" announced → "[" / "]" → Esc back to the chip.
 
 // Two sources in one document, on pages 7 and 17.
 const record = RECORDS.find(r => r.id === 'g-029')!
@@ -34,22 +34,22 @@ test('keyboard only: / → ask → chip → [ ] → Esc', async ({ page, api }) 
   await expect(chip(page, first)).toBeFocused()
 
   await page.keyboard.press('Enter')
-  const pages = viewer(page).getByRole('region', { name: `${first.filename}, PDF pages` })
+  const pages = pagesRegion(page, first.filename)
   const announcement = viewer(page).locator('[aria-live="polite"]')
   await expect(pages).toBeFocused()
-  await expect(announcement).toHaveText('Page 7, Citation 1 of 2')
+  await expect(announcement).toHaveText(announcedPage(first, 'Citation 1 of 2'))
   await expect(viewer(page).getByRole('group', { name: 'Page 7', exact: true }).locator('.pdf-highlight').first()).toBeVisible()
   // Phones: the sheet is modal, so the chips are hidden from the accessibility tree meanwhile.
   if (!isPhone(page)) await expect(chip(page, first)).toHaveAttribute('aria-current', 'true')
 
   await page.keyboard.press(']')
-  await expect(announcement).toHaveText('Page 17, Citation 2 of 2')
+  await expect(announcement).toHaveText(announcedPage(second, 'Citation 2 of 2'))
   await expect(viewer(page).getByRole('group', { name: 'Page 17', exact: true }).locator('.pdf-highlight').first()).toBeVisible()
   await expect(pages).toBeFocused()
   await page.keyboard.press('[')
-  await expect(announcement).toHaveText('Page 7, Citation 1 of 2')
+  await expect(announcement).toHaveText(announcedPage(first, 'Citation 1 of 2'))
   await page.keyboard.press(']')
-  await expect(announcement).toHaveText('Page 17, Citation 2 of 2')
+  await expect(announcement).toHaveText(announcedPage(second, 'Citation 2 of 2'))
 
   // Esc returns to the chip of the citation now shown (phones: and closes the sheet).
   await page.keyboard.press('Escape')

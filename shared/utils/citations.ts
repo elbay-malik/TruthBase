@@ -63,6 +63,37 @@ export function splitCitations(answer: string, sourceCount: number): AnswerSegme
   return segments
 }
 
+/** A sentence end: . ! or ? (plus closing quotes or brackets) before a space, or a line break. */
+const SENTENCE_END = /[.!?]["”’)\]]*(?=\s|$)|\n/
+
+/**
+ * The claim a citation backs: the sentence of the answer that carries its
+ * chip, without any citation markers ("Backups are verified [1]." →
+ * "Backups are verified."). Shown next to the evidence on phones, where the
+ * answer is hidden behind the viewer. Empty when the answer doesn't cite `index`.
+ */
+export function claimSentence(segments: AnswerSegment[], index: number): string {
+  const at = segments.findIndex(s => s.type === 'cite' && s.index === index)
+  if (at < 0) return ''
+  const textOf = (part: AnswerSegment[]) => part.map(s => (s.type === 'text' ? s.text : '')).join('')
+  const before = textOf(segments.slice(0, at)).trimEnd()
+  const after = textOf(segments.slice(at + 1))
+  let start = 0
+  let closed = false
+  for (const match of before.matchAll(new RegExp(SENTENCE_END, 'g'))) {
+    // A chip after the full stop ("Backups are verified. [1]") cites the sentence it follows.
+    if (match.index + match[0].length >= before.length && match[0] !== '\n') closed = true
+    else start = match.index + match[0].length
+  }
+  const end = closed ? null : SENTENCE_END.exec(after)
+  const stop = closed ? 0 : end ? end.index + (end[0] === '\n' ? 0 : end[0].length) : after.length
+  return `${before.slice(start)} ${after.slice(0, stop)}`
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([.,;:!?])/g, '$1')
+    .trim()
+    .replace(/^(?:[-*•]|\d+[.)])\s+/, '')
+}
+
 /** Valid citation numbers in an answer, in order of first use. */
 export function parseCitations(answer: string, sourceCount: number): number[] {
   const cited: number[] = []

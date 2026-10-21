@@ -1,0 +1,479 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-21T10:01:08Z",
+  "title": "Design System: TruthBase",
+  "extensions": {
+    "colorMeta": {
+      "ink-blue": {
+        "role": "primary",
+        "displayName": "Ink Blue",
+        "tonalRamp": [
+          "#172554",
+          "#1e3a8a",
+          "#1e40af",
+          "#1d4ed8",
+          "#2563eb",
+          "#60a5fa",
+          "#bfdbfe",
+          "#eff6ff"
+        ]
+      },
+      "ink-blue-dark": {
+        "role": "primary",
+        "displayName": "Ink Blue (dark theme)",
+        "tonalRamp": [
+          "#172554",
+          "#1e3a8a",
+          "#1e40af",
+          "#1d4ed8",
+          "#2563eb",
+          "#60a5fa",
+          "#bfdbfe",
+          "#eff6ff"
+        ]
+      },
+      "highlighter-yellow": {
+        "role": "secondary",
+        "displayName": "Highlighter Yellow",
+        "tonalRamp": [
+          "#422006",
+          "#713f12",
+          "#854d0e",
+          "#a16207",
+          "#ca8a04",
+          "#facc15",
+          "#fef08a",
+          "#fefce8"
+        ]
+      },
+      "highlighter-flash": {
+        "role": "secondary",
+        "displayName": "Highlighter Flash",
+        "tonalRamp": [
+          "#422006",
+          "#713f12",
+          "#854d0e",
+          "#a16207",
+          "#ca8a04",
+          "#facc15",
+          "#fef08a",
+          "#fefce8"
+        ]
+      },
+      "margin-brown": {
+        "role": "secondary",
+        "displayName": "Margin Brown",
+        "tonalRamp": [
+          "#422006",
+          "#713f12",
+          "#854d0e",
+          "#a16207",
+          "#ca8a04",
+          "#facc15",
+          "#fef08a",
+          "#fefce8"
+        ]
+      },
+      "error-red": {
+        "role": "tertiary",
+        "displayName": "Error Red",
+        "tonalRamp": [
+          "#450a0a",
+          "#7f1d1d",
+          "#991b1b",
+          "#b91c1c",
+          "#dc2626",
+          "#f87171",
+          "#fecaca",
+          "#fef2f2"
+        ]
+      },
+      "warning-ochre": {
+        "role": "tertiary",
+        "displayName": "Warning Ochre",
+        "tonalRamp": [
+          "#422006",
+          "#713f12",
+          "#854d0e",
+          "#a16207",
+          "#ca8a04",
+          "#facc15",
+          "#fef08a",
+          "#fefce8"
+        ]
+      },
+      "paper-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "stone-wash": {
+        "role": "neutral",
+        "displayName": "Stone Wash",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "stone-elevated": {
+        "role": "neutral",
+        "displayName": "Stone Elevated",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "stone-hairline": {
+        "role": "neutral",
+        "displayName": "Stone Hairline",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "stone-dimmed": {
+        "role": "neutral",
+        "displayName": "Stone Dimmed",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "stone-muted": {
+        "role": "neutral",
+        "displayName": "Stone Muted",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "stone-toned": {
+        "role": "neutral",
+        "displayName": "Stone Toned",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "stone-ink": {
+        "role": "neutral",
+        "displayName": "Stone Ink",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "stone-heading": {
+        "role": "neutral",
+        "displayName": "Stone Heading",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "night-desk": {
+        "role": "neutral",
+        "displayName": "Night Desk",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "night-elevated": {
+        "role": "neutral",
+        "displayName": "Night Elevated",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#44403c",
+          "#57534e",
+          "#78716c",
+          "#a8a29e",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "The TruthBase wordmark only, in the document serif."
+      },
+      "answer": {
+        "displayName": "Answer",
+        "purpose": "Streamed answer text with inline citation chips; the refusal headline at 600."
+      },
+      "excerpt": {
+        "displayName": "Excerpt",
+        "purpose": "Source card excerpts and the viewer's quoted-passage fallback: the documents' own words."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The user's question and the question box (sans)."
+      },
+      "body-sm": {
+        "displayName": "Body small",
+        "purpose": "Subtitle, helper text, refusal explanation, related links."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase tracked role headings (You, TruthBase, Sources)."
+      },
+      "index": {
+        "displayName": "Index",
+        "purpose": "Serif tabular figures in citation chips and source badges, like footnote marks."
+      }
+    },
+    "shadows": [
+      {
+        "name": "paper-sheet",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.05)",
+        "purpose": "PDF pages only; everything else is flat."
+      },
+      {
+        "name": "cut-edge",
+        "value": "inset ±10px 0 8px -8px rgb(0 0 0 / 0.28), 12px wide",
+        "purpose": "Viewer edge only, while a zoomed page runs past it: the sheet passing under the pane's edge."
+      }
+    ],
+    "motion": [
+      {
+        "name": "evidence-arrival",
+        "value": "tint 600ms ease-out (85% → 45%); bracket 420ms cubic-bezier(0.16, 1, 0.3, 1), clip-path drawn from the middle",
+        "purpose": "The one authored moment: a passage opening in the viewer. Off under prefers-reduced-motion."
+      },
+      {
+        "name": "state-transition",
+        "value": "150ms (Tailwind transition-colors)",
+        "purpose": "Hover fills on cards and buttons."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Citation Chip",
+      "kind": "chip",
+      "refersTo": "citation-chip",
+      "description": "Inline numbered citation on the answer baseline, serif tabular figure like a footnote mark; soft at rest, solid when its source is open.",
+      "html": "<p class=\"ds-answer\">The Core has four functions: GOVERN, MAP, MEASURE and MANAGE<button class=\"ds-chip\" aria-label=\"Citation 1\">1</button><button class=\"ds-chip ds-chip-active\" aria-current=\"true\" aria-label=\"Citation 2\">2</button>.</p>",
+      "css": ".ds-answer{font-family:'Source Serif 4', Georgia, ui-serif, serif;font-size:17px;line-height:1.625;color:#1c1917} .ds-chip{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;margin-left:2px;padding:0 6px;border:0;border-radius:4px;background:rgb(29 78 216 / .1);color:#1d4ed8;font:600 12px/1 'Source Serif 4', Georgia, ui-serif, serif;font-variant-numeric:tabular-nums;vertical-align:baseline;cursor:pointer;transition:background .15s} .ds-chip:hover{background:rgb(29 78 216 / .15)} .ds-chip:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px} .ds-chip-active,.ds-chip-active:hover{background:#1d4ed8;color:#fff}"
+    },
+    {
+      "name": "Source Card",
+      "kind": "card",
+      "refersTo": "source-card",
+      "description": "A cited source: serif index badge, the document's short name and page name (\"p. 23 (PDF 28)\") in sans, serif 3-line excerpt without running head or folio.",
+      "html": "<button class=\"ds-card\"><span class=\"ds-card-head\"><span class=\"ds-badge\">1</span><span class=\"ds-file\">nist-csf-2.0.pdf</span><span class=\"ds-page\">p. 28</span></span><span class=\"ds-excerpt\">RC.RP-03: The integrity of backups and other restoration assets is verified before using them for restoration.</span></button>",
+      "css": ".ds-card{display:block;width:100%;text-align:left;padding:12px;border:1px solid #e7e5e4;border-radius:6px;background:transparent;cursor:pointer;font:400 14px/1.43 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;transition:background .15s} .ds-card:hover{background:#fafaf9} .ds-card:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px} .ds-card-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-weight:500;color:#44403c} .ds-badge{display:inline-flex;align-items:center;justify-content:center;height:20px;min-width:20px;padding:0 4px;border-radius:4px;background:rgb(29 78 216 / .1);color:#1d4ed8;font:600 12px/1 'Source Serif 4', Georgia, ui-serif, serif;font-variant-numeric:tabular-nums} .ds-file{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .ds-page{font-size:12px;font-weight:400;color:#78716c;font-variant-numeric:tabular-nums} .ds-excerpt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-family:'Source Serif 4', Georgia, ui-serif, serif;color:#78716c}"
+    },
+    {
+      "name": "Source Card (active)",
+      "kind": "card",
+      "refersTo": "source-card-active",
+      "description": "The source currently open in the viewer.",
+      "html": "<button class=\"ds-card-a\" aria-current=\"true\"><span class=\"ds-card-a-head\"><span class=\"ds-badge-a\">1</span><span>nist-csf-2.0.pdf</span><span class=\"ds-page-a\">p. 28</span></span><span class=\"ds-excerpt-a\">RC.RP-03: The integrity of backups and other restoration assets is verified before using them for restoration.</span></button>",
+      "css": ".ds-card-a{display:block;width:100%;text-align:left;padding:12px;border:1px solid #1d4ed8;border-radius:6px;background:rgb(29 78 216 / .05);font:400 14px/1.43 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif} .ds-card-a:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px} .ds-card-a-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-weight:500;color:#44403c} .ds-badge-a{display:inline-flex;align-items:center;justify-content:center;height:20px;min-width:20px;padding:0 4px;border-radius:4px;background:#1d4ed8;color:#fff;font:600 12px/1 'Source Serif 4', Georgia, ui-serif, serif} .ds-page-a{margin-left:auto;font-size:12px;font-weight:400;color:#57534e} .ds-excerpt-a{font-family:'Source Serif 4', Georgia, ui-serif, serif;color:#57534e}"
+    },
+    {
+      "name": "Grounded Refusal",
+      "kind": "custom",
+      "refersTo": "refusal",
+      "description": "A correct 'not in the documents' answer: neutral, dashed (no evidence), headline in the answer serif.",
+      "html": "<div class=\"ds-refusal\"><svg class=\"ds-refusal-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m13.5 8.5-5 5\"/><path d=\"m8.5 8.5 5 5\"/><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><div><p class=\"ds-refusal-title\">Not found in the documents.</p><p class=\"ds-refusal-text\">None of the retrieved passages answers this. TruthBase doesn’t guess.</p></div></div>",
+      "css": ".ds-refusal{display:flex;gap:12px;padding:12px 16px;border:1px dashed #d6d3d1;border-radius:6px} .ds-refusal-icon{width:20px;height:20px;flex-shrink:0;margin-top:4px;color:#78716c} .ds-refusal-title{margin:0 0 4px;font:600 17px/1.5 'Source Serif 4', Georgia, ui-serif, serif;color:#1c1917} .ds-refusal-text{margin:0;font:400 14px/1.43 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;color:#78716c}"
+    },
+    {
+      "name": "Ask Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Submits the question; turns into Stop while answering.",
+      "html": "<button class=\"ds-btn\">Ask</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:0;border-radius:6px;background:#1d4ed8;color:#fff;font:500 14px/1.25 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;cursor:pointer;transition:background .15s} .ds-btn:hover{background:rgb(29 78 216 / .9)} .ds-btn:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}"
+    },
+    {
+      "name": "Question Input",
+      "kind": "input",
+      "refersTo": "question-input",
+      "description": "The pinned question box with an AA placeholder and a / hint.",
+      "html": "<label class=\"ds-field\"><textarea class=\"ds-input\" rows=\"1\" placeholder=\"Ask a question…\" aria-label=\"Question\"></textarea><kbd class=\"ds-kbd\">/</kbd></label>",
+      "css": ".ds-field{position:relative;display:block} .ds-input{width:100%;box-sizing:border-box;resize:none;padding:8px 36px 8px 12px;border:1px solid #d6d3d1;border-radius:6px;background:#fff;color:#44403c;font:400 16px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif} .ds-input::placeholder{color:#78716c} .ds-input:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px} .ds-kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);padding:0 5px;border:1px solid #d6d3d1;border-radius:4px;font:500 12px/18px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;color:#44403c}"
+    },
+    {
+      "name": "PDF Highlight",
+      "kind": "custom",
+      "refersTo": "pdf-highlight",
+      "description": "Per-line multiplied tint plus one Margin Brown evidence bracket beside the passage; the bracket is the non-colour cue, dashed when approximate.",
+      "html": "<div class=\"ds-page\"><div class=\"ds-bracket\"></div><p class=\"ds-line\"><mark class=\"ds-hl\">RC.RP-03: The integrity of backups and other</mark></p><p class=\"ds-line\"><mark class=\"ds-hl\">restoration assets is verified before use.</mark></p><p class=\"ds-line\">RC.RP-04: Critical mission functions are considered.</p></div>",
+      "css": ".ds-page{position:relative;background:#fff;padding:20px 20px 20px 36px;box-shadow:0 1px 3px 0 rgb(0 0 0 / .1),0 1px 2px -1px rgb(0 0 0 / .1),0 0 0 1px rgb(0 0 0 / .05);font:400 14px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;color:#111} .ds-line{margin:0} .ds-hl{color:inherit;background:rgb(250 204 21 / .45);mix-blend-mode:multiply;border-radius:2px} .ds-bracket{position:absolute;left:24px;top:20px;width:6px;height:44.8px;box-sizing:border-box;border:0 solid #a16207;border-width:2px 0 2px 3px;animation:ds-draw 420ms cubic-bezier(.16,1,.3,1) 1} @keyframes ds-draw{0%{clip-path:inset(50% 0 50% 0)}100%{clip-path:inset(0)}} @media (prefers-reduced-motion:reduce){.ds-bracket{animation:none}}"
+    },
+    {
+      "name": "Role Label",
+      "kind": "custom",
+      "refersTo": "label",
+      "description": "Tracked uppercase sans role heading over each conversation block.",
+      "html": "<h3 class=\"ds-label\">TruthBase</h3>",
+      "css": ".ds-label{margin:0;font:600 12px/1.333 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#78716c}"
+    },
+    {
+      "name": "Corpus Index Row",
+      "kind": "list-item",
+      "refersTo": "corpus-index",
+      "description": "First-screen catalogue row: printed title in the serif, page count, series and filename; opens the document at page 1. Sits on the Stone Wash desk and fills to paper on hover.",
+      "html": "<ul class=\"ds-ci\"><li><button class=\"ds-ci-row\"><span class=\"ds-ci-title\">The NIST Cybersecurity Framework (CSF) 2.0</span><span class=\"ds-ci-pages\">32 pages</span><span class=\"ds-ci-meta\">NIST CSWP 29, February 2024 · nist-csf-2.0.pdf</span></button></li></ul>",
+      "css": ".ds-ci{list-style:none;margin:0;padding:0;border-top:1px solid #e7e5e4;border-bottom:1px solid #e7e5e4;background:#fafaf9} .ds-ci-row{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 32px;width:100%;padding:16px 12px;border:0;background:transparent;text-align:left;cursor:pointer;font:400 14px/1.43 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;transition:background .15s} .ds-ci-row:hover{background:#fff} .ds-ci-row:focus-visible{outline:2px solid #1d4ed8;outline-offset:-2px} .ds-ci-title{font:400 17px/1.375 'Source Serif 4', Georgia, ui-serif, serif;color:#1c1917;text-wrap:balance} .ds-ci-pages{color:#78716c;font-variant-numeric:tabular-nums} .ds-ci-meta{grid-column:span 2;color:#78716c}"
+    },
+    {
+      "name": "Phone Claim Bar",
+      "kind": "bar",
+      "refersTo": "phone-verification-sheet",
+      "description": "Bottom of the phone viewer sheet: the answer sentence the open citation backs, after a solid index badge, above the Prev / Next stepper. The sheet opens zoomed to the cited passage.",
+      "html": "<div class=\"ds-claimbar\"><div class=\"ds-claim\"><span class=\"ds-claim-badge\">1</span><p>Backups are verified before they are used for restoration.</p></div><div class=\"ds-claim-step\"><button>Prev</button><span>Citation 1 of 2<br>p. 23 (PDF 28)</span><button>Next</button></div></div>",
+      "css": ".ds-claimbar{display:flex;flex-direction:column;gap:4px;padding:8px 8px 4px;border-top:1px solid #e7e5e4;background:#fff} .ds-claim{display:flex;gap:8px;align-items:flex-start;padding:0 4px} .ds-claim p{margin:0;font:400 15px/1.375 'Source Serif 4', Georgia, ui-serif, serif;color:#1c1917;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden} .ds-claim-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;margin-top:2px;border-radius:4px;background:#1d4ed8;color:#fff;font:600 12px/1 'Source Serif 4', Georgia, serif;font-variant-numeric:tabular-nums} .ds-claim-step{display:flex;align-items:center;gap:8px} .ds-claim-step button{min-height:44px;padding:0 14px;border:1px solid #e7e5e4;border-radius:6px;background:#fff;font:500 16px system-ui,sans-serif} .ds-claim-step span{flex:1;text-align:center;font:12px system-ui,sans-serif;color:#78716c}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Evidence Desk",
+    "overview": "TruthBase is a working desk. The answer sits on one side, the source document lies open on the other, and the job is to move between them without losing your place. The desk is warm stone, the pen is blue ink, and the document's words are set in a book serif. Attention goes to two things only: the answer's numbered citations and the bracketed, highlighted passage in the PDF. Nothing in the chrome competes with the page.\n\nThe system is built on Nuxt UI v4 and tuned rather than restyled. Its character comes from three decisions, not from decoration. First, two voices: what comes from the documents (the answer, quoted excerpts, the wordmark) is set in Source Serif 4, and everything the tool says (labels, controls, your own question) stays in the system sans. Second, a warm stone neutral instead of slate, so the desk reads as paper and ink rather than as a generic toolkit. Third, an editor's mark for evidence: a margin bracket beside the cited passage, the way a reviewer marks a page by hand. Semantic colors are shifted one or two shades darker so that every text pairing passes WCAG AA, and a single solid focus ring is used everywhere.\n\nDensity is calm but working: 24 px between conversation blocks, 8–12 px inside them, small tracked uppercase labels for structure. Light and dark themes are both first class. The PDF page itself always stays white, because it is the document. The earlier \"native and unbranded\" stance was a default, not a strategy; it is replaced by this one.",
+    "keyCharacteristics": [
+      "Two voices: a book serif for the documents' words, the system sans for the tool's.",
+      "Warm stone surfaces separated by hairline borders, with no decorative shadows.",
+      "One interactive accent (Ink Blue) and one evidence mark (Highlighter Yellow tint plus a Margin Brown bracket).",
+      "Tabular numerals on every citation index and page number.",
+      "The document pane is the visual anchor, and the chat column is narrower (≤ 42% on desktop).",
+      "Dashed lines mean \"no established evidence\": the refusal, the approximate highlight."
+    ],
+    "rules": [
+      {
+        "name": "The Two Pens Rule",
+        "body": "Blue marks the way to evidence; yellow and brown mark the evidence. No other accent is introduced, and none is used decoratively.",
+        "section": "colors"
+      },
+      {
+        "name": "The Paper and Ink Rule",
+        "body": "Neutrals are warm stone, never slate or zinc. The blue reads as ink on paper only against a warm ground.",
+        "section": "colors"
+      },
+      {
+        "name": "The White Page Rule",
+        "body": "The PDF page renders on Paper White in every theme. Dark mode darkens the desk, never the document.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Words from the documents are serif; words from the tool or the user are sans. Never set a control, label or error in the serif, and never set quoted document text in the sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Index Rule",
+        "body": "Every citation number, page number and count uses tabular numerals, so chips and badges keep their width as numbers change.",
+        "section": "typography"
+      },
+      {
+        "name": "The Light Font Rule",
+        "body": "At most two self-hosted woff2 files, subsetted, `font-display: swap`, never on the critical path: they load after first paint, behind a metric-matched fallback. Mobile Lighthouse stays at 98 with LCP 2.4 s.",
+        "section": "typography"
+      },
+      {
+        "name": "The Only Paper Floats Rule",
+        "body": "Cards, chips and panels stay flat with hairline borders. Only the document page gets a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Dashed Line Rule",
+        "body": "A dashed line means \"no established evidence\". The grounded refusal has a dashed border; an approximate highlight (rebuilt from the text layer) has a dashed bracket. Solid lines are never used for these, and dashes are never used for anything else.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** route every path to evidence through Ink Blue: chips, source cards, and the Ask button.",
+      "**Do** set the documents' words (answer, excerpts, quotes) in the serif and the tool's words in the sans.",
+      "**Do** mark evidence with the per-line tint *and* the margin bracket, so it never relies on color alone.",
+      "**Do** keep every text pairing, placeholders included, at WCAG AA in both themes. In light mode use the 700 shades for semantic colors.",
+      "**Do** use tabular numerals for indexes and page numbers.",
+      "**Do** keep the PDF page white and lightly lifted, and keep the rest of the desk flat and warm."
+    ],
+    "donts": [
+      "**Don't** use Highlighter Yellow or Margin Brown anywhere outside the PDF viewer.",
+      "**Don't** draw outlines around each highlighted line; the bracket carries the shape cue.",
+      "**Don't** style a grounded refusal as an alert or with an accent color. It is a correct answer: neutral, dashed, in the answer serif.",
+      "**Don't** reintroduce slate or another cool neutral.",
+      "**Don't** add a second webfont family or a third file, a mono \"for technical feel\", or load the serif on first paint.",
+      "**Don't** add shadows, gradients or large radii to cards, chips or panels.",
+      "**Don't** use Nuxt UI's default 25% focus ring, 75% hover fill or dimmed placeholder; all fall below AA here.",
+      "**Don't** darken or invert the PDF page in dark mode."
+    ]
+  }
+}

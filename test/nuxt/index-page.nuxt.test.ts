@@ -64,7 +64,7 @@ async function askQuestion(page: Awaited<ReturnType<typeof mountPage>>, question
 
 const ViewerStub = defineComponent({
   name: 'PdfViewer',
-  props: ['documentId', 'documents', 'target', 'layout'],
+  props: ['documentId', 'documents', 'target', 'layout', 'passageLink'],
   emits: ['select-document', 'close', 'prev', 'next', 'update:zoom'],
   methods: { focus() {} },
   template: '<div tabindex="-1" :data-document-id="documentId" />',
@@ -97,6 +97,8 @@ registerEndpoint('/api/chunks/c9', () => source(9, 4))
 
 afterEach(() => {
   mounted.splice(0).forEach(page => page.unmount())
+  // An open citation writes ?chunk= into the address bar.
+  window.history.replaceState(window.history.state, '', '/')
   vi.unstubAllGlobals()
   vi.useRealTimers()
   vi.clearAllMocks()
@@ -109,7 +111,7 @@ describe('index page', () => {
     expect(page.text()).toContain('What are the six Functions of the NIST CSF 2.0?')
     expect(page.find('main[aria-label="Chat"]').exists()).toBe(true)
     expect(page.find('form[aria-label="Ask a question"]').exists()).toBe(true)
-    expect(page.find('h2').text()).toBe('Conversation')
+    expect(conversation(page).find('h2').text()).toBe('Conversation')
     const box = page.find('textarea[aria-label="Question"]')
     expect(box.attributes('aria-keyshortcuts')).toBe('/')
     expect(box.attributes('maxlength')).toBe('1000')
@@ -132,16 +134,16 @@ describe('index page', () => {
 
     const chips = page.findAll('button[data-cite]')
     expect(chips.map(c => c.attributes('aria-label'))).toEqual([
-      'Citation 1: nist-csf-2.0.pdf, page 28',
-      'Citation 2: nist-csf-2.0.pdf, page unknown',
+      'Citation 1: NIST CSF 2.0, page 23 (PDF page 28)',
+      'Citation 2: NIST CSF 2.0, page unknown',
     ])
     expect(chips[0]!.attributes('aria-pressed')).toBeUndefined()
     expect(page.find('article p.leading-relaxed').text()).toContain('restoration1.')
     expect(page.text()).toContain('Sources')
     const cards = page.findAll('button[aria-label^="Source "]')
     expect(cards.map(c => c.attributes('aria-label'))).toEqual([
-      'Source 1: nist-csf-2.0.pdf, page 28',
-      'Source 2: nist-csf-2.0.pdf, page unknown',
+      'Source 1: NIST CSF 2.0, page 23 (PDF page 28)',
+      'Source 2: NIST CSF 2.0, page unknown',
     ])
     expect(page.html()).not.toMatch(/undefined|null/)
     expect(page.find('[role="status"]').text()).toBe('Answer ready, 2 sources.')
@@ -152,12 +154,25 @@ describe('index page', () => {
     expect(cards[1]!.attributes('aria-current')).toBe('true')
   })
 
+  it('names sources by title and printed page, and leaves the running head out of excerpts', async () => {
+    const head = 'NIST CSWP 29 The NIST Cybersecurity Framework (CSF) 2.0 February 26, 2024 23'
+    mockChat(stream(sse([source(1, 28, `${head} RC.RP-03: The integrity of backups is verified.`)], 'Backups are verified [1].')))
+    const page = await mountPage()
+    await askQuestion(page)
+    const card = page.find('button[aria-label^="Source 1"]')
+    expect(card.text()).toContain('NIST CSF 2.0')
+    expect(card.text()).toContain('p. 23 (PDF 28)')
+    expect(card.text()).toContain('RC.RP-03: The integrity of backups is verified.')
+    expect(card.text()).not.toContain('NIST CSWP 29')
+    expect(card.text()).not.toContain('nist-csf-2.0.pdf')
+  })
+
   it('lists possibly related pages of a refusal once per page', async () => {
     mockChat(stream(sse([source(1, 31), source(2, 31), source(3, 7)], 'NO_ANSWER')))
     const page = await mountPage()
     await askQuestion(page)
     const related = page.findAll('button[aria-label*="possibly related"]')
-    expect(related.map(b => b.text())).toEqual(['nist-csf-2.0.pdf · p. 31', 'nist-csf-2.0.pdf · p. 7'])
+    expect(related.map(b => b.text())).toEqual(['NIST CSF 2.0 · p. 26 (PDF 31)', 'NIST CSF 2.0 · p. 2 (PDF 7)'])
   })
 
   it('marks a cut stream as interrupted and offers Regenerate', async () => {
@@ -196,15 +211,15 @@ describe('index page', () => {
     mockChat(json(429, { statusCode: 429, message: 'Too Many Requests' }))
     let page = await mountPage()
     await askQuestion(page)
-    expect(page.text()).toContain('Slow down a moment')
+    expect(page.text()).toContain('Per-minute limit reached')
     expect(conversation(page).findAll('button').some(b => b.text() === 'Retry')).toBe(true)
 
     vi.unstubAllGlobals()
     mockChat(json(503, { statusCode: 503, message: 'Query embeddings are not configured.' }))
     page = await mountPage()
     await askQuestion(page)
-    expect(page.text()).toContain('The answer service is unavailable right now.')
-    expect(page.text()).not.toContain('TruthBaseThe answer')
+    expect(page.text()).toContain('Answer service unavailable')
+    expect(page.text()).not.toContain('TruthBaseAnswer')
     expect(page.findAll('article')).toHaveLength(1) // the question; no empty answer turn
   })
 
@@ -302,12 +317,101 @@ describe('index page', () => {
     expect(loadPdfjs).not.toHaveBeenCalled()
   })
 
+  it('lists the corpus by title and page count, and opens a document from page 1', async () => {
+    const page = await mountPage()
+    const row = page.find('button[aria-label="Open The NIST Cybersecurity Framework (CSF) 2.0, 32 pages"]')
+    expect(row.text()).toContain('NIST CSF 2.0')
+    expect(row.text()).toContain('32 pages')
+    expect(page.text()).toContain('Highlight placement: 176/180 checks pass')
+    expect(page.find('a[href="https://github.com/EleoXDA/TruthBase#highlight-accuracy"]').exists()).toBe(true)
+    expect(page.findAll('nav[aria-label="Project"] a').map(a => a.attributes('href'))).toEqual([
+      'https://github.com/EleoXDA/TruthBase',
+      'https://github.com/EleoXDA/TruthBase#readme',
+      'https://github.com/EleoXDA/TruthBase/tree/main/docs/adr',
+      'https://github.com/EleoXDA/TruthBase/tree/main/docs/evals',
+    ])
+    await row.trigger('click')
+    expect(viewer(page).props('documentId')).toBe(DOC)
+    expect(viewer(page).props('target')).toBeUndefined()
+  })
+
+  it('offers the examples not yet asked below an answer', async () => {
+    mockChat(stream(sse([source(1, 28)], 'Six Functions [1].')))
+    const page = await mountPage()
+    expect(page.find('#more-examples').exists()).toBe(false)
+    await askQuestion(page, 'What are the six Functions of the NIST CSF 2.0?')
+    const more = page.find('section[aria-labelledby="more-examples"]')
+    expect(more.findAll('button').map(b => b.text())).toEqual(['How does RAPTOR cluster text chunks?', 'What is residual risk?'])
+    expect(page.find('button[aria-label^="Open The NIST"]').exists()).toBe(false)
+  })
+
   it('warms PDF.js and the first cited document once sources arrive', async () => {
     mockChat(stream(sse([source(1, 28)], 'Verified [1].')))
     const page = await mountPage()
     await askQuestion(page)
     expect(loadPdfjs).toHaveBeenCalled()
     expect(loadDocument).toHaveBeenCalledWith(DOC)
+  })
+
+  it('shows the scope as a removable chip by the box, and labels each question with its scope', async () => {
+    const calls = mockChat(stream(sse([source(1, 28)], 'Verified [1].')))
+    const page = await mountPage()
+    expect(page.find('#ask-scope').exists()).toBe(false)
+    // The header's scope select (the viewer, and its own switcher, is stubbed).
+    const select = page.findComponent({ name: 'USelect' }).exists() ? page.findComponent({ name: 'USelect' }) : page.findComponent({ name: 'Select' })
+    select.vm.$emit('update:modelValue', DOC)
+    await nextTick()
+    const box = page.find('textarea')
+    expect(page.find('#ask-scope').text()).toBe('Searching NIST CSF 2.0 only')
+    expect(box.attributes('aria-describedby')).toBe('ask-scope')
+    expect(box.attributes('placeholder')).toBe('Ask NIST CSF 2.0…')
+
+    await askQuestion(page)
+    expect(calls).toEqual([{ question: 'Are backups verified?', documentId: DOC }])
+    expect(conversation(page).find('article').text()).toContain('in NIST CSF 2.0 only')
+
+    await page.find('button[aria-label="Search all documents (remove filter NIST CSF 2.0)"]').trigger('click')
+    await nextTick()
+    expect(page.find('#ask-scope').exists()).toBe(false)
+    expect(box.attributes('aria-describedby')).toBeUndefined()
+    expect(page.find('p[role="status"]').text()).toBe('Searching all documents.')
+    // The earlier question keeps the scope it was asked in.
+    expect(conversation(page).find('article').text()).toContain('in NIST CSF 2.0 only')
+    await askQuestion(page, 'Are backups tested?')
+    expect(calls[1]).toEqual({ question: 'Are backups tested?' })
+  })
+
+  it('puts an open citation in the URL and starts a new conversation without it', async () => {
+    mockChat(stream(sse([source(1, 28)], 'Verified [1].')))
+    const page = await mountPage()
+    expect(page.findAll('button').some(b => b.text() === 'New conversation')).toBe(false)
+    await askQuestion(page)
+    await page.find('button[data-cite]').trigger('click')
+    await nextTick()
+    expect(new URL(window.location.href).searchParams.get('chunk')).toBe('c1')
+    expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c1`)
+
+    page.find('textarea').setValue('A draft')
+    await page.findAll('button').find(b => b.text() === 'New conversation')!.trigger('click')
+    await settle()
+    expect(page.findAll('article')).toHaveLength(0)
+    expect(new URL(window.location.href).searchParams.has('chunk')).toBe(false)
+    expect(viewer(page).props('target')).toBeUndefined()
+    expect(viewer(page).props('documentId')).toBeUndefined()
+    expect(page.find('p[role="status"]').text()).toBe('New conversation.')
+    expect((page.find('textarea').element as HTMLTextAreaElement).value).toBe('A draft')
+    expect(document.activeElement).toBe(page.find('textarea').element)
+    expect(page.text()).toContain('Try a question')
+  })
+
+  it('offers no link for a possibly related page', async () => {
+    mockChat(stream(sse([source(1, 28)], 'NO_ANSWER')))
+    const page = await mountPage()
+    await askQuestion(page)
+    await page.find('button[aria-label$="possibly related, not a source"]').trigger('click')
+    await nextTick()
+    expect(viewer(page).props('passageLink')).toBeUndefined()
+    expect(new URL(window.location.href).searchParams.has('chunk')).toBe(false)
   })
 
   it('shows a document picked in the viewer from page 1, with no citation', async () => {

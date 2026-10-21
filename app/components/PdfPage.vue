@@ -119,6 +119,24 @@ const boxes = computed<Box[]>(() => {
   return dropRunningMargins(all, viewport.value.height)
 })
 
+/**
+ * The evidence bracket: one mark in the margin beside the whole passage, from
+ * its first line's top to its last line's bottom (DESIGN.md "PDF Highlight").
+ * It shows where the passage starts and ends by shape alone, so the per-line
+ * tint is not the only cue. Dashed when the boxes are rebuilt from the text
+ * layer (approximate).
+ */
+const BRACKET_GAP = 6
+const BRACKET_WIDTH = 6
+const bracket = computed(() => {
+  const all = boxes.value
+  if (!all.length) return undefined
+  const top = Math.min(...all.map(b => b.y1))
+  const bottom = Math.max(...all.map(b => b.y2))
+  const left = Math.max(1, Math.min(...all.map(b => b.x1)) - BRACKET_GAP - BRACKET_WIDTH)
+  return { left, top, height: bottom - top }
+})
+
 defineExpose({ boxes, viewport })
 </script>
 
@@ -153,18 +171,26 @@ defineExpose({ boxes, viewport })
         class="pdf-highlight absolute"
         :style="{ left: `${box.x1}px`, top: `${box.y1}px`, width: `${box.x2 - box.x1}px`, height: `${box.y2 - box.y1}px` }"
       />
+      <div
+        v-if="bracket"
+        :key="`${flashKey}-bracket`"
+        class="pdf-evidence-bracket absolute"
+        :class="{ 'pdf-evidence-bracket--approximate': useFallback }"
+        :style="{ left: `${bracket.left}px`, top: `${bracket.top}px`, width: `${BRACKET_WIDTH}px`, height: `${bracket.height}px` }"
+      />
     </div>
   </div>
 </template>
 
 <style>
 /*
- * Tint + outline: the highlight is not conveyed by colour alone (WIREFRAMES a11y).
- * The outline is 2px yellow-700 (4.9:1 on the always-white page) and is not
- * blended; only the tint (on ::before) multiplies with the page.
+ * The evidence mark (DESIGN.md "PDF Highlight"): a highlighter tint per line,
+ * multiplied with the page so the glyphs stay crisp, and one bracket in the
+ * margin beside the whole passage. The bracket is the non-colour cue: its
+ * shape marks where the passage starts and ends. Margin Brown is 4.9:1 on the
+ * always-white page; it is not blended.
  */
 .pdf-highlight {
-  outline: 2px solid #a16207;
   border-radius: 2px;
 }
 
@@ -173,17 +199,35 @@ defineExpose({ boxes, viewport })
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgb(250 204 21 / 0.42);
+  background: rgb(250 204 21 / 0.45);
   mix-blend-mode: multiply;
   animation: pdf-highlight-flash 600ms ease-out 1;
 }
 
+.pdf-evidence-bracket {
+  border: 0 solid #a16207;
+  border-width: 2px 0 2px 3px;
+  animation: pdf-evidence-draw 420ms cubic-bezier(0.16, 1, 0.3, 1) 1;
+}
+
+/* Rebuilt from the text layer: the same mark, dashed, beside the "Approximate highlight" badge. */
+.pdf-evidence-bracket--approximate {
+  border-left-style: dashed;
+}
+
 @keyframes pdf-highlight-flash {
   0% { background: rgb(250 204 21 / 0.85); }
-  100% { background: rgb(250 204 21 / 0.42); }
+  100% { background: rgb(250 204 21 / 0.45); }
+}
+
+/* Drawn outward from the passage's middle, so the eye lands on it. */
+@keyframes pdf-evidence-draw {
+  0% { clip-path: inset(50% 0 50% 0); }
+  100% { clip-path: inset(0 0 0 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pdf-highlight::before { animation: none; }
+  .pdf-highlight::before,
+  .pdf-evidence-bracket { animation: none; }
 }
 </style>

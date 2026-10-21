@@ -1,6 +1,49 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* The document voice (DESIGN.md "Typography"): Source Serif 4 (OFL,
+   app/assets/fonts), self-hosted as two static weights subset to Latin-1 and
+   common punctuation, ~18 KB and ~20 KB, loaded after first paint (below).
+   The landing page only fetches 600 (the wordmark).
+   A private family name keeps @nuxt/fonts from resolving it remotely. The
+   fallback face is Georgia scaled to Source Serif's width and line box, so the
+   swap barely moves the text; other glyphs fall back to it per character. */
+@font-face {
+  font-family: "TruthBase Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("~/assets/fonts/source-serif-4-400.woff2") format("woff2");
+  unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2010-2027, U+2030-203A, U+2044, U+20AC, U+2122, U+2190-2193, U+2212, U+2215, U+FFFD;
+}
+@font-face {
+  font-family: "TruthBase Serif";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("~/assets/fonts/source-serif-4-600.woff2") format("woff2");
+  unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2010-2027, U+2030-203A, U+2044, U+20AC, U+2122, U+2190-2193, U+2212, U+2215, U+FFFD;
+}
+@font-face {
+  font-family: "TruthBase Serif Fallback";
+  src: local("Georgia");
+  size-adjust: 108.4%;
+  ascent-override: 95.6%;
+  descent-override: 30.9%;
+  line-gap-override: 0%;
+}
+
+/* First paint sets the serif voice in the metric-matched Georgia fallback;
+   app/plugins/serif.client.ts adds .serif-ready once the page is idle, and only
+   then is Source Serif fetched and swapped in. Off the critical path: on the
+   Lighthouse mobile run, fetching it with the first paint cost ~150 ms of LCP. */
+@theme {
+  --font-serif: "TruthBase Serif Fallback", Georgia, ui-serif, serif;
+}
+.serif-ready {
+  --font-serif: "TruthBase Serif", "TruthBase Serif Fallback", Georgia, ui-serif, serif;
+}
+
 /* Semantic colours that meet WCAG AA. Nuxt UI maps them to the 500 shade in
    light and 400 in dark (inside @layer theme); white on blue-500 is 3.8:1, so
    light mode uses darker shades (white on blue-700 is 6.8:1, the 10% tints

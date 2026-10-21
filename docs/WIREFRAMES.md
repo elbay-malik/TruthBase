@@ -39,7 +39,7 @@ Components map to Nuxt UI v4 where possible: `UButton`, `UBadge`, `UTextarea`, `
 
 - Example questions are taken from the golden set, so a first-time visitor always gets a good answer.
 - The document selector scopes retrieval (`filter_document_id`). "All documents" is the default.
-- The viewer shows the selected document until a citation is clicked. With "All documents" it starts empty ("Click a citation to see the exact passage here."), so no PDF is downloaded before a question; its own switcher can open any document from page 1.
+- The viewer shows the selected document until a citation is clicked. With "All documents" it starts on the corpus index (the four PDFs, how the highlight is checked, project links), so no PDF is downloaded before a question; a row of the index, or the viewer's own switcher, opens any document from page 1.
 
 ## 2. Desktop: answer streaming
 
@@ -112,13 +112,13 @@ Behavior:
 │  TruthBase                               │                                                │
 │  ┌────────────────────────────────────┐  │                                                │
 │  │ ⓘ  Not found in the documents.     │  │                                                │
-│  │ None of the 4 documents states     │  │                                                │
-│  │ penalties for non-compliance, so   │  │                                                │
-│  │ I won't guess.                     │  │                                                │
+│  │ None of the retrieved passages     │  │                                                │
+│  │ answers this. TruthBase doesn't    │  │                                                │
+│  │ guess.                             │  │                                                │
 │  └────────────────────────────────────┘  │                                                │
 │  Possibly related (not used as sources): │                                                │
-│   · nist-csf-2.0.pdf · p. 7  ↗           │                                                │
-│   · nist-csf-2.0.pdf · p. 2  ↗           │                                                │
+│   · NIST CSF 2.0 · p. 2 (PDF 7)          │                                                │
+│   · NIST CSF 2.0 · p. ii (PDF 3)         │                                                │
 ```
 
 - A refusal never shows citation chips. "Possibly related" links open the page without a highlight, which marks them as not evidence.
@@ -170,8 +170,8 @@ Behavior:
 | State | Where | Message (draft) | Recovery |
 |---|---|---|---|
 | Rate limited (429) | Inline in chat, replaces the answer | "You've hit the demo limit (N questions/hour). Try again in 12 min." | Countdown, input disabled until reset |
-| LLM provider down (fallback also failed) | Inline in chat | "The answer service is unavailable right now." | `Retry` button; question text kept |
-| PDF failed to load | Viewer pane | "Couldn't load this document." | `Retry`; citations still list page and quote text |
+| LLM provider down (fallback also failed) | Inline in chat | "Answer service unavailable" | `Retry` button; question text kept |
+| PDF failed to load | Viewer pane | "Document failed to load" | `Retry`; the cited passage is quoted below it |
 | Stream interrupted | End of partial answer | "Answer interrupted." | `Regenerate`; partial citations stay clickable |
 
 ## Keyboard and accessibility (showcase flow)
@@ -181,12 +181,12 @@ Behavior:
 | `/` | Focus the question input |
 | `Enter` / `Shift+Enter` | Send / newline |
 | `Tab` | Move through citation chips in reading order |
-| `Enter` on a chip | Jump and highlight. Focus moves to the viewer region, which announces "Page 28, citation 1 of 2" via `aria-live="polite"` |
+| `Enter` on a chip | Jump and highlight. Focus moves to the viewer region, which announces "Page 23 (PDF page 28), Citation 1 of 2. Passage: …" via `aria-live="polite"` |
 | `[` / `]` | Previous / next citation while the viewer has focus |
 | `Esc` | Return focus to the chip that opened the citation (mobile: close the sheet) |
 
-- Chips are real `<button>`s labeled e.g. "Citation 1: nist-csf-2.0.pdf, page 28".
-- The highlight is not shown by color alone: it has a 2 px outline plus a tint, and meets the contrast requirement in both themes.
+- Chips are real `<button>`s labeled e.g. "Citation 1: NIST CSF 2.0, page 23 (PDF page 28)".
+- The highlight is not shown by color alone: it has a tint per line plus a margin bracket beside the whole passage (DESIGN.md "PDF Highlight"), and meets the contrast requirement in both themes.
 - The PDF text layer stays selectable and readable by screen readers. The overlay is `aria-hidden`.
 
 ## Implementation status (after Phase 12, 2026-10-20)
@@ -195,7 +195,7 @@ Built as specified in §1–4, §6, §7, the keyboard table and the a11y notes. 
 
 - **Viewer header (§1, §3):** a document switcher, `◀ n / N ▶` page buttons with a page-number field, and zoom buttons with 24 px targets (44 px on phones). Page jumps and zoom steps are announced.
 - **`/` shortcut:** focuses the question input from anywhere except a text field or an open menu.
-- **`Retry` in the viewer** when a PDF fails to load, announced as "Couldn't load <file>. Retry available."; focus stays in the viewer.
+- **`Retry` in the viewer** when a PDF fails to load, announced as "<short title> failed to load. Retry available."; focus stays in the viewer.
 - **Daily-cap state (§7):** a 429 from the daily quota ([ADR-0010](./adr/0010-abuse-protection.md)) shows its message with "Back in about …, at <time>" and keeps the input read-only (still focusable) until the reset, then offers the question again. The per-minute limit still shows a "wait a minute" message.
 
 Decisions that change the wireframes:

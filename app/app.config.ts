@@ -2,7 +2,9 @@ export default defineAppConfig({
   ui: {
     colors: {
       primary: 'blue',
-      neutral: 'slate',
+      // Warm stone, not slate: paper and ink rather than a blue-grey toolkit
+      // (DESIGN.md "The Paper and Ink Rule").
+      neutral: 'stone',
     },
     button: {
       // Hover states that keep AA text contrast (main.css tokens): the default
@@ -14,5 +16,9 @@ export default defineAppConfig({
         { color: 'error', variant: 'outline', class: 'hover:bg-error/5 active:bg-error/5' },
       ],
     },
+    // Placeholders at AA: the default text-dimmed is 2.5:1 on white and 3.6:1
+    // in dark; text-muted is 4.8:1 and 7:1.
+    textarea: { slots: { base: 'placeholder:text-muted' } },
+    input: { slots: { base: 'placeholder:text-muted' } },
   },
 })
