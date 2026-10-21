@@ -21,9 +21,9 @@ The highlight, retrieval and answer numbers below are on [`docs/golden/golden.js
 | **Multi-query on ambiguous questions** | recall@5 75% → **100%**; overall recall@8 unchanged (87%) | Fused top 15 before reranking; self-gated rewriter on **gpt-oss-120b** (shipped default gpt-oss-20b not yet measured) | [ADR-0009](./docs/adr/0009-query-rewriting.md), [phase-8-groq-120b-gated.json](./docs/evals/phase-8-groq-120b-gated.json) |
 | **Unanswerable questions refused** | 5/5; no answerable question answered without a citation | Groq gpt-oss-120b, Phase 5 retrieval (before Phases 6–8) | [phase-5-groq.json](./docs/evals/phase-5-groq.json) |
 | **Faithfulness / judged citation precision** | **not yet measured**: the promptfoo harness runs, its first full run is pending | – | [ADR-0008](./docs/adr/0008-evals-and-ci-gate.md) |
-| **Accessibility** | Lighthouse 100 (mobile and desktop); axe-core 0 violations in 44 runs | Local production build (localhost), Lighthouse 13.5.0 with simulated throttling, median of 3, 2026-10-20 | [Quality](#quality) |
+| **Accessibility** | Lighthouse 100 (mobile and desktop); axe-core 0 violations in 15 UI states (desktop and phone, light and dark) | Local production build (localhost), Lighthouse 13.5.0 with simulated throttling, median of 3, 2026-10-21 | [Quality](#quality) |
 | **Performance** | Lighthouse 98 mobile / 100 desktop on `/`; mobile LCP 2.40 s, CLS 0 | same | [Quality](#quality) |
-| **E2E** | 79 passed, 2 skipped (the `test.fixme`, in both projects) of 81; at Phase 13: 77 passed, 0 flaky in 3 consecutive CI-mode runs | Hermetic Playwright on the production build; 79/81 from one local CI-mode run on this branch (2026-10-21) | [ADR-0012](./docs/adr/0012-hermetic-e2e.md) |
+| **E2E** | 94 passed, 3 skipped (tests that only apply to desktop or only to phone) of 97, 0 flaky | Hermetic Playwright on the production build; CI run on PR #10 and two consecutive local CI-mode runs (2026-10-21) | [ADR-0012](./docs/adr/0012-hermetic-e2e.md) |
 
 ## How the highlight works
 
@@ -183,8 +183,8 @@ Each ADR records context, the decision, measurements and rejected alternatives. 
 
 ### Tests and CI
 
-- **Vitest: 221 tests** (195 unit, 26 Nuxt) on this branch (`pnpm test`, 2026-10-21; 207 at the end of Phase 13). Covers sentence chunking (with a seeded randomized check), glyph replay against MuPDF, line grouping and server/viewer parity, RRF fusion, citation parsing and refusal detection, the rerank and rewrite fallbacks, quotas, client-IP handling and the Vercel platform glue. The Phase 13 rules were mutation-checked: breaking any of them fails a test.
-- **Playwright (job `e2e`):** ask → click a chip → right document and page, passage scrolled into view, overlay within 0.5 px at zoom 0.5/1/2, canvas ink under the lines; plus deep links, Range loading from a cross-origin Storage stub, the keyboard flow, `NO_ANSWER`, the daily cap, stream errors and PDF retry. 77 passed, 0 flaky in 3 consecutive CI-mode runs at Phase 13 (~74 s each); on this branch the suite lists 81 tests, and one local CI-mode run (2026-10-21) gave 79 passed and 2 skipped. The skipped test is a phone tooltip bug tracked as `test.fixme`, listed once per project.
+- **Vitest: 247 tests** (212 unit, 35 Nuxt) on `main` (`pnpm test`, 2026-10-21; 207 at the end of Phase 13). Covers sentence chunking (with a seeded randomized check), glyph replay against MuPDF, line grouping and server/viewer parity, RRF fusion, citation parsing and refusal detection, the rerank and rewrite fallbacks, quotas, client-IP handling and the Vercel platform glue. The Phase 13 rules were mutation-checked: breaking any of them fails a test.
+- **Playwright (job `e2e`):** ask → click a chip → right document and page, passage scrolled into view, overlay within 0.5 px at zoom 0.5/1/2, canvas ink under the lines; plus deep links, Range loading from a cross-origin Storage stub, the keyboard flow, `NO_ANSWER`, the daily cap, stream errors and PDF retry. Since the UI pass in PR #10 it also covers the landing document list, multi-turn (scroll into view, scope chip, passage links, new conversation) and the phone sheet's zoom to the passage. The suite lists 97 tests; CI and two consecutive local CI-mode runs (2026-10-21) gave 94 passed, 3 skipped and 0 retries. The 3 skips are tests that only apply to the phone sheet or only to the desktop pane. (At Phase 13: 77 passed, 0 flaky in 3 consecutive CI-mode runs.)
 - **CI gates on every PR** ([ci.yml](./.github/workflows/ci.yml)):
   - `test`: typecheck (app and scripts), lint, Vitest, `pnpm audit --audit-level critical`.
   - `build`: production bundle boots without secrets, sends no COEP header, serves the PDF.js data files, and refuses ingestion (503).
@@ -195,16 +195,16 @@ Each ADR records context, the decision, measurements and rejected alternatives. 
 
 ### Lighthouse and Core Web Vitals
 
-Measured 2026-10-20 on a production build (`node .output/server/index.mjs` on localhost, MacBook Air M5) with Lighthouse 13.5.0, chrome-headless-shell 149, default simulated throttling, median of 3 runs. `/?chunk=…` is a citation deep link that opens the PDF (nist-csf-2.0.pdf, p. 28) with its highlight. Before = the same audit at the start of Phase 12.
+Measured 2026-10-21 (after the PR #10 UI pass) on a production build (`node .output/server/index.mjs` on localhost, MacBook Air M5) with Lighthouse 13.5.0, chrome-headless-shell 149, default simulated throttling, median of 3 runs. `/?chunk=…` is a citation deep link that opens the PDF (nist-csf-2.0.pdf, p. 28) with its highlight. Before = the same audit at the start of Phase 12.
 
 | Page | Preset | Accessibility | Performance | Best practices | SEO | FCP | LCP | TBT | CLS | Transfer |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `/` | mobile | 94–95 → **100** | 59 → **98** | 96 → **100** | 100 | 6.6 → **1.05 s** | 9.4 → **2.40 s** | 97 → **32 ms** | 0 | 1508 → **300 KiB** |
-| `/` | desktop | 89–91 → **100** | 90 → **100** | 96 → **100** | 100 | 1.16 → **0.28 s** | 1.67 → **0.53 s** | 0 | 0 | 3413 → **301 KiB** |
-| `/?chunk=…` | mobile | 91 → **100** | 59 → **98** | **100** | 100 | **1.05 s** | 9.4 → **2.41 s** | **34 ms** | **< 0.001** | **1909 KiB** |
-| `/?chunk=…` | desktop | 89 → **100** | 90 → **100** | **100** | 100 | **0.28 s** | **0.50 s** | 0 | 0.012 → **< 0.001** | **1910 KiB** |
+| `/` | mobile | 94–95 → **100** | 59 → **98** | 96 → **100** | 100 | 6.6 → **1.05 s** | 9.4 → **2.40 s** | 97 → **33 ms** | 0 | 1508 → **345 KiB** |
+| `/` | desktop | 89–91 → **100** | 90 → **100** | 96 → **100** | 100 | 1.16 → **0.28 s** | 1.67 → **0.65 s** | 0 | 0 | 3413 → **345 KiB** |
+| `/?chunk=…` | mobile | 91 → **100** | 59 → **98** | **100** | 100 | **1.05 s** | 9.4 → **2.40 s** | **41 ms** | **< 0.001** | **1955 KiB** |
+| `/?chunk=…` | desktop | 89 → **100** | 90 → **100** | **100** | 100 | **0.28 s** | **0.65 s** | 0 | 0.012 → **< 0.001** | **1955 KiB** |
 
-All 12 runs scored 100 for accessibility, best practices and SEO; mobile performance ranged 96–98, desktop was 100 every time. The gains came from brotli/gzip on HTML and JSON, loading `ai`/zod and PDF.js off the first paint, and an empty viewer on landing. The deep link's transfer is mostly the PDF and the PDF.js worker.
+All 12 runs scored 100 for accessibility, best practices and SEO; mobile performance ranged 97–98, desktop 99–100. The gains came from brotli/gzip on HTML and JSON, and loading `ai`/zod and PDF.js off the first paint. The landing's document list (PR #10) adds about 45 KiB of transfer and no font on first paint: the serif loads when the page is idle. The deep link's transfer is mostly the PDF and the PDF.js worker.
 
 - **Interaction (lab, INP proxy):** no long tasks while an answer streams or citations are clicked. A citation in the open document scrolls its highlight into view in 13–22 ms, a zoom step takes 45–126 ms, and streaming shifts the layout by CLS ≤ 0.002.
 - **Production spot check (2026-10-21):** search 1.7 s, chat first token 1.5 s ([ROADMAP Phase 14](./ROADMAP.md)). Earlier dev-server traces: 1.35–1.6 s to first token without rewrites, 2.2–2.9 s when the question is rewritten ([TECH_NOTES §15](./docs/TECH_NOTES.md#15-tracing-phase-10)).
@@ -213,7 +213,7 @@ Re-run with `pnpm lighthouse --base http://localhost:3100` against a production 
 
 ### Accessibility
 
-- **axe-core: 0 violations** in 44 runs (11 UI states, from landing to streaming, refusal, errors, daily cap and the open viewer, × desktop/phone × light/dark).
+- **axe-core: 0 violations** in 15 UI states, from landing to streaming, refusal, errors, daily cap, multi-turn and the open viewer, each on desktop and phone in light and dark (2026-10-21, after the PR #10 UI pass).
 - **Contrast:** every text and control state is at least 4.5:1 in both themes. The highlight outline is 4.9:1 against the page and the focus ring at least 5.5:1 against what surrounds it.
 - **Keyboard-only citation flow:** `/` focuses the question from anywhere, Enter sends, Tab walks the citation chips in reading order, Enter on a chip highlights the passage, moves focus to the viewer and announces "Page 28, Citation 1 of 3", `[` / `]` step through the citations, and Esc returns focus to the chip of the citation shown (on phones it closes the sheet). Focus never drops to the page body, and Tab stays inside the phone viewer sheet.
 

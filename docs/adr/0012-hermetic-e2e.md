@@ -49,6 +49,6 @@ Running the real flow needs a Supabase project with the corpus ingested, a Gemin
 - **Fixtures follow the corpus.** After re-ingesting or changing chunking or rects: `pnpm fixtures:highlights`, then `pnpm fixtures:e2e`. The recorded g-020 stream must be re-recorded if the stream format changes (an AI SDK upgrade).
 - **The ink check runs only on desktop.** At the Pixel 7's DPR 2.625, anti-aliasing alone keeps correct lines at about 0.96. The phone project keeps every geometry, page and scroll check.
 - **Ink coverage is vertical only**, as in `check:viewer`: a canvas shifted only horizontally under a correct overlay would pass.
-- **Known app bug tracked as `test.fixme`:** on phones, closing the sheet opens the chip's tooltip (`test/e2e/states.spec.ts`).
+- **Phone tooltip bug, fixed in PR #10:** closing the sheet used to open the chip's tooltip (tracked as `test.fixme`). Chip tooltips are off on touch screens now, and `closeSheet` asserts that no tooltip opens.
 
 **Revisit** when Phase 11b adds uploads (an upload → highlight E2E against a local stack), or if a deploy-time smoke test against the live demo becomes worthwhile (Phase 14).
