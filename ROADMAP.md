@@ -60,24 +60,24 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 - [x] **Phase 14 — Deployment** *(~1 wk)*
   Public URL, upload→ask→highlight works in prod, ≤ 5 EUR/month.
   <br>Done: **live at https://truthbase-brown.vercel.app** on Vercel Hobby (0 EUR/month, [ADR-0011](./docs/adr/0011-deployment-topology.md), runbook [DEPLOYMENT](./docs/DEPLOYMENT.md)); every push to `main` deploys. Function in `dub1` next to Supabase. Verified in prod 2026-10-21: brotli, CSP, no COEP, PDF.js assets, ingest closed (503); search 1.7 s, chat first token 1.5 s; ask → chip → highlight on the right page in Chromium on desktop and phone. Per-minute limits hold across instances in Postgres (`burst_quota` migration): 30 searches pass, the 31st is 429, and forged `x-vercel-forwarded-for` headers don't change the bucket. Upload stays operator-only (corpus via `pnpm ingest:golden`); browser upload is Phase 11b.
-  <br>In progress: target decided, **Vercel Hobby, free** ([ADR-0011](./docs/adr/0011-deployment-topology.md)): one Node 24 function in `dub1` next to Supabase, the corpus ingested with the CLI, per-minute limits moved into Postgres for serverless, and Langfuse spans flushed through `waitUntil`. CI builds the vercel preset and boots the function (`build-vercel`). Runbook: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md). Pending: the production deploy and its smoke checks.
-- [ ] **Phase 15 — README whitepaper, ADRs, demo video** *(~1 wk)*
+- [x] **Phase 15 — README whitepaper, ADRs, demo video** *(~1 wk)*
   README with eval numbers, ADRs, metrics, video published.
+  <br>Done: [README](./README.md) rewritten as the whitepaper: headline numbers and the live demo link first, how the highlight works, an architecture diagram (mermaid) and data flow, per-phase eval tables that each state what they were measured on, a summary of every ADR with its rejected alternatives, Lighthouse/CWV and accessibility, cost and free-tier limits. ADR statuses aligned with SPEC. Demo video from the live site in [`docs/media/`](./docs/media/) (MP4 1.3 MB, GIF 2.2 MB, 31 s): ask → streamed answer → citation → highlighted passage, next citation, zoom, phone sheet. It ships with the numbers already recorded; faithfulness and judged citation precision are not yet measured, and the README states the pending re-measurements (ADR-0007/0008/0009, Phases 7–9) as such.
 
 ## Definition of Done
 
-- [ ] Upload → parse-with-positions → chunk → embed (768-dim) → store works for all demo PDFs.
-- [ ] Hybrid RRF search beats dense-only on golden recall@k (numbers recorded).
-- [ ] LLM reranker improves nDCG@5 / citation precision (numbers recorded).
-- [ ] Multi-query expansion improves recall on ambiguous questions without precision collapse.
-- [ ] Answers are grounded, cite chunk IDs inline, and refuse when unsupported.
-- [ ] Clicking any golden citation scrolls to the right page and highlights the correct passage at multiple zoom levels.
-- [ ] promptfoo eval suite runs in CI as a PR gate.
-- [ ] Langfuse traces every chat request with chunk + token metadata.
-- [ ] Per-IP rate limiting + output caps enforced; public demo works without login.
+- [ ] Upload → parse-with-positions → chunk → embed (768-dim) → store works for all demo PDFs. *(The pipeline works for all 4 PDFs from the CLI; browser upload is Phase 11b.)*
+- [x] Hybrid RRF search beats dense-only on golden recall@k (numbers recorded).
+- [ ] LLM reranker improves nDCG@5 / citation precision (numbers recorded). *(nDCG@5 0.638 → 0.811 measured at 20 candidates; the shipped 15 is pending re-measurement, ADR-0007.)*
+- [ ] Multi-query expansion improves recall on ambiguous questions without precision collapse. *(Measured with gpt-oss-120b as the rewriter; the shipped gpt-oss-20b is pending, ADR-0009.)*
+- [ ] Answers are grounded, cite chunk IDs inline, and refuse when unsupported. *(Faithfulness awaits the first full promptfoo run, ADR-0008; the last answer eval, before Phases 6–8, had false refusals above the SPEC target.)*
+- [ ] Clicking any golden citation scrolls to the right page and highlights the correct passage at multiple zoom levels. *(176/180 in `check:viewer`; the 4 misses are listed in ADR-0004 and the README.)*
+- [ ] promptfoo eval suite runs in CI as a PR gate. *(ADR-0008 gates PRs on the deterministic retrieval eval and runs promptfoo on a schedule; its first full run is pending.)*
+- [x] Langfuse traces every chat request with chunk + token metadata.
+- [x] Per-IP rate limiting + output caps enforced; public demo works without login.
 - [x] Playwright E2E covers the citation-to-highlight flow; Vitest covers chunking/rects/RRF.
-- [ ] TypeScript strict passes everywhere; accessibility pass done; Lighthouse/CWV captured.
-- [ ] Live demo deployed for free (Vercel Hobby, ADR-0011; was: under 5 EUR/month) with keep-alive; README whitepaper + ADRs + demo video published.
+- [x] TypeScript strict passes everywhere; accessibility pass done; Lighthouse/CWV captured.
+- [x] Live demo deployed for free (Vercel Hobby, ADR-0011; was: under 5 EUR/month) with keep-alive; README whitepaper + ADRs + demo video published.
 
 ## Stretch goals (deliberately out of core scope)
 

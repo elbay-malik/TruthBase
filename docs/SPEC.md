@@ -69,19 +69,19 @@ Non-functional targets: infra ≤ 5 EUR/month, time to first token < 2 s at p50 
 
 These decisions get recorded as they are made, using the [ADR template](./adr/template.md). Each ADR includes rejected alternatives with reasons.
 
-| ADR | Decision | Phase |
+| ADR | Decision | Status |
 |---|---|---|
 | 0001 | Overall stack selection | ✅ Accepted |
 | 0002 | Retrieval schema, 768-dim embeddings, RRF in SQL | ✅ Accepted |
-| 0003 | **Chunking strategy and sizes**: unit (page-bounded vs cross-page), target tokens, overlap, sentence boundaries | 3 |
-| 0004 | **PDF extraction and highlight coordinate model**: unpdf text items → per-line rects, PDF-space storage, text-match fallback | 3 / 3.5 |
-| 0005 | **Citation format and grounding/refusal policy**: inline chunk-ID markers, prompt contract, refusal threshold | 4 |
-| 0006 | **Why hybrid search**: dense vs full-text vs hybrid, RRF `k` and weights, with measured golden numbers | 6 |
-| 0007 | **Reranker choice**: listwise LLM-as-reranker on Groq vs cross-encoders vs hosted rerank APIs | 📝 Proposed (final numbers pending) |
-| 0008 | **Eval methodology and CI gate**: metric definitions, judge model, thresholds, tolerance | 📝 Proposed (first full LLM eval pending) |
-| 0009 | **Query rewriting**: multi-query vs HyDE, guardrails (entity preservation, rerank after fusion) | 📝 Proposed (final numbers pending) |
+| 0003 | **Chunking strategy and sizes**: unit (page-bounded vs cross-page), target tokens, overlap, sentence boundaries | ✅ Accepted |
+| 0004 | **PDF extraction and highlight coordinate model**: unpdf text items → per-line rects, PDF-space storage, text-match fallback | ✅ Accepted (amended) |
+| 0005 | **Citation format and grounding/refusal policy**: inline chunk-ID markers, prompt contract, refusal threshold | ✅ Accepted (amended) |
+| 0006 | **Why hybrid search**: dense vs full-text vs hybrid, RRF `k` and weights, with measured golden numbers | ✅ Accepted |
+| 0007 | **Reranker choice**: listwise LLM-as-reranker on Groq vs cross-encoders vs hosted rerank APIs | 📝 Proposed (pending re-measurement at 15 candidates) |
+| 0008 | **Eval methodology and CI gate**: metric definitions, judge model, thresholds, tolerance | 📝 Proposed (pending the first full LLM eval) |
+| 0009 | **Query rewriting**: multi-query vs HyDE, guardrails (entity preservation, rerank after fusion) | 📝 Proposed (pending measurement of the shipped rewriter and the full pipeline) |
 | 0010 | **Abuse protection and demo mode**: rate-limit store, caps, BYO-docs gating | ✅ Accepted (BYO docs: Phase 11b) |
-| 0011 | **Deployment topology**: Vercel Hobby (one Node 24 function in `dub1`, ingestion via CLI) vs Workers Paid / free Workers + Node host | ✅ Accepted (first deploy pending) |
+| 0011 | **Deployment topology**: Vercel Hobby (one Node 24 function in `dub1`, ingestion via CLI) vs Workers Paid / free Workers + Node host | ✅ Accepted (live since 2026-10-21) |
 | 0012 | **Hermetic E2E**: browser-level API fixtures and a Supabase stub vs a live backend | ✅ Accepted |
 
 ## Risks

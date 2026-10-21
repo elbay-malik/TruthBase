@@ -1,6 +1,6 @@
 # ADR-0008: Eval methodology and CI gate
 
-- **Status:** Proposed. The retrieval gate is in CI; the LLM eval runs end to end but its first full run (judge reliability, baseline) is pending (see Consequences).
+- **Status:** Proposed, pending the first full LLM eval. Built and shipped; the retrieval gate runs in CI, and the LLM eval runs end to end, but its first full run (baseline, judge validation) is pending (see Consequences).
 - **Date:** 2026-10-20
 
 ## Context
@@ -45,7 +45,7 @@ The binding constraint is the free tier. Groq allows 200K tokens/day per model, 
 
 ## Consequences
 
-- **Pending, before Accepted:** (1) The first full LLM eval: `pnpm eval:llm && pnpm eval:llm:summary --update-baseline` (spreads over two days of quota; it resumes). (2) **Validate the judge**: spot-check ~10 judgments by hand against the sources (SPEC), and confirm qwen returns valid structured output across all answers; its JSON failed Groq's validation as a reranker (ADR-0007), though not as a judge in the smoke test. Switch `JUDGE_MODEL` if it doesn't hold. (3) Add the four secrets to the GitHub repo for the `llm-eval` workflow.
+- **Pending, before Accepted:** (1) The first full LLM eval: `pnpm eval:llm && pnpm eval:llm:summary --update-baseline` (spreads over two days of quota; it resumes). (2) **Validate the judge**: spot-check ~10 judgments by hand against the sources (SPEC), and confirm qwen returns valid structured output across all answers; its JSON failed Groq's validation as a reranker (ADR-0007), though not as a judge in the smoke test. Switch `JUDGE_MODEL` if it doesn't hold. (3) ~~Add the four secrets to the GitHub repo for the `llm-eval` workflow.~~ Done 2026-10-20.
 - **The fixture must follow the corpus.** After re-ingesting or changing chunking/embeddings, run `pnpm fixtures:retrieval` and update the baseline in the same PR, or the gate measures the old corpus.
 - **LLM steps aren't in the PR gate.** A change to the rewrite, rerank or grounding prompts shows up only in the LLM eval, so run it (or a `GOLDEN_ONLY` slice) before merging such a change.
 - **The weekly run spends one day's quota on Sunday night.** If the demo needs that headroom, drop the schedule and keep it manual.

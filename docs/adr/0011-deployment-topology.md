@@ -1,6 +1,6 @@
 # ADR-0011: Deployment topology
 
-- **Status:** Accepted (first production deploy pending)
+- **Status:** Accepted. Live since 2026-10-21 at https://truthbase-brown.vercel.app (ROADMAP Phase 14).
 - **Date:** 2026-10-20
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0007: Reranker choice — listwise LLM reranking on Groq
 
-- **Status:** Proposed. The final numbers at 15 candidates are pending (see Consequences); the evidence below was measured at 20.
+- **Status:** Proposed, pending re-measurement. Built and shipped; the evidence below was measured at 20 candidates, and the re-measurement at the shipped 15 is pending (see Consequences).
 - **Date:** 2026-10-19
 
 ## Context
