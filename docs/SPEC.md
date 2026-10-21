@@ -77,9 +77,9 @@ These decisions get recorded as they are made, using the [ADR template](./adr/te
 | 0004 | **PDF extraction and highlight coordinate model**: unpdf text items → per-line rects, PDF-space storage, text-match fallback | ✅ Accepted (amended) |
 | 0005 | **Citation format and grounding/refusal policy**: inline chunk-ID markers, prompt contract, refusal threshold | ✅ Accepted (amended) |
 | 0006 | **Why hybrid search**: dense vs full-text vs hybrid, RRF `k` and weights, with measured golden numbers | ✅ Accepted |
-| 0007 | **Reranker choice**: listwise LLM-as-reranker on Groq vs cross-encoders vs hosted rerank APIs | 📝 Proposed (pending re-measurement at 15 candidates) |
+| 0007 | **Reranker choice**: listwise LLM-as-reranker on Groq vs cross-encoders vs hosted rerank APIs | ✅ Accepted (re-measured at 15 candidates, 2026-10-21) |
 | 0008 | **Eval methodology and CI gate**: metric definitions, judge model, thresholds, tolerance | 📝 Proposed (pending the first full LLM eval) |
-| 0009 | **Query rewriting**: multi-query vs HyDE, guardrails (entity preservation, rerank after fusion) | 📝 Proposed (pending measurement of the shipped rewriter and the full pipeline) |
+| 0009 | **Query rewriting**: multi-query vs HyDE, guardrails (entity preservation, rerank after fusion) | ✅ Accepted (shipped rewriter and full pipeline measured, 2026-10-21) |
 | 0010 | **Abuse protection and demo mode**: rate-limit store, caps, BYO-docs gating | ✅ Accepted (BYO docs: Phase 11b) |
 | 0011 | **Deployment topology**: Vercel Hobby (one Node 24 function in `dub1`, ingestion via CLI) vs Workers Paid / free Workers + Node host | ✅ Accepted (live since 2026-10-21) |
 | 0012 | **Hermetic E2E**: browser-level API fixtures and a Supabase stub vs a live backend | ✅ Accepted |

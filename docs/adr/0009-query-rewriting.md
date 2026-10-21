@@ -1,6 +1,6 @@
 # ADR-0009: Query rewriting — self-gated multi-query expansion
 
-- **Status:** Proposed, pending measurement of the shipped rewriter and the full pipeline. Built and shipped; the evidence below was measured with gpt-oss-120b as the rewriter, and the shipped default (gpt-oss-20b) and the full pipeline with reranking are still to be measured (see Consequences).
+- **Status:** Accepted (2026-10-21). Chosen on gpt-oss-120b evidence below; the shipped default rewriter (gpt-oss-20b) and the full pipeline with reranking and generation were measured afterwards and hold up (see "The shipped rewriter, measured").
 - **Date:** 2026-10-19
 
 ## Context
@@ -38,6 +38,21 @@ Measured with `pnpm eval:multiquery` (`docs/evals/phase-8-*.json`): for every an
 - **Weight 1 over 0.5.** Once only ambiguous questions are expanded, the rewrites are as relevant as the question; weight 1 scored one question better at recall@5 (80% vs 78%) and matches plain RRF.
 - **Cost and latency.** ~660 tokens per question (the call happens even when it returns nothing), p50 0.46 s / p95 0.72 s on gpt-oss-120b. It overlaps the question's own embedding and search (~0.5 s), so the added time to first token is mostly the rewrites' searches, and only for expanded questions.
 
+### The shipped rewriter, measured (2026-10-21)
+
+`pnpm eval:multiquery --label groq-20b-gated` ([phase-8-groq-20b-gated.json](../evals/phase-8-groq-20b-gated.json)): gpt-oss-20b, self-gated, weight 1, 15 candidates.
+
+| Candidates (45 questions) | recall@5 | recall@8 | recall@15 | MRR | nDCG@5 | rewrites / question |
+|---|---|---|---|---|---|---|
+| Question alone | 76% | 87% | 87% | 0.515 | 0.638 | – |
+| Self-gated, gpt-oss-120b (above) | 80% | 87% | 87% | 0.519 | 0.657 | 0.3 |
+| **Self-gated, gpt-oss-20b (shipped)** | **80%** | **87%** | 87% | 0.502 | 0.640 | 0.4 |
+
+- **Same recall as gpt-oss-120b, so the default stays.** `ambiguous`: recall@5 75% → 100%, nDCG@5 0.811 → 0.969 (120b: 0.877). `cross-document` recall@5 50% → 75%, `keyword` 80% → 100%.
+- **Slightly more eager.** 0.4 rewrites per question, and 7 rewrites dropped by the entity and duplicate checks (120b: 0). The extra rewrites cost some order on clear questions: `definition` MRR 0.813 → 0.613 and `table` 0.503 → 0.390, which is why overall MRR (0.502) sits just under the question alone. No slice loses recall@5 or recall@8, and the reranker reorders these lists anyway.
+- **Cost and latency on gpt-oss-20b:** ~650 tokens per question, p50 0.41 s / p95 1.46 s.
+- **End to end** with reranking and gpt-oss-120b generation ([phase-8-groq.json](../evals/phase-8-groq.json), 50 questions, 10 rewritten): 93% of answerable questions answered, ≥ 1 correct citation for 80% of answerable, citation precision 56% (lower bound), 5/5 unanswerable refused, 3 false refusals (SPEC target ≤ 1; details in ADR-0007).
+
 ## Rejected alternatives
 
 - **Always expand.** Lowers recall@8 (above).
@@ -50,7 +65,7 @@ Measured with `pnpm eval:multiquery` (`docs/evals/phase-8-*.json`): for every an
 
 ## Consequences
 
-- **Pending.** (1) `pnpm eval:multiquery --label groq-20b` measures the default rewriter (~30K tokens of gpt-oss-20b); if it gates worse than gpt-oss-120b, switch the default. (2) `pnpm eval:answers --label phase-8-groq` checks the whole pipeline (expansion, reranking, generation) for citation precision and refusals. Both share gpt-oss-20b's daily quota with ADR-0007's pending re-measurement, so plan the runs across days.
+- **Measured (2026-10-21).** The default rewriter gates as well as gpt-oss-120b on recall, and the whole pipeline is measured end to end (above). Faithfulness and judged citation precision remain with the promptfoo eval (ADR-0008).
 - **Capacity.** On gpt-oss-20b, each chat spends ~0.66K tokens on rewriting plus ~2.7K on reranking: ~60 fully enhanced chats per day, then fused order on the question alone (Phase 6 quality), with answers unaffected.
 - **Rewrites are searched, never shown.** They reach only the search and the eval reports. Prompt injection through the question can at worst add irrelevant searches; the original question stays in the fusion at full weight and the reranker judges against it.
 - **The catalog lead** comes from the topmost page-1 chunk, cached per server process for 10 minutes (30 s while a document has no page-1 text yet) and dropped after each ingest. Phase 11 uploads should store a real title at ingestion.

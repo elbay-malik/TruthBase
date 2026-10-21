@@ -37,12 +37,12 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 - [x] **Phase 6 — Hybrid search + RRF hardening** *(~1 wk)*
   Hybrid beats dense-only on golden recall@k (numbers recorded).
   <br>Done: see [ADR-0006](./docs/adr/0006-hybrid-search.md).
-- [ ] **Phase 7 — Reranking** *(~1 wk)*
+- [x] **Phase 7 — Reranking** *(~1 wk)*
   LLM reranker improves nDCG@5 / citation precision (numbers recorded).
-  <br>Built; final numbers pending ([ADR-0007](./docs/adr/0007-reranking.md)).
-- [ ] **Phase 8 — Query rewriting / advanced retrieval** *(~1 wk)*
+  <br>Done: at the shipped 15 candidates, MRR 0.515 → 0.735 and nDCG@5 0.638 → 0.811 with recall@8 kept at 87% (document filter on: MRR 0.547 → 0.791); end to end, correct citations for 69% → 80% of answerable questions ([ADR-0007](./docs/adr/0007-reranking.md), 2026-10-21).
+- [x] **Phase 8 — Query rewriting / advanced retrieval** *(~1 wk)*
   Multi-query improves recall on ambiguous questions without precision collapse.
-  <br>Built; final numbers pending ([ADR-0009](./docs/adr/0009-query-rewriting.md)).
+  <br>Done: the shipped gpt-oss-20b rewriter lifts `ambiguous` recall@5 75% → 100% with overall recall@5 76% → 80% and recall@8 unchanged at 87% ([ADR-0009](./docs/adr/0009-query-rewriting.md), 2026-10-21).
 - [ ] **Phase 9 — Evals harness** *(~1.5 wk)*
   promptfoo produces recall@k, MRR/nDCG, faithfulness, citation precision on the golden set; gates CI.
   <br>Built: the retrieval gate runs in CI; the first full LLM eval is pending ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)).
@@ -68,9 +68,9 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 
 - [ ] Upload → parse-with-positions → chunk → embed (768-dim) → store works for all demo PDFs. *(The pipeline works for all 4 PDFs from the CLI; browser upload is Phase 11b.)*
 - [x] Hybrid RRF search beats dense-only on golden recall@k (numbers recorded).
-- [ ] LLM reranker improves nDCG@5 / citation precision (numbers recorded). *(nDCG@5 0.638 → 0.811 measured at 20 candidates; the shipped 15 is pending re-measurement, ADR-0007.)*
-- [ ] Multi-query expansion improves recall on ambiguous questions without precision collapse. *(Measured with gpt-oss-120b as the rewriter; the shipped gpt-oss-20b is pending, ADR-0009.)*
-- [ ] Answers are grounded, cite chunk IDs inline, and refuse when unsupported. *(Faithfulness awaits the first full promptfoo run, ADR-0008; the last answer eval, before Phases 6–8, had false refusals above the SPEC target.)*
+- [x] LLM reranker improves nDCG@5 / citation precision (numbers recorded). *(nDCG@5 0.638 → 0.811 at the shipped 15 candidates, ADR-0007.)*
+- [x] Multi-query expansion improves recall on ambiguous questions without precision collapse. *(Shipped gpt-oss-20b rewriter: `ambiguous` recall@5 75% → 100%, recall@8 unchanged, ADR-0009.)*
+- [ ] Answers are grounded, cite chunk IDs inline, and refuse when unsupported. *(Faithfulness awaits the first full promptfoo run, ADR-0008. The full-pipeline answer eval (2026-10-21) refuses 5/5 unanswerable and answers nothing without a citation, but has 3 false refusals against the SPEC target of ≤ 1.)*
 - [ ] Clicking any golden citation scrolls to the right page and highlights the correct passage at multiple zoom levels. *(176/180 in `check:viewer`; the 4 misses are listed in ADR-0004 and the README.)*
 - [ ] promptfoo eval suite runs in CI as a PR gate. *(ADR-0008 gates PRs on the deterministic retrieval eval and runs promptfoo on a schedule; its first full run is pending.)*
 - [x] Langfuse traces every chat request with chunk + token metadata.

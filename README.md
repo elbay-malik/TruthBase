@@ -17,9 +17,9 @@ The highlight, retrieval and answer numbers below are on [`docs/golden/golden.js
 | **Highlight placement** | 176/180 checks pass (60 golden spans × zoom 50/100/200%); placement error ≤ 0.03 px; the 4 misses are listed under [Limitations](#limitations-and-roadmap) | Real viewer in headless Chromium against the hosted corpus (`pnpm check:viewer`) | [ROADMAP Phase 5](./ROADMAP.md) |
 | **Highlight edges vs an independent PDF engine** | within ±0.05 pt of MuPDF on every golden span (spike max: 0.001 pt) | Vitest, `ingest-glyphs.test.ts` | [ADR-0004](./docs/adr/0004-extraction-and-highlights.md) |
 | **Hybrid retrieval recall@8** | **87%** (dense-only 76%) | Hybrid v2, 564 chunks, gated in CI | [ADR-0006](./docs/adr/0006-hybrid-search.md), [retrieval-baseline.json](./docs/evals/retrieval-baseline.json) |
-| **Reranking: MRR / nDCG@5** | 0.515 → **0.741** / 0.638 → **0.811** | gpt-oss-20b, top 4 + fused tail, **20 candidates** (shipped: 15; re-measurement pending) | [ADR-0007](./docs/adr/0007-reranking.md) |
-| **Multi-query on ambiguous questions** | recall@5 75% → **100%**; overall recall@8 unchanged (87%) | Fused top 15 before reranking; self-gated rewriter on **gpt-oss-120b** (shipped default gpt-oss-20b not yet measured) | [ADR-0009](./docs/adr/0009-query-rewriting.md), [phase-8-groq-120b-gated.json](./docs/evals/phase-8-groq-120b-gated.json) |
-| **Unanswerable questions refused** | 5/5; no answerable question answered without a citation | Groq gpt-oss-120b, Phase 5 retrieval (before Phases 6–8) | [phase-5-groq.json](./docs/evals/phase-5-groq.json) |
+| **Reranking: MRR / nDCG@5** | 0.515 → **0.735** / 0.638 → **0.811** (document filter on: MRR 0.547 → **0.791**) | gpt-oss-20b, top 4 + fused tail, 15 candidates as shipped | [ADR-0007](./docs/adr/0007-reranking.md), [phase-7-groq-20b-15.json](./docs/evals/phase-7-groq-20b-15.json) |
+| **Multi-query on ambiguous questions** | recall@5 75% → **100%**; overall recall@5 76% → 80%, recall@8 unchanged (87%) | Fused top 15 before reranking; self-gated rewriter on gpt-oss-20b as shipped | [ADR-0009](./docs/adr/0009-query-rewriting.md), [phase-8-groq-20b-gated.json](./docs/evals/phase-8-groq-20b-gated.json) |
+| **Answers, end to end** | 5/5 unanswerable refused; 93% of answerable answered, none without a citation; ≥ 1 correct citation for 80% of answerable (Phase 5: 69%); 3 false refusals (SPEC target ≤ 1, not met) | The shipped pipeline: rewrite + rerank on gpt-oss-20b, answers on gpt-oss-120b | [phase-8-groq.json](./docs/evals/phase-8-groq.json) |
 | **Faithfulness / judged citation precision** | **not yet measured**: the promptfoo harness runs, its first full run is pending | – | [ADR-0008](./docs/adr/0008-evals-and-ci-gate.md) |
 | **Accessibility** | Lighthouse 100 (mobile and desktop); axe-core 0 violations in 15 UI states (desktop and phone, light and dark) | Local production build (localhost), Lighthouse 13.5.0 with simulated throttling, median of 3, 2026-10-21 | [Quality](#quality) |
 | **Performance** | Lighthouse 98 mobile / 100 desktop on `/`; mobile LCP 2.40 s, CLS 0 | same | [Quality](#quality) |
@@ -115,7 +115,16 @@ How it got here: the Phase 4 baseline had hybrid and dense tied (recall@8 73%, [
 
 The last row is computed in [ADR-0007](./docs/adr/0007-reranking.md) from the cached rankings of the gpt-oss-20b run. Full reranking loses one ambiguous cross-document question (g-013); keeping the fused top 4 in the list keeps recall@8 at 87%. Reranking can't raise recall@8 here: the fused top 8, 15 and 20 hold the evidence for the same 87% of questions.
 
-**Pending:** the shipped reranker sees **15** candidates, not 20. The fused top 15 and top 20 hold the same evidence, but the reranked numbers at 15 have not been re-measured yet.
+**At the shipped 15 candidates** (`pnpm eval:rerank --filtered --label groq-20b-15`, [phase-7-groq-20b-15.json](./docs/evals/phase-7-groq-20b-15.json), 2026-10-21):
+
+| Order, 15 candidates | recall@5 | recall@8 | MRR | nDCG@5 | latency p50 / p95 |
+|---|---|---|---|---|---|
+| Fused (45 questions) | 76% | 87% | 0.515 | 0.638 | – |
+| **Shipped: gpt-oss-20b, top 4 + fused tail** | **84%** | **87%** | **0.735** | **0.811** | 0.65 s / 1.15 s |
+| Fused, document filter on (41 questions) | 78% | 88% | 0.547 | 0.627 | – |
+| **Shipped, document filter on** | **88%** | **88%** | **0.791** | **0.825** | |
+
+15 candidates match 20 (MRR 0.735 vs 0.741, the same nDCG@5) at ~3.0K instead of ~3.9K tokens per call. Latency is from the 19 uncached calls; the other rankings came from the cache of earlier runs at 15.
 
 ### Query rewriting (Phase 8)
 
@@ -132,23 +141,23 @@ The last row is computed in [ADR-0007](./docs/adr/0007-reranking.md) from the ca
 - **No added reach:** recall@15 stays at 87%. The six questions retrieval misses (g-029, g-030, g-035, g-038, g-040, g-045) are still missed, including g-045, which the rewriter correctly split into one sub-query per paper.
 - Cost: ~660 tokens per question, p50 0.46 s / p95 0.72 s.
 
-**Pending:** the shipped default rewriter is gpt-oss-20b, which hasn't been measured on its own yet, and neither has the whole pipeline (rewrite + rerank + generation) end to end ([ADR-0009](./docs/adr/0009-query-rewriting.md)).
+**The shipped rewriter, gpt-oss-20b** ([phase-8-groq-20b-gated.json](./docs/evals/phase-8-groq-20b-gated.json), 2026-10-21): recall@5 **80%**, recall@8 **87%**, recall@15 87%, MRR 0.502, nDCG@5 0.640, 0.4 rewrites per question; `ambiguous` recall@5 75% → 100%, nDCG@5 0.811 → 0.969. Same recall as gpt-oss-120b, slightly more eager: extra rewrites on `definition` and `table` questions cost some order (MRR), which the reranker then reorders. ~650 tokens, p50 0.41 s / p95 1.46 s. Details in [ADR-0009](./docs/adr/0009-query-rewriting.md).
 
 ### Answers, citations and refusals
 
-The latest recorded answer eval is the **post-Phase-5 audit re-run** (2026-10-18, `pnpm eval:answers`, top 8 from hybrid **v1**, before the Phase 6–8 retrieval gains), with one prompt for both models ([phase-5-groq.json](./docs/evals/phase-5-groq.json), [phase-5-gemini.json](./docs/evals/phase-5-gemini.json)).
+The latest answer eval runs the **shipped pipeline end to end** (2026-10-21, `pnpm eval:answers --label phase-8-groq --model groq`: self-gated rewriting and reranking on gpt-oss-20b, 15 candidates, top 8 to gpt-oss-120b; [phase-8-groq.json](./docs/evals/phase-8-groq.json)). All 50 questions were reranked without a fallback, and 10 were rewritten. The two right-hand columns are the earlier **post-Phase-5 audit re-run** (2026-10-18, top 8 from hybrid **v1**, no rewriting or reranking, [phase-5-groq.json](./docs/evals/phase-5-groq.json), [phase-5-gemini.json](./docs/evals/phase-5-gemini.json)).
 
-| Metric | Groq gpt-oss-120b (primary) | Gemini 3.5 Flash-Lite (fallback) |
-|---|---|---|
-| Answerable questions answered | 84% (38/45) | 91% (41/45) |
-| ≥ 1 correct citation, of answered / of answerable | 82% / 69% | 85% / 78% |
-| Citation precision (lower bound: only golden-evidence chunks count) | 55% | 57% |
-| Answered without any citation | 0 | 0 |
-| Unanswerable refused | 5/5 | 5/5 |
-| False refusals (SPEC target ≤ 1) | 7 (5 with the evidence not retrieved) | 4 (3 with the evidence not retrieved) |
-| SPEC refusal accuracy | 86%, **gate failed** | 92%, **gate failed** |
+| Metric | Groq, shipped pipeline (2026-10-21) | Groq gpt-oss-120b, Phase 5 | Gemini 3.5 Flash-Lite, Phase 5 |
+|---|---|---|---|
+| Answerable questions answered | **93% (42/45)** | 84% (38/45) | 91% (41/45) |
+| ≥ 1 correct citation, of answered / of answerable | **86% / 80%** | 82% / 69% | 85% / 78% |
+| Citation precision (lower bound: only golden-evidence chunks count) | 56% | 55% | 57% |
+| Answered without any citation | 0 | 0 | 0 |
+| Unanswerable refused | 5/5 | 5/5 | 5/5 |
+| False refusals (SPEC target ≤ 1) | **3** (2 with the evidence not retrieved) | 7 (5 with the evidence not retrieved) | 4 (3 with the evidence not retrieved) |
+| SPEC refusal accuracy | 94%, **gate failed** | 86%, **gate failed** | 92%, **gate failed** |
 
-Most false refusals were retrieval misses; the rest (Groq: g-024 and g-032) are tables flattened into running text by extraction. Of Groq's five retrieval-miss refusals, Phase 6's hybrid v2 retrieves only g-010 in the top 8 (fused rank 8 in [phase-7-groq-20b.json](./docs/evals/phase-7-groq-20b.json)); g-030, g-035, g-040 and g-045 are still not retrieved. A manual review of the Phase 4 misses found no fabrication. The citation-precision figure is a lower bound: a citation to a correct passage that isn't the golden evidence counts as wrong.
+The three remaining false refusals are g-030 and g-040, whose evidence retrieval still misses, and g-032, a table flattened into running text by extraction (ADR-0003). The other retrieval misses (g-029, g-035, g-038, g-045) are answered from other passages and count as incorrect citations. In the Phase 5 run, Groq's refusals were mostly retrieval misses too, plus g-024 and g-032 (tables). A manual review of the Phase 4 misses found no fabrication. The citation-precision figure is a lower bound: a citation to a correct passage that isn't the golden evidence counts as wrong.
 
 **Pending:** the promptfoo LLM eval ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)) measures **faithfulness** (claims supported by their citations, LLM judge) and **judged citation precision** against SPEC's ≥ 0.90 targets, on the current pipeline. It runs end to end, but its first full run (and so `llm-baseline.json`) and a hand check of the judge are still to come. Until then there is no faithfulness number to report.
 
@@ -172,9 +181,9 @@ Each ADR records context, the decision, measurements and rejected alternatives. 
 - **[ADR-0004](./docs/adr/0004-extraction-and-highlights.md) Extraction and highlight model (Accepted, amended).** Per-line rects in PDF space from a glyph replay, drawn unchanged by the viewer, with a text-match fallback. *Rejected:* refining edges from the browser text layer (substitute font, up to 18.6 pt off), font advance widths only (up to 12 pt off), server-side canvas rendering (native dependency), one box per chunk (spans columns).
 - **[ADR-0005](./docs/adr/0005-citations-and-grounding.md) Citations and refusals (Accepted, amended).** Numbered `<source>` blocks, inline `[n]` markers parsed by one shared function, a `NO_ANSWER` token, temperature 0, 700 output tokens, source text declared as data, automatic Groq → Gemini fallback. *Rejected:* chunk UUIDs as markers (copied unreliably), structured `claims[]` output (breaks streaming), a score threshold before the LLM (RRF scores aren't calibrated).
 - **[ADR-0006](./docs/adr/0006-hybrid-search.md) Hybrid search (Accepted).** Keyword arm ORs the question's own lexemes with `ts_rank_cd`, weights 0.5/1, RRF k = 60, 40 candidates per arm, exact cosine scan; chosen from a 72-configuration grid with cross-validation. *Rejected:* AND with an OR fallback, equal weights, a learned fusion (45 questions can't fit it), HNSW with iterative scan inside the function (planner ignored it; short filtered results when forced).
-- **[ADR-0007](./docs/adr/0007-reranking.md) Reranking (Proposed, pending re-measurement at 15 candidates).** Listwise LLM reranker on Groq gpt-oss-20b over the fused top 15, structured output, top 4 reranked plus fused tail, 4 s timeout with fused-order fallback. *Rejected:* Gemini Flash-Lite (best quality, p95 15 s), gpt-oss-120b (shares the answer quota), qwen3.8-27b (invalid JSON on 23 of ~65 calls), Cohere/Jina (trial caps, extra vendor), a self-hosted cross-encoder, pointwise scoring.
+- **[ADR-0007](./docs/adr/0007-reranking.md) Reranking (Accepted, re-measured at 15 candidates).** Listwise LLM reranker on Groq gpt-oss-20b over the fused top 15, structured output, top 4 reranked plus fused tail, 4 s timeout with fused-order fallback. *Rejected:* Gemini Flash-Lite (best quality, p95 15 s), gpt-oss-120b (shares the answer quota), qwen3.8-27b (invalid JSON on 23 of ~65 calls), Cohere/Jina (trial caps, extra vendor), a self-hosted cross-encoder, pointwise scoring.
 - **[ADR-0008](./docs/adr/0008-evals-and-ci-gate.md) Evals and CI gate (Proposed, pending the first full LLM eval).** A deterministic retrieval gate on every PR (real `hybrid_search` on a committed corpus fixture, no tolerance), plus a promptfoo LLM eval run manually and weekly with a qwen judge, disk-cached model calls and pooled SPEC metrics. *Rejected:* the LLM eval on every PR (quota and noise), promptfoo for the retrieval gate, Ragas, gpt-oss-120b as judge (self-preference), hosted Supabase in the gate.
-- **[ADR-0009](./docs/adr/0009-query-rewriting.md) Query rewriting (Proposed, pending measurement of the shipped rewriter).** One self-gated rewrite call (0–3 queries) with a document catalog, entity preservation for tokens with digits, plain RRF over the lists, reranked against the original question. *Rejected:* always expanding (recall@8 87% → 84%), HyDE (fluent wrong answers pull in wrong controls), a rule-based ambiguity detector, a separate classifier call, Gemini (slower, quota), GraphRAG.
+- **[ADR-0009](./docs/adr/0009-query-rewriting.md) Query rewriting (Accepted, shipped rewriter measured).** One self-gated rewrite call (0–3 queries) with a document catalog, entity preservation for tokens with digits, plain RRF over the lists, reranked against the original question. *Rejected:* always expanding (recall@8 87% → 84%), HyDE (fluent wrong answers pull in wrong controls), a rule-based ambiguity detector, a separate classifier call, Gemini (slower, quota), GraphRAG.
 - **[ADR-0010](./docs/adr/0010-abuse-protection.md) Abuse protection (Accepted; BYO docs in Phase 11b).** Per-minute and daily caps per client plus a global daily budget, counted atomically in Postgres, clean 429 with `Retry-After`, client IP stored as an HMAC, fail open. *Rejected:* mandatory sign-in (kills the demo), CAPTCHA (friction), a sliding-window limiter on KV, platform WAF rules as the only layer, counting tokens instead of requests.
 - **[ADR-0011](./docs/adr/0011-deployment-topology.md) Deployment (Accepted, live since 2026-10-21).** Vercel Hobby: one Node 24 function in `dub1` next to the database, static assets on the CDN, ingestion from the CLI, burst limits moved into Postgres, Langfuse spans flushed through `waitUntil`. *Rejected:* Cloudflare Workers Paid (card, `workerd` port), free Workers plus a Node host (10 ms CPU, two targets), Cloud Run (card, container), Render (1-minute cold starts), Hugging Face Spaces, an Oracle VM (ops).
 - **[ADR-0012](./docs/adr/0012-hermetic-e2e.md) Hermetic E2E (Accepted).** Playwright against the production build, `/api/*` answered from fixtures built by the real ingestion code, a local Supabase stub for Storage and PostgREST, plus one replayed real chat stream. *Rejected:* a live backend in CI (secrets, quota, flaky answers), a full local Supabase stack, mocking inside Nitro (test code in the bundle), component tests only.
@@ -275,10 +284,8 @@ Sources: [ADR-0007](./docs/adr/0007-reranking.md), [ADR-0009](./docs/adr/0009-qu
 
 ## Limitations and roadmap
 
-**Pending measurements** (the reason Phases 7–9 are unticked in [ROADMAP](./ROADMAP.md)):
+**Pending measurement** (the reason Phase 9 is unticked in [ROADMAP](./ROADMAP.md)):
 
-- **Reranking at 15 candidates** ([ADR-0007](./docs/adr/0007-reranking.md)): the shown numbers are at 20. About 230K gpt-oss-20b tokens, more than one day's quota.
-- **The shipped rewriter, gpt-oss-20b, and the full pipeline end to end** ([ADR-0009](./docs/adr/0009-query-rewriting.md)): the shown numbers use gpt-oss-120b as the rewriter, and the latest answer eval predates Phases 6–8.
 - **The first full promptfoo run** ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)): faithfulness and judged citation precision, the LLM baseline, and a hand check of the qwen judge.
 
 **Known gaps:**
@@ -286,7 +293,7 @@ Sources: [ADR-0007](./docs/adr/0007-reranking.md), [ADR-0009](./docs/adr/0009-qu
 - **4 of 180 `check:viewer` checks miss:** the `Σ` big operator in g-035 (self-rag.pdf) hangs below the em box that the vertical model covers (3 zooms), and a vector-drawn frame around "Critique" in g-027 at 200% is page graphics, not text. Fixing the first needs per-glyph vertical extents ([ADR-0004](./docs/adr/0004-extraction-and-highlights.md)).
 - **Six golden questions are never retrieved** in the top 15 (g-029, g-030, g-035, g-038, g-040, g-045: three multi-page or multi-hop, three numeric or factoid details; [phase-8-groq-120b-gated.json](./docs/evals/phase-8-groq-120b-gated.json)). Query rewriting doesn't reach them; it is a chunking or evidence-structure problem.
 - **Tables are flattened into running text** by extraction, which causes refusals even when the evidence is retrieved.
-- **False refusals** were above the SPEC target (≤ 1) in the last answer eval (Groq 7, Gemini 4), mostly from retrieval misses. Hybrid v2 now retrieves one of Groq's five missed questions; the rest are among the six above. Not re-measured end to end.
+- **False refusals are above the SPEC target** (≤ 1): 3 in the end-to-end answer eval of the shipped pipeline (down from 7 before Phases 6–8). Two are among the six questions above, one is a flattened table.
 - **Prompt injection through document text** is reduced (delimited sources, a fused tail the reranker can't drop) but not prevented. It must be re-assessed before uploads open.
 - **Time to first token** can exceed the < 2 s p50 target when a question is rewritten.
 - Rotated pages, vertical text, RTL and Type3 fonts are absent from the golden set and unverified; scanned PDFs are rejected.

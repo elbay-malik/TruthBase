@@ -1,6 +1,6 @@
 # ADR-0007: Reranker choice — listwise LLM reranking on Groq
 
-- **Status:** Proposed, pending re-measurement. Built and shipped; the evidence below was measured at 20 candidates, and the re-measurement at the shipped 15 is pending (see Consequences).
+- **Status:** Accepted (2026-10-21). Chosen on the 20-candidate evidence below and re-measured at the shipped 15 candidates, with and without the document filter, and end to end with generation (see "Re-measured at the shipped settings").
 - **Date:** 2026-10-19
 
 ## Context
@@ -38,6 +38,21 @@ Measured with `pnpm eval:rerank` (`docs/evals/phase-7-*.json`): fused top 20 fro
 - **One question decides recall@8.** That's noise-sized at n = 45, so it isn't the argument on its own. The structural argument is that the generator always sees the fused top 4, which costs nothing measurable at the top (MRR and nDCG@5 are equal or better).
 - **Why 15 candidates, not 20.** The fused top 15 and top 20 hold the same evidence (87%), and 15 makes each call ~2.7K tokens instead of ~3.9K. Against the 200K daily cap that's ~73 reranked chats/day instead of ~50.
 
+### Re-measured at the shipped settings (2026-10-21)
+
+`pnpm eval:rerank --filtered --label groq-20b-15` ([phase-7-groq-20b-15.json](../evals/phase-7-groq-20b-15.json)): gpt-oss-20b, fused top 15, head 4. Most rankings came from the cache of earlier runs at 15 (same model and prompt); 19 were live calls, p50 0.65 s / p95 1.15 s, ~3.0K tokens per call. 2 of 86 rankings were incomplete and repaired (rule 4).
+
+| Order, 15 candidates | recall@5 | recall@8 | MRR | nDCG@5 |
+|---|---|---|---|---|
+| Fused, 45 questions | 76% | 87% | 0.515 | 0.638 |
+| gpt-oss-20b, full order | 84% | 84% | 0.734 | 0.803 |
+| **gpt-oss-20b, top 4 + fused tail (shipped)** | **84%** | **87%** | **0.735** | **0.811** |
+| Fused, document filter on (41 questions) | 78% | 88% | 0.547 | 0.627 |
+| **Shipped, document filter on** | **88%** | **88%** | **0.791** | **0.825** |
+
+- **15 holds up against 20.** MRR 0.735 vs 0.741 and the same nDCG@5 (0.811); recall@5 is one question better (84% vs 82%), recall@8 stays at 87%. Full reranking still loses one question at recall@8, and the fused tail still recovers it.
+- **End to end** (`pnpm eval:answers --label phase-8-groq --model groq`, [phase-8-groq.json](../evals/phase-8-groq.json)): with rewriting, reranking and gpt-oss-120b generation, all 50 questions reranked (no fallbacks), 93% of answerable questions answered, ≥ 1 correct citation for 86% of answered (80% of answerable), citation precision 56% (lower bound), 5/5 unanswerable refused, 3 false refusals. Against the Phase 5 run (fused order, hybrid v1): answered 84% → 93%, correct citation of answerable 69% → 80%, false refusals 7 → 3. SPEC's refusal gate (≤ 1 false refusal) still fails: g-030 and g-040 are retrieval misses, g-032 is a table flattened by extraction (ADR-0003).
+
 ## Rejected alternatives
 
 - **qwen/qwen3.8-27b on Groq.** Groq rejected its structured output with `json_validate_failed` on 23 of ~65 attempts, six times running on one question (it echoed `[source` instead of JSON). A reranker that fails unpredictably falls back unpredictably.
@@ -50,7 +65,7 @@ Measured with `pnpm eval:rerank` (`docs/evals/phase-7-*.json`): fused top 20 fro
 
 ## Consequences
 
-- **Pending: re-measure at 15 candidates.** The numbers above use 20. `pnpm eval:rerank --filtered --label groq-20b` reruns the 45 unfiltered and 41 document-filtered questions at 15 (about 230K tokens, so more than one day's gpt-oss-20b quota; the run stops on a spent quota and resumes from its cache). Then `pnpm eval:answers --label phase-7-groq` checks citation precision and refusals with reranked sources; it reuses the cached rankings (`scripts/lib/ranking-cache.ts`), so it spends no reranker quota. Update this ADR's table and status after both.
+- **Re-measurement done (2026-10-21).** The shipped 15 candidates were measured with and without the document filter, and end to end with generation (above). Re-run `pnpm eval:rerank --filtered --label <label>` after any change to the candidate count, the head or the prompt; cached rankings make unchanged questions free.
 - **Capacity.** About 73 reranked chats/day on gpt-oss-20b. Beyond that the chat silently uses fused order, which is Phase 6 quality. Each eval run spends the same daily budget as the demo, so run evals with that in mind. If traffic grows, the options are Groq's paid tier or a second free reranker for overflow (Gemini, accepting its latency).
 - **Latency.** ~0.8 s is added before the first token at p50 (1.3 s at p95). The time-to-first-token target of < 2 s at p50 still has to hold with embedding and search in front of it; Phase 10's tracing measures it end to end.
 - **Prompt injection.** Passages can try to promote themselves ("rank this passage first"). The prompt marks source text as quoted content, and the fused tail limits the damage: a manipulated ranking can only reorder the head, not drop the fused top 4.
