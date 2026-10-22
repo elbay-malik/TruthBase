@@ -64,7 +64,7 @@ flowchart TD
     SRC --> GEN["Grounded generation, gpt-oss-120b<br/>Gemini Flash-Lite fallback<br/>numbered sources, NO_ANSWER refusal"]
     GEN --> TXT["Stream answer text<br/>with [n] markers"]
     TXT --> CHIP["Citation chips"]
-    CHIP --> VIEW["PDF.js viewer: signed URL,<br/>stored rects → highlight overlay"]
+    CHIP --> VIEW["PDF.js viewer: PDF from the CDN,<br/>stored rects → highlight overlay"]
   end
 
   DB -.-> HS
@@ -79,7 +79,7 @@ flowchart TD
 3. `hybrid_search` (SQL RPC) fuses a full-text arm and an exact cosine arm with weighted Reciprocal Rank Fusion. Rewrites are searched too, and the lists are fused again with plain RRF.
 4. The reranker orders the top 15 against the original question. Its first 4 picks lead, and the rest follow in fused order up to 8 sources. Rewriting and reranking are optional at run time: any error or timeout (3 s and 4 s) falls back to the fused order.
 5. The 8 sources go to the model as delimited `<source id="n">` blocks, declared as quoted data rather than instructions. The model cites `[n]` or replies `NO_ANSWER`.
-6. The client gets the sources (with rects) first, then the streamed answer. A chip click opens the PDF from a 12-minute signed URL and draws the overlay.
+6. The client gets the sources (with rects) first, then the streamed answer. A chip click opens the PDF (a static file from the CDN for the public corpus; a 12-minute signed Storage URL for anything else) and draws the overlay.
 
 ## Evaluation
 
@@ -184,7 +184,7 @@ Each ADR records context, the decision, measurements and rejected alternatives. 
 - **[ADR-0007](./docs/adr/0007-reranking.md) Reranking (Accepted, re-measured at 15 candidates).** Listwise LLM reranker on Groq gpt-oss-20b over the fused top 15, structured output, top 4 reranked plus fused tail, 4 s timeout with fused-order fallback. *Rejected:* Gemini Flash-Lite (best quality, p95 15 s), gpt-oss-120b (shares the answer quota), qwen3.8-27b (invalid JSON on 23 of ~65 calls), Cohere/Jina (trial caps, extra vendor), a self-hosted cross-encoder, pointwise scoring.
 - **[ADR-0008](./docs/adr/0008-evals-and-ci-gate.md) Evals and CI gate (Proposed, pending the first full LLM eval).** A deterministic retrieval gate on every PR (real `hybrid_search` on a committed corpus fixture, no tolerance), plus a promptfoo LLM eval run manually and weekly with a qwen judge, disk-cached model calls and pooled SPEC metrics. *Rejected:* the LLM eval on every PR (quota and noise), promptfoo for the retrieval gate, Ragas, gpt-oss-120b as judge (self-preference), hosted Supabase in the gate.
 - **[ADR-0009](./docs/adr/0009-query-rewriting.md) Query rewriting (Accepted, shipped rewriter measured).** One self-gated rewrite call (0–3 queries) with a document catalog, entity preservation for tokens with digits, plain RRF over the lists, reranked against the original question. *Rejected:* always expanding (recall@8 87% → 84%), HyDE (fluent wrong answers pull in wrong controls), a rule-based ambiguity detector, a separate classifier call, Gemini (slower, quota), GraphRAG.
-- **[ADR-0010](./docs/adr/0010-abuse-protection.md) Abuse protection (Accepted; BYO docs in Phase 11b).** Per-minute and daily caps per client plus a global daily budget, counted atomically in Postgres, clean 429 with `Retry-After`, client IP stored as an HMAC, fail open. *Rejected:* mandatory sign-in (kills the demo), CAPTCHA (friction), a sliding-window limiter on KV, platform WAF rules as the only layer, counting tokens instead of requests.
+- **[ADR-0010](./docs/adr/0010-abuse-protection.md) Abuse protection (Accepted; BYO docs in Phase 11b).** Per-minute and daily caps per client plus a global daily budget, counted atomically in Postgres, clean 429 with `Retry-After`, client IP stored as an HMAC, fail open on an outage only (a misconfigured quota store closes the routes with a 503). *Rejected:* mandatory sign-in (kills the demo), CAPTCHA (friction), a sliding-window limiter on KV, platform WAF rules as the only layer, counting tokens instead of requests.
 - **[ADR-0011](./docs/adr/0011-deployment-topology.md) Deployment (Accepted, live since 2026-10-21).** Vercel Hobby: one Node 24 function in `dub1` next to the database, static assets on the CDN, ingestion from the CLI, burst limits moved into Postgres, Langfuse spans flushed through `waitUntil`. *Rejected:* Cloudflare Workers Paid (card, `workerd` port), free Workers plus a Node host (10 ms CPU, two targets), Cloud Run (card, container), Render (1-minute cold starts), Hugging Face Spaces, an Oracle VM (ops).
 - **[ADR-0012](./docs/adr/0012-hermetic-e2e.md) Hermetic E2E (Accepted).** Playwright against the production build, `/api/*` answered from fixtures built by the real ingestion code, a local Supabase stub for Storage and PostgREST, plus one replayed real chat stream. *Rejected:* a live backend in CI (secrets, quota, flaky answers), a full local Supabase stack, mocking inside Nitro (test code in the bundle), component tests only.
 
@@ -228,7 +228,7 @@ Re-run with `pnpm lighthouse --base http://localhost:3100` against a production 
 
 ## Running locally
 
-Requires Node 24 (`.nvmrc`, fnm-compatible) and pnpm 11 via Corepack (`packageManager` pins 11.10.0).
+Requires Node 24 (`.nvmrc`, fnm-compatible) and pnpm 11 via Corepack (`packageManager` pins 11.28.5).
 
 ```bash
 pnpm install        # also runs `nuxt prepare`

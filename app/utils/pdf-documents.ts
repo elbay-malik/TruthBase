@@ -11,10 +11,11 @@ export interface LoadedDocument {
   pages: PDFPageProxy[]
 }
 
-// Signed URLs last 12 min (TTL_SECONDS in the file route). PDF.js normally
-// finishes fetching the whole file in the background long before that, but a
-// reopen after 10 min starts afresh: MAX_AGE_MS must stay below that TTL so a
-// reused task never streams ranges from an expiring URL.
+// The public corpus comes from static files on this origin. Any other document
+// comes from a signed URL that lasts 12 min (TTL_SECONDS in the file route).
+// PDF.js normally finishes fetching the whole file in the background long
+// before that, but a reopen after 10 min starts afresh: MAX_AGE_MS must stay
+// below that TTL so a reused task never streams ranges from an expiring URL.
 const MAX_AGE_MS = 10 * 60_000
 
 let current: { documentId: string, loadedAt: number, promise: Promise<LoadedDocument>, loading: Loading } | undefined

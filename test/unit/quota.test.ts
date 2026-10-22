@@ -160,8 +160,8 @@ describe('secondsUntilUtcMidnight', () => {
 describe('enforceQuota', () => {
   const limits = { perMinute: 10, perClient: 30, global: 80 }
   const options = { trustedIpHeader: '', secret: 's' }
-  const supabaseReturning = (data: unknown, error: unknown = null) => {
-    const rpc = vi.fn(async (_fn: string, _args: unknown) => ({ data, error }))
+  const supabaseReturning = (data: unknown, error: unknown = null, status = error ? 500 : 200) => {
+    const rpc = vi.fn(async (_fn: string, _args: unknown) => ({ data, error, status }))
     return { rpc, supabase: { rpc } as unknown as SupabaseClient }
   }
 
@@ -207,9 +207,35 @@ describe('enforceQuota', () => {
     expect(global).toMatchObject({ statusCode: 429, data: { quota: 'global' } })
   })
 
-  it('lets the request through when the counter store fails', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { supabase } = supabaseReturning(null, { message: 'connection refused' })
-    await expect(quota.enforceQuota(asEvent(fakeEvent()), supabase, 'search', limits, options)).resolves.toBeUndefined()
+  it('lets the request through when the counter store is down', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // No response (network error, the fetch timeout), or a gateway or database outage.
+    const outages = [[{ message: 'TypeError: fetch failed' }, 0], [{ message: 'canceling statement due to statement timeout' }, 500], [{ message: 'upstream timeout' }, 504], [{ message: 'could not connect to the database' }, 503]] as const
+    for (const [error, status] of outages) {
+      const { supabase } = supabaseReturning(null, error, status)
+      await expect(quota.enforceQuota(asEvent(fakeEvent()), supabase, 'search', limits, options)).resolves.toBeUndefined()
+    }
+    expect(logged).toHaveBeenCalledTimes(outages.length)
+    expect(logged.mock.calls.every(([message]) => String(message).includes('allowing the request'))).toBe(true)
+  })
+
+  it('refuses with a 503 when consume_quotas is missing, forbidden or broken', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failures = [
+      // Code deployed before its migration (2026-10-21), a revoked grant, a rotated key.
+      [null, { message: 'Could not find the function public.consume_quotas', code: 'PGRST202' }, 404],
+      [null, { message: 'permission denied for function consume_quotas', code: '42501' }, 403],
+      [null, { message: 'Invalid API key' }, 401],
+      // An answer without a row: the function no longer returns one.
+      [[], null, 200],
+    ] as const
+    for (const [data, error, status] of failures) {
+      const { supabase } = supabaseReturning(data, error, status)
+      const failure = await quota.enforceQuota(asEvent(fakeEvent()), supabase, 'chat', limits, options).catch(e => e)
+      expect(failure).toMatchObject({ statusCode: 503, statusMessage: 'Service Unavailable' })
+      expect(failure.message).toContain('questions are paused')
+    }
+    expect(logged).toHaveBeenCalledTimes(failures.length)
+    expect(logged.mock.calls.every(([message]) => String(message).includes('refusing the request'))).toBe(true)
   })
 })

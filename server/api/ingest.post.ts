@@ -53,6 +53,9 @@ export default defineEventHandler(async (event) => {
   if (file.data.subarray(0, 5).toString('latin1') !== '%PDF-') {
     throw createError({ statusCode: 415, statusMessage: 'Unsupported Media Type', message: 'Only PDF files can be ingested.' })
   }
+  if (takesCorpusName(file.filename, file.data)) {
+    throw createError({ statusCode: 409, statusMessage: 'Conflict', message: `${file.filename} is the name of a corpus document. Rename the file to ingest it.` })
+  }
 
   const stream = createEventStream(event)
   const send = (name: string, data: unknown) => stream.push({ event: name, data: JSON.stringify(data) })

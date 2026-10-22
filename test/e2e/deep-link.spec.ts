@@ -13,19 +13,30 @@ for (const [id, zoom] of [['g-020#1', 1], ['g-038#2', 2], ['g-045#1', 0.5]] as c
     await expectHighlight(page, span, sourceOf(span), zoom)
     expect(api.questions).toEqual([])
     expect(fakeWorker.used).toBe(false)
-    // Cross-origin from the stub's "Storage" (CORS, Accept-Ranges as Supabase sends them).
-    // Whether PDF.js also asks for ranges depends on how fast the stream arrives.
+    // The corpus PDF from the build's own /pdfs, as production serves it.
     expect(api.pdfStatuses.length).toBeGreaterThan(0)
     expect(api.pdfStatuses.every(status => status === 200 || status === 206)).toBe(true)
   })
 }
 
+// Cross-origin from the stub's "Storage", as a document outside the corpus
+// loads: CORS and Accept-Ranges as Supabase sends them.
 test('a PDF whose download stalls loads by range requests', async ({ page, api }) => {
   const span = SPANS.find(s => s.id === 'g-043#2')!
   api.pdfStall = true
   await open(page, `/?chunk=${chunkIdOf(span)}&zoom=1`)
   await expectHighlight(page, span, sourceOf(span), 1)
   expect(api.pdfStatuses).toContain(206)
+})
+
+test('a shared claim may contain < and >', async ({ page, api }) => {
+  const span = SPANS.find(s => s.id === 'g-020#1')!
+  const url = `/?chunk=${chunkIdOf(span)}&claim=${encodeURIComponent('Tier 2 < Tier 3')}`
+  // nuxt-security's XSS validator used to answer 400 to the page itself.
+  expect((await page.request.get(url)).status()).toBe(200)
+  await open(page, url)
+  await expect(viewer(page).getByText(`Shared passage · ${pageName(span.document, span.page).text}`)).toBeVisible()
+  expect(api.questions).toEqual([])
 })
 
 test('an unknown chunk id leaves the viewer empty', async ({ page, api }) => {

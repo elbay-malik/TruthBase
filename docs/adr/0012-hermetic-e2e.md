@@ -13,7 +13,7 @@ Running the real flow needs a Supabase project with the corpus ingested, a Gemin
 
 **Playwright E2E against the production build, with the backend replaced at its boundaries by repo fixtures** (`test/e2e/`, CI job `e2e`).
 
-1. **The browser's `/api/*` requests are answered by `page.route`** (`test/e2e/fixtures.ts`): documents, chat, chunk deep links and signed file URLs. Chat answers are built in the AI SDK's UI-message stream format from `test/fixtures/highlight-spans.json`, the stored chunk rects that `pnpm fixtures:highlights` computes from the golden PDFs with the production ingestion code. One answer per golden question cites the chunk of every evidence span. One real `/api/chat` response (g-020, Groq) is replayed byte for byte with its headers, so the UI is also checked against the real wire format. Any `/api/*` call that no fixture handles fails the test.
+1. **The browser's `/api/*` requests are answered by `page.route`** (`test/e2e/fixtures.ts`): documents, chat, chunk deep links and file URLs. A corpus document gets `/pdfs/<file>`, which the build serves, as in production; the stalled-download test gets a signed URL on the stub instead. Chat answers are built in the AI SDK's UI-message stream format from `test/fixtures/highlight-spans.json`, the stored chunk rects that `pnpm fixtures:highlights` computes from the golden PDFs with the production ingestion code. One answer per golden question cites the chunk of every evidence span. One real `/api/chat` response (g-020, Groq) is replayed byte for byte with its headers, so the UI is also checked against the real wire format. Any `/api/*` call that no fixture handles fails the test.
 2. **The server side gets a local Supabase stub** (`test/e2e/supabase-stub.ts`) on its own origin: PostgREST for the documents listing the page's SSR fetches, and Storage for the signed PDF URLs, with Range, 206/416 and CORS as Supabase serves them. Any request it doesn't answer fails the test.
 3. **The server is `node .output/server/index.mjs`** with empty model keys and ports from `test/e2e/ports.ts` (3100/3101), never reusing an already running server.
 4. **The highlight assertion** at zoom 50/100/200% checks that the right document and page are open, that the passage is scrolled into view, and that every overlay box is within 0.5 px of an independent PDF → CSS conversion of the stored rects. On desktop (DPR 2, as in `check:viewer`) it also checks `check:viewer`'s vertical ink coverage on the rendered canvas: every line has ink, and at least 90% of lines reach SPEC's threshold (0.99 at zoom ≥ 100%, 0.9 at 50%). Desktop runs all 45 answerable golden questions; the phone project (bottom sheet) runs 8 core questions (all, with `E2E_FULL=1`).
@@ -23,7 +23,7 @@ Running the real flow needs a Supabase project with the corpus ingested, a Gemin
 
 - **The geometry is deterministic, and that's what the test should pin down.** The fixtures carry exactly the rects ingestion stores, so a failure means the viewer moved, scaled or dropped a box, not that the model answered differently today. Runs are reproducible: 77 passed, 0 flaky, in three consecutive CI-mode runs (about 74 s each with 2 workers).
 - **The ink check stops the test from just restating the rects.** A geometry check alone only proves that the app converts rects to CSS px. Drawing the canvas 10% smaller left the overlay geometry correct and passed every test until ink coverage was added; now that mutation fails all 52 desktop highlight tests, and a 2 px overlay offset fails all 67 tests that check geometry.
-- **Production build, real cross-origin PDF loading.** CSP, compression, the bundled PDF.js data files and the worker only behave as in production on a build (TECH_NOTES §11). The stub's Storage origin exercises CORS and Range loading, which a same-origin file route would skip.
+- **Production build, real PDF loading.** CSP, compression, the bundled PDF.js data files and the worker only behave as in production on a build (TECH_NOTES §11). The corpus loads same-origin from the build's `/pdfs`, as production serves it since 2026-10-22 (ADR-0010). The stub's Storage origin still exercises the CORS and Range loading that documents outside the corpus use.
 - **No secrets, no quota, no network.** The job runs on every PR, including from forks, and doesn't spend the demo's free tier.
 
 ## Rejected alternatives
@@ -37,11 +37,11 @@ Running the real flow needs a Supabase project with the corpus ingested, a Gemin
 
 **What the E2E suite does not cover, and where that is tested instead:**
 
-- **Server routes** (`/api/chat`, `/api/search`, `/api/chunks/:id`, `/api/documents/:id/file`, `/api/ingest`): Vitest (`test/unit`, `test/nuxt`) for the logic and the CI `build` job's smoke test for the built server's behaviour without secrets.
+- **Server routes** (`/api/chat`, `/api/search`, `/api/chunks/:id`, `/api/documents/:id/file`, `/api/ingest`): Vitest for the helpers they use and for the file route itself (`test/unit/file-route.test.ts`). The CI `build` and `build-vercel` jobs' smoke tests check the built server's behaviour without secrets.
 - **Retrieval and RRF:** `fuseRankings` in Vitest; `hybrid_search` by `supabase/tests/hybrid_search.sql` and the retrieval gate on the real corpus (ADR-0008), both in the CI `db` job.
 - **Chunking and rects:** Vitest (`ingest-chunk`, `ingest-highlight`, `ingest-glyphs`, `ingest-glyph-replay`, `pdf-highlight`, including a test that the viewer and the server group lines the same way). Edges against MuPDF are pinned in `ingest-glyphs`.
 - **Answer quality** (grounding, citation choice, refusals): the LLM eval (ADR-0008), manual and weekly.
-- **The live backend path** (signed URLs from real Storage, the ingested corpus, deep links): `pnpm check:viewer`, run by hand with `.env` before a release.
+- **The live backend path** (the ingested corpus, the PDFs as production serves them, deep links): `pnpm check:viewer`, run by hand with `.env` before a release. The corpus PDFs come from the local server's `/pdfs`, so this spends no Storage egress.
 - **Upload → ask**, the first step in EXECUTION_PLAN Phase 13: ingestion is operator-only behind a token until bring-your-own-docs uploads (Phase 11b), which will need their own E2E.
 
 **Costs:**

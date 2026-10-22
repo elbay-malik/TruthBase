@@ -2,7 +2,8 @@
 // project: REST for the one call the page's SSR makes on the server (GET
 // /api/documents → documents listing), which page.route cannot see, and
 // Storage for the "signed" PDF URLs, with Range and CORS as Supabase serves
-// them, so the browser's cross-origin, ranged PDF.js loading is exercised.
+// them, so the browser's cross-origin, ranged PDF.js loading (documents
+// outside the corpus, which comes from /pdfs) is exercised.
 // The browser's /api/* requests are answered in ./fixtures.ts.
 // Runs on Node's type stripping: `node test/e2e/supabase-stub.ts`.
 

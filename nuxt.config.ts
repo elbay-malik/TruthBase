@@ -48,6 +48,18 @@ export default defineNuxtConfig({
     experimental: { componentDetection: true },
   },
 
+  icon: {
+    // Every icon ships in the client bundle: the scan finds the app's, and
+    // Nuxt UI adds its own. So a build has no /api/_nuxt_icon endpoint, which
+    // cached every requested icon list in memory without a bound, and no
+    // fallback to api.iconify.design, which would see visitors' IPs. `nuxt
+    // dev` keeps the endpoint (local collections only), so an icon added
+    // while it runs shows without a restart.
+    provider: process.env.NODE_ENV === 'production' ? 'none' : 'server',
+    fallbackToApi: false,
+    clientBundle: { scan: true },
+  },
+
 
   hooks: {
     // PDF.js (the ~490 KB library and the ~1.3 MB worker) is loaded when the
@@ -93,14 +105,19 @@ export default defineNuxtConfig({
         supportsCancellation: true,
       },
     },
-    // The same PDF.js data files for the browser viewer, same-origin
-    // (app/utils/pdf-highlight.ts PDFJS_ASSET_OPTIONS). Versioned with
-    // pdfjs-dist, so they can be cached for a day.
-    publicAssets: ['cmaps', 'standard_fonts', 'wasm', 'iccs'].map(dir => ({
-      baseURL: `/pdfjs/${dir}`,
-      dir: fileURLToPath(new URL(`./node_modules/pdfjs-dist/${dir}`, import.meta.url)),
-      maxAge: 60 * 60 * 24,
-    })),
+    publicAssets: [
+      // The same PDF.js data files for the browser viewer, same-origin
+      // (app/utils/pdf-highlight.ts PDFJS_ASSET_OPTIONS). Versioned with
+      // pdfjs-dist, so they can be cached for a day.
+      ...['cmaps', 'standard_fonts', 'wasm', 'iccs'].map(dir => ({
+        baseURL: `/pdfjs/${dir}`,
+        dir: fileURLToPath(new URL(`./node_modules/pdfjs-dist/${dir}`, import.meta.url)),
+        maxAge: 60 * 60 * 24,
+      })),
+      // The public corpus PDFs, opened from the CDN instead of signed Storage
+      // URLs (server/utils/static-pdfs.ts, ADR-0010).
+      { baseURL: '/pdfs', dir: fileURLToPath(new URL('./docs/golden/pdfs', import.meta.url)), maxAge: 60 * 60 * 24 },
+    ],
     // PDF.js CMaps (CJK / CID fonts) and standard-font data for server-side
     // extraction, bundled with the server (server/utils/pdfjs-assets.ts).
     serverAssets: [
@@ -151,6 +168,10 @@ export default defineNuxtConfig({
   routeRules: {
     // Public assets get a Cache-Control only through publicAssets.maxAge.
     '/favicon.ico': { headers: { 'cache-control': 'public, max-age=86400' } },
+    // A shared passage link carries its claim as text (&claim=), which the
+    // XSS validator would 400 for "Tier 2 < Tier 3". The page reads the
+    // claim on the client and renders it as text only.
+    '/': { security: { xssValidator: false } },
     // Questions are data, never rendered as HTML; the XSS validator would 400
     // on harmless text like "Tier 2 < Tier 3".
     // Chat spends generation + embedding quota (Groq free tier: 1K req/day),
@@ -185,8 +206,10 @@ export default defineNuxtConfig({
           // CLIENT_IP_HEADER (server/utils/quota.ts): set on every request
           // from the trusted client IP by server/plugins/client-ip.ts.
           ipHeader: 'x-truthbase-client-ip',
-          // INTERNAL_CLIENT: the server's own local fetches during SSR (Nuxt
-          // Icon), which would otherwise share one bucket for all visitors.
+          // INTERNAL_CLIENT: the server's own local fetches during SSR (the
+          // documents listing) when no trusted IP header names the visitor,
+          // which would otherwise share one bucket for all visitors. On Vercel
+          // the visitor's header is forwarded, and the listing counts for them.
           whiteList: ['internal'],
           // One small entry per client and rule; LRU-evicted past this.
           driver: { name: 'lruCache', options: { max: 10_000 } },

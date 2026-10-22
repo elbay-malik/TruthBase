@@ -24,6 +24,27 @@ export function tidySegments(segments: AnswerSegment[]): AnswerSegment[] {
   })
 }
 
+/** A bracket citation still streaming in: "[", "[1", "[1, 2", "[3–". */
+const PARTIAL_BRACKET = /^\[[\d\s,，\-–]*$/
+
+/**
+ * The answer's tail without a citation marker that is still streaming in
+ * ("… tree [1", "… tree 【2†"), and without the whitespace before it. It runs
+ * on every streamed token, so it stays linear: the single regex
+ * /\s*(?:\[[\d\s,，\-–]*|【[^】]*)$/ backtracks quadratically on a long run of
+ * whitespace and could freeze the tab on a pathological answer.
+ */
+export function dropPartialMarker(text: string): string {
+  const starts: number[] = []
+  // A later "[" would be inside the marker, which no partial marker allows.
+  const bracket = text.lastIndexOf('[')
+  if (bracket >= 0 && PARTIAL_BRACKET.test(text.slice(bracket))) starts.push(bracket)
+  // Any "【" after the last "】" starts an unclosed marker; the earliest one counts.
+  const lenticular = text.indexOf('【', text.lastIndexOf('】') + 1)
+  if (lenticular >= 0) starts.push(lenticular)
+  return starts.length ? text.slice(0, Math.min(...starts)).trimEnd() : text
+}
+
 /**
  * Splits segments into lines, then groups them: consecutive list lines make a
  * list (numbered when the first one is), a blank line ends a paragraph, and
@@ -69,6 +90,15 @@ export function answerBlocks(segments: AnswerSegment[]): AnswerBlock[] {
     open.lines.push(line)
   }
   return blocks
+}
+
+/**
+ * The chunk id a shared link carries (?chunk=), when it is one: letters,
+ * digits, "_" and "-". It goes into an API path, where "../health" would
+ * fetch another route.
+ */
+export function sharedChunkId(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[\w-]+$/.test(value) ? value : undefined
 }
 
 /** Longest claim a shared link carries, in characters. */

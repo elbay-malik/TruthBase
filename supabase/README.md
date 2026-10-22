@@ -17,10 +17,10 @@ Applied in filename (timestamp) order:
 | `migrations/20261016203914_init_documents_chunks.sql` | `vector` extension, `documents` + `chunks` tables (RLS on, no policies), GIN + HNSW(cosine) + FK indexes |
 | `migrations/20261016203928_hybrid_search.sql` | `hybrid_search(...)` RPC — RRF fusion of the two arms, optional single-document filter, returns the fused `score`; executable by `service_role` only |
 | `migrations/20261016203929_keep_alive.sql` | `keep_alive` table + RLS read policy for the anti-pause ping |
-| `migrations/20261016205210_documents_bucket.sql` | Private `documents` Storage bucket (PDF only, 20 MB limit) for ingested PDFs; served through short-lived signed URLs (Phase 3) |
+| `migrations/20261016205210_documents_bucket.sql` | Private `documents` Storage bucket (PDF only, 20 MB limit) for ingested PDFs; served through short-lived signed URLs (Phase 3), except the public corpus, which the viewer opens from `/pdfs` ([ADR-0010](../docs/adr/0010-abuse-protection.md)) |
 | `migrations/20261019120000_hybrid_search_v2.sql` | Phase 6 `hybrid_search` v2: OR'ed keyword terms, tuned defaults (keyword weight 0.5, k 60, 40 candidates per arm), exact-scan semantic arm, deterministic ties ([ADR-0006](../docs/adr/0006-hybrid-search.md)) |
-| `migrations/20261020120000_usage_quota.sql` | Phase 11 `usage_counters` table + `consume_quotas(...)` RPC: daily per-client and global caps, all-or-nothing increments; `service_role` only ([ADR-0010](../docs/adr/0010-abuse-protection.md)). Without it the quota check fails open with a warning per request |
-| `migrations/20261021120000_burst_quota.sql` | Phase 14 `burst_counters` table; `consume_quotas(...)` gains `p_windows` (seconds per counter: 86400 = the UTC day, 1..3600 = a clock-aligned window) for the per-minute limits shared by all serverless instances. A 3-argument call still counts per day ([ADR-0011](../docs/adr/0011-deployment-topology.md)). Apply it before deploying the Phase 14 code, or the quota check fails open |
+| `migrations/20261020120000_usage_quota.sql` | Phase 11 `usage_counters` table + `consume_quotas(...)` RPC: daily per-client and global caps, all-or-nothing increments; `service_role` only ([ADR-0010](../docs/adr/0010-abuse-protection.md)). Without it chat and search answer 503 |
+| `migrations/20261021120000_burst_quota.sql` | Phase 14 `burst_counters` table; `consume_quotas(...)` gains `p_windows` (seconds per counter: 86400 = the UTC day, 1..3600 = a clock-aligned window) for the per-minute limits shared by all serverless instances. A 3-argument call still counts per day ([ADR-0011](../docs/adr/0011-deployment-topology.md)). Apply it before deploying the Phase 14 code, or chat and search answer 503 |
 
 ## How to apply
 

@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
   event.node.res.on('close', () => {
     if (!event.node.res.writableFinished) abort.abort()
   })
+  assertSameSiteJson(event)
   const { question, documentId } = await readValidatedBody(event, chatRequestSchema.parse)
   const config = useRuntimeConfig(event)
   if (!config.geminiApiKey) {

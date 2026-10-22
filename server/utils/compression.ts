@@ -32,8 +32,18 @@ export function pickEncoding(acceptEncoding: string | undefined): Encoding | und
 const isPlainJson = (body: unknown): body is object =>
   Array.isArray(body) || (body !== null && typeof body === 'object' && Object.getPrototypeOf(body) === Object.prototype)
 
+/**
+ * Nuxt's error handler renders the error page by fetching this route itself,
+ * reads the result with res.text() and copies its headers onto the real
+ * response. A compressed body would reach the browser as mangled text under a
+ * Content-Encoding header, so a 404 or 500 page failed to decode. The handler
+ * sends the real response itself, uncompressed.
+ */
+const NUXT_ERROR_RENDER = '/__nuxt_error'
+
 /** Compresses `response.body` in place when it is HTML or (unless `json: false`) JSON text. */
 export async function compressResponse(event: H3Event, response: { body?: unknown }, options: { json?: boolean } = {}) {
+  if (event.path.startsWith(NUXT_ERROR_RENDER)) return
   const json = options.json ?? true
   let text: string
   if (typeof response.body === 'string') {

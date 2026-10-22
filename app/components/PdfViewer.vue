@@ -4,8 +4,9 @@ import type { SourceRef } from '#shared/types/chat'
 import type { Box } from '~/utils/pdf-highlight'
 import { documentInfo, pageName, passageText } from '~/utils/corpus'
 
-// The PDF pane (Phase 5, WIREFRAMES §3). Loads a document from a short-lived
-// signed URL (cached across mounts, app/utils/pdf-documents.ts), lays out every
+// The PDF pane (Phase 5, WIREFRAMES §3). Loads a document from the URL its
+// file route gives: a static file for the public corpus, otherwise a short-lived
+// signed URL (cached across mounts, app/utils/pdf-documents.ts). Lays out every
 // page at its real size, renders only pages near the viewport, and scrolls a
 // citation's highlight into view. Browser only — mount inside <ClientOnly>.
 // `layout="sheet"` is the phone variant (WIREFRAMES §6): close button in the

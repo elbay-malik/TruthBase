@@ -16,9 +16,12 @@ import { trustedIpHeader } from './platform'
 // serverless instances. nuxt-security's in-memory limiter applies the same
 // per-minute numbers first, per instance, without a database round trip.
 // Client IPs (one per IPv4 address or IPv6 /64) are stored only as an HMAC
-// keyed with the service key. If the counter store fails, the request goes
-// through (fail open): the in-memory limiter still applies, and a Supabase
-// outage breaks retrieval anyway.
+// keyed with the service key. If the counter store is down (no answer, or a
+// 5xx), the request goes through (fail open): the in-memory limiter still
+// applies, and a Supabase outage breaks retrieval anyway. Any other failure
+// (a missing or changed consume_quotas, a revoked grant, a rejected key) is a
+// deploy or configuration error that would otherwise lift every cap without
+// anyone noticing, so the route refuses with a 503 until it is fixed.
 
 export type QuotaResource = 'chat' | 'search'
 
@@ -77,8 +80,8 @@ export function clientIp(event: H3Event, trustedHeader: string): string {
   }
   const socket = event.node.req.socket?.remoteAddress
   // No socket: Nitro's local fetch, a server-side render calling its own API
-  // without the visitor's headers (Nuxt Icon's /api/_nuxt_icon). Not a
-  // visitor, so not a proxy problem either.
+  // (the documents listing) with no trusted header to read. Not a visitor, so
+  // not a proxy problem either.
   if (!socket) return INTERNAL_CLIENT
   if (trustedHeader) {
     warnOnce('header', `[quota] ${trustedHeader} is missing on a request: using the socket address (is the origin reachable without the proxy?)`)
@@ -135,11 +138,12 @@ export function quotaMessage(resource: QuotaResource, blocked: 'minute' | 'clien
 /**
  * Consumes one unit of this minute's per-client limit and of today's
  * per-client and global quota for `resource`, all or none, or throws a 429.
- * A limit below 1 closes the resource.
+ * A limit below 1 closes the resource. Throws a 503 when the counter store
+ * answers but rejects the call (see the comment at the top).
  */
 export async function enforceQuota(event: H3Event, supabase: SupabaseClient, resource: QuotaResource, limits: QuotaLimits, options: { trustedIpHeader: string, secret: string }): Promise<void> {
   const key = clientKey(options.secret, clientIp(event, options.trustedIpHeader))
-  const { data, error } = await supabase.rpc('consume_quotas', {
+  const { data, error, status } = await supabase.rpc('consume_quotas', {
     p_scopes: [`${resource}:minute`, `${resource}:client`, `${resource}:global`],
     p_keys: [key, key, 'all'],
     p_limits: [limits.perMinute, limits.perClient, limits.global],
@@ -147,8 +151,18 @@ export async function enforceQuota(event: H3Event, supabase: SupabaseClient, res
   })
   const row = (data as { allowed: boolean, blocked_scope: string | null }[] | null)?.[0]
   if (error || !row) {
-    console.warn(`[quota] ${resource}: counter store unavailable, allowing the request: ${error?.message ?? 'no result'}`)
-    return
+    const reason = `${error?.message ?? 'no result'} (HTTP ${status})`
+    // Status 0: no response at all (network error, the 15 s fetch timeout).
+    if (status === 0 || status >= 500) {
+      console.error(`[quota] ${resource}: counter store unavailable, allowing the request: ${reason}`)
+      return
+    }
+    console.error(`[quota] ${resource}: consume_quotas failed, refusing the request: ${reason}`)
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Service Unavailable',
+      message: `The demo can't check its usage limits right now, so ${resource === 'chat' ? 'questions are' : 'search is'} paused. Please try again later.`,
+    })
   }
   if (row.allowed) return
 

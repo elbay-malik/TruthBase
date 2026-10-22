@@ -5,12 +5,13 @@
 //
 // 1. The function config Nitro writes (.vc-config.json): Node 24, the Dublin
 //    region, maxDuration, streaming and cancellation.
-// 2. The static output: the PDF.js data files for the viewer, and no prebuilt
-//    .br/.gz sidecars (Vercel's CDN compresses itself).
+// 2. The static output: the PDF.js data files for the viewer, the corpus PDFs,
+//    and no prebuilt .br/.gz sidecars (Vercel's CDN compresses itself).
 // 3. The server assets bundled into the function (PDF.js CMaps and fonts).
 // 4. The function itself, booted as a Node listener the way Vercel's Node
 //    launcher calls it, with VERCEL=1 and no secrets: the page with its
-//    security headers, /api/health, and the routes refusing politely.
+//    security headers, /api/health, an error page that decodes, no icon
+//    endpoint, and the routes refusing politely.
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
@@ -55,6 +56,12 @@ for (const file of ['pdfjs/cmaps/UniJIS-UTF16-H.bcmap', 'pdfjs/standard_fonts/Fo
   check(existsSync(join(STATIC, file)), `static/${file}`)
 }
 check(readdirSync(join(STATIC, '_nuxt')).some(f => f.endsWith('.js')), 'static/_nuxt has the client bundle')
+// The corpus PDFs the viewer opens from the CDN (server/utils/static-pdfs.ts), as in the repo.
+const PDFS = resolve(import.meta.dirname, '../docs/golden/pdfs')
+for (const name of readdirSync(PDFS).filter(f => f.endsWith('.pdf'))) {
+  const file = join(STATIC, 'pdfs', name)
+  check(existsSync(file) && readFileSync(file).equals(readFileSync(join(PDFS, name))), `static/pdfs/${name}`)
+}
 const sidecars: string[] = []
 const walk = (dir: string) => {
   for (const entry of readdirSync(dir)) {
@@ -111,6 +118,21 @@ try {
 
   const chat = await fetch(`${base}/api/chat`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: 'What is the CSF?' }) })
   check(chat.status === 503, `POST /api/chat is 503 without secrets (got ${chat.status})`)
+
+  // Other sites can't spend the quota: no simple (preflight-free) bodies, no cross-site requests.
+  const form = await fetch(`${base}/api/chat`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'question=What+is+the+CSF%3F' })
+  check(form.status === 415, `POST /api/chat with a form body is 415 (got ${form.status})`)
+  const crossSite = await fetch(`${base}/api/search`, { method: 'POST', headers: { 'content-type': 'application/json', 'sec-fetch-site': 'cross-site' }, body: JSON.stringify({ query: 'CSF' }) })
+  check(crossSite.status === 403, `a cross-site POST /api/search is 403 (got ${crossSite.status})`)
+
+  // The error page is rendered by an internal request; it must not arrive double-handled.
+  const missing = await fetch(`${base}/no-such-page`, { headers: { 'accept': 'text/html', 'accept-encoding': 'br, gzip' } })
+  const missingHtml = await missing.text().catch((error: Error) => `undecodable: ${error.message}`)
+  check(missing.status === 404 && missingHtml.includes('<html'), `GET /no-such-page is a 404 page that decodes (got ${missing.status}, ${missingHtml.slice(0, 60)})`)
+
+  // Icons ship in the client bundle; nothing proxies or caches icon lookups.
+  const icon = await fetch(`${base}/api/_nuxt_icon/lucide?icons=x`)
+  check(icon.status === 404, `no /api/_nuxt_icon endpoint (got ${icon.status})`)
 
   check(!warnings.some(w => w.includes('NUXT_TRUSTED_IP_HEADER is unset') || w.includes('is missing on a request')), 'client IP comes from x-vercel-forwarded-for without NUXT_TRUSTED_IP_HEADER')
 }

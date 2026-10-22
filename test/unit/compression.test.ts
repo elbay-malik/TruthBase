@@ -4,8 +4,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 // server/utils/compression.ts uses Nitro's auto-imported h3 helpers; stub them
 // with minimal fakes (h3 isn't resolvable from the unit project).
-type FakeEvent = { req: Record<string, string>, res: Record<string, string | undefined> }
-const fakeEvent = (req: Record<string, string> = {}, res: Record<string, string | undefined> = {}): FakeEvent => ({ req, res })
+type FakeEvent = { path: string, req: Record<string, string>, res: Record<string, string | undefined> }
+const fakeEvent = (req: Record<string, string> = {}, res: Record<string, string | undefined> = {}, path = '/'): FakeEvent => ({ path, req, res })
 
 beforeAll(() => {
   vi.stubGlobal('getRequestHeader', (event: FakeEvent, name: string) => event.req[name])
@@ -97,6 +97,14 @@ describe('compressResponse', () => {
     await compressResponse(asEvent(plain), page)
     expect(page.body).toBe(html)
     expect(plain.res.vary).toBe('Accept-Encoding')
+  })
+
+  it('leaves Nuxt\'s internal error-page render alone, which the error handler re-reads as text', async () => {
+    const event = fakeEvent({ 'accept-encoding': 'br' }, { 'content-type': 'text/html;charset=utf-8' }, '/__nuxt_error?url=%2Fmissing&statusCode=404')
+    const response: { body?: unknown } = { body: html }
+    await compressResponse(asEvent(event), response)
+    expect(response.body).toBe(html)
+    expect(event.res['content-encoding']).toBeUndefined()
   })
 
   it('passes streams, errors, other types and encoded bodies through', async () => {

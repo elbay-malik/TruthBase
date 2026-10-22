@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
   event.node.res.on('close', () => {
     if (!event.node.res.writableFinished) abort.abort()
   })
+  assertSameSiteJson(event)
   const { query, documentId, topK } = await readValidatedBody(event, searchRequestSchema.parse)
   const config = useRuntimeConfig(event)
   if (!config.geminiApiKey) {

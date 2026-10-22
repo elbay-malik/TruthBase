@@ -3,7 +3,7 @@ import type { ChatMessage, SourceRef } from '#shared/types/chat'
 import { claimSentence, isRefusal, looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '#shared/utils/citations'
 import type { AnswerSegment } from '#shared/utils/citations'
 import { MAX_QUESTION_LENGTH } from '#shared/limits'
-import { answerBlocks, cleanClaim, tidySegments } from '~/utils/answer'
+import { answerBlocks, cleanClaim, dropPartialMarker, sharedChunkId, tidySegments } from '~/utils/answer'
 import { documentInfo, pageName, passageText, sourceName } from '~/utils/corpus'
 import { loadDocument } from '~/utils/pdf-documents'
 import { loadPdfjs } from '~/utils/pdf-highlight'
@@ -360,7 +360,7 @@ function displaySegments(message: ChatMessage): AnswerSegment[] {
     if (segment.type !== 'text') return [segment]
     let text = segment.text
     if (segments[i + 1]?.type === 'cite') text = text.trimEnd()
-    if (i === segments.length - 1) text = text.replace(/\s*(?:\[[\d\s,，\-–]*|【[^】]*)$/, '')
+    if (i === segments.length - 1) text = dropPartialMarker(text)
     return text ? [{ type: 'text', text }] : []
   }))
 }
@@ -649,7 +649,9 @@ const passageLink = computed(() => {
   if (!sharedChunk.value || !import.meta.client) return undefined
   const url = new URL('/', window.location.origin)
   url.searchParams.set('chunk', sharedChunk.value)
-  if (sharedClaim.value) url.searchParams.set('claim', cleanClaim(sharedClaim.value))
+  // Only an answer's own sentence. A claim that came with a link is the
+  // sender's, and passing it on would credit it to whoever forwards the link.
+  if (targetKind.value === 'citation' && sharedClaim.value) url.searchParams.set('claim', cleanClaim(sharedClaim.value))
   return url.href
 })
 
@@ -661,7 +663,7 @@ watch(sharedChunk, (id) => {
   const url = new URL(window.location.href)
   if (id) url.searchParams.set('chunk', id)
   else url.searchParams.delete('chunk')
-  // The address bar carries the passage only; Copy link adds the claim.
+  // The address bar carries the passage only; Copy link adds an answer's claim.
   url.searchParams.delete('claim')
   if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
 })
@@ -670,8 +672,8 @@ const isActive = (message: ChatMessage, index: number) =>
   active.value?.messageId === message.id && active.value.index === index
 
 onMounted(async () => {
-  const chunk = route.query.chunk
-  if (typeof chunk !== 'string') return
+  const chunk = sharedChunkId(route.query.chunk)
+  if (!chunk) return
   try {
     const source = await $fetch(`/api/chunks/${chunk}`)
     const claim = route.query.claim

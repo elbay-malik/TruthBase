@@ -1,0 +1,22 @@
+# A plain `vercel deploy` uploads the working directory as the deployment's
+# source, and the CLI does not read .gitignore. Keep secrets and local state
+# out of it. Deploy through git or `vercel deploy --prebuilt`
+# (docs/DEPLOYMENT.md).
+.env
+.env.*
+!.env.example
+.claude
+.impeccable
+.vercel
+.output
+.nuxt
+.nitro
+.data
+.cache
+dist
+node_modules
+logs
+*.log
+coverage
+playwright-report
+test-results

@@ -8,8 +8,9 @@ import { STUB_ORIGIN } from './ports'
 
 // Hermetic API for the E2E suite: every /api/* request the browser makes is
 // answered here from repo fixtures (page.route), so no Supabase, Groq or
-// Gemini key is needed. The server only renders the page; its SSR call to
-// GET /api/documents, and the signed PDF URLs, reach ./supabase-stub.ts.
+// Gemini key is needed. The server renders the page and serves the corpus
+// PDFs from /pdfs, as in production; its SSR call to GET /api/documents, and
+// the signed PDF URLs a stalled download uses, reach ./supabase-stub.ts.
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const fixture = (path: string) => readFileSync(join(ROOT, 'test/fixtures', path))
@@ -160,24 +161,31 @@ export interface MockApi {
   chat: ChatHandler
   /** PDF downloads fail with a 500 while set. */
   pdfDown: boolean
-  /** Signed URLs whose full download stalls after 64 KB (PDF.js then loads by range). */
+  /**
+   * PDFs come from the stub's signed Storage URLs (cross-origin, as for a
+   * document outside the corpus), and the full download stalls after 64 KB,
+   * so PDF.js loads by range. Otherwise they come from the build's /pdfs.
+   */
   pdfStall: boolean
   /** Requests to /api/* no fixture answers (each one fails the test). */
   unexpected: string[]
   /** Questions sent to /api/chat. */
   questions: string[]
-  /** Status of each response from the signed PDF URLs (200 the stream, 206 a range). */
+  /** Status of each PDF response, from /pdfs or the signed URLs (200 the stream, 206 a range). */
   pdfStatuses: number[]
 }
 
 /** Supabase Storage's signed-URL path, on the stub's origin (cross-origin, ranged). */
 const SIGNED_PDF = '/storage/v1/object/sign/pdfs/'
+/** Where the build serves the corpus PDFs (server/utils/static-pdfs.ts). */
+const STATIC_PDF = '/pdfs/'
+const isPdf = (url: URL) =>
+  (url.origin === STUB_ORIGIN && url.pathname.startsWith(SIGNED_PDF)) || (url.origin !== STUB_ORIGIN && url.pathname.startsWith(STATIC_PDF))
 
 async function installApi(page: Page, api: MockApi) {
   // Registered first, so every more specific route below takes precedence.
+  // Icons are in the client bundle, so an icon request counts as unexpected too.
   await page.route(url => url.pathname.startsWith('/api/'), (route) => {
-    // @nuxt/icon's bundled icon data: served by the build itself, no secrets.
-    if (new URL(route.request().url()).pathname.startsWith('/api/_nuxt_icon/')) return route.fallback()
     api.unexpected.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`)
     return route.fulfill({ status: 500, json: { statusCode: 500, message: 'No E2E fixture for this request.' } })
   })
@@ -187,12 +195,15 @@ async function installApi(page: Page, api: MockApi) {
     const id = new URL(route.request().url()).pathname.split('/')[3]
     const document = DOCUMENTS.find(d => d.id === id)
     if (!document) return route.fulfill({ status: 404, json: { statusCode: 404, message: 'No such document.' } })
-    const url = `${STUB_ORIGIN}${SIGNED_PDF}${encodeURIComponent(document.filename)}?token=e2e${api.pdfStall ? '&stall=1' : ''}`
-    return route.fulfill({ json: { url, expiresAt: new Date(Date.now() + 12 * 60_000).toISOString() }, headers: { 'cache-control': 'no-store' } })
+    const headers = { 'cache-control': 'no-store' }
+    // As the route answers for the corpus: a static file on the page's origin.
+    if (!api.pdfStall) return route.fulfill({ json: { url: `${STATIC_PDF}${encodeURIComponent(document.filename)}` }, headers })
+    const url = `${STUB_ORIGIN}${SIGNED_PDF}${encodeURIComponent(document.filename)}?token=e2e&stall=1`
+    return route.fulfill({ json: { url, expiresAt: new Date(Date.now() + 12 * 60_000).toISOString() }, headers })
   })
-  // The PDF bytes come from the stub (Accept-Ranges, CORS); only an outage is simulated here.
-  await page.route(url => url.origin === STUB_ORIGIN && url.pathname.startsWith(SIGNED_PDF), (route) => {
-    if (api.pdfDown) return route.fulfill({ status: 500, body: 'Storage unavailable', headers: { 'access-control-allow-origin': '*' } })
+  // The PDF bytes come from the build or the stub (Accept-Ranges, CORS); only an outage is simulated here.
+  await page.route(isPdf, (route) => {
+    if (api.pdfDown) return route.fulfill({ status: 500, body: 'PDF unavailable', headers: { 'access-control-allow-origin': '*' } })
     return route.fallback()
   })
   await page.route(url => /^\/api\/chunks\/[^/]+$/.test(url.pathname), (route) => {
@@ -233,7 +244,7 @@ export const test = base.extend<{ api: MockApi, fakeWorker: { used: boolean } }>
     }
     await installApi(page, api)
     page.on('response', (response) => {
-      if (response.url().startsWith(`${STUB_ORIGIN}${SIGNED_PDF}`)) api.pdfStatuses.push(response.status())
+      if (isPdf(new URL(response.url()))) api.pdfStatuses.push(response.status())
     })
     await use(api)
     expect(api.unexpected, 'requests to /api/* without a fixture').toEqual([])

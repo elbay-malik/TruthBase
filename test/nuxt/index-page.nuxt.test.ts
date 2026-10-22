@@ -485,8 +485,9 @@ describe('index page', () => {
     expect(shared.text()).toContain('NIST CSF 2.0 · p. iii (PDF 4)')
     expect(shared.text()).toContain('“Backups are verified.”')
     expect(shared.text()).toContain('TruthBase didn’t write or check it')
-    expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c9&claim=Backups+are+verified.`)
-    // The address bar keeps the passage only; Copy link adds the claim back.
+    // Copy link passes the passage on, not the sender's claim, which the next
+    // reader would credit to whoever forwarded the link.
+    expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c9`)
     expect(new URL(window.location.href).searchParams.has('claim')).toBe(false)
   })
 

@@ -2,7 +2,7 @@
   "name": "truthbase",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@11.10.0",
+  "packageManager": "pnpm@11.28.5",
   "engines": {
     "node": "24.x"
   },

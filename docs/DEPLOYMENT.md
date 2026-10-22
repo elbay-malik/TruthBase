@@ -2,7 +2,7 @@
 
 How TruthBase goes live, and how to check and roll back a deploy. The reasons behind each choice are in [ADR-0011](./adr/0011-deployment-topology.md).
 
-**Topology:** one Vercel Function (Node.js 24, Fluid compute, region `dub1`) serves SSR and `/api/*`. Vercel's CDN serves `/_nuxt`, `/pdfjs` and `favicon.ico`. Supabase (AWS eu-west-1) holds the corpus, the PDFs and the quota counters. Groq and Gemini answer, and Langfuse traces. Ingestion runs from the operator's machine.
+**Topology:** one Vercel Function (Node.js 24, Fluid compute, region `dub1`) serves SSR and `/api/*`. Vercel's CDN serves `/_nuxt`, `/pdfjs`, the corpus PDFs at `/pdfs` and `favicon.ico`. Supabase (AWS eu-west-1) holds the corpus index, the original PDFs and the quota counters. Groq and Gemini answer, and Langfuse traces. Ingestion runs from the operator's machine.
 
 ## 0. Before the first deploy
 
@@ -14,7 +14,7 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
 
    This builds `.vercel/output` and checks the function config, the static files and the server assets. It then boots the function with `VERCEL=1` and no secrets. CI job `build-vercel` runs the same checks.
 
-2. **Apply the database migrations** to the hosted project, in filename order, before the new code goes live. First check which ones it already has (`supabase migration list` after `supabase link`, or the dashboard's Database → Migrations); the first four are in its history, the Phase 6 and Phase 11 ones (`20261019120000_hybrid_search_v2.sql`, `20261020120000_usage_quota.sql`) may or may not be. Apply only the missing ones. `20261021120000_burst_quota.sql` must exist before the Phase 14 code serves traffic. Without it, the chat and search quota checks fail open and log a warning on every request (ADR-0010 item 5). Use the SQL Editor, or `supabase db push` after `supabase link` ([supabase/README.md](../supabase/README.md#how-to-apply)). Then run `supabase/tests/usage_quota.sql` and `supabase/tests/burst_quota.sql` in the SQL Editor. Each prints `NOTICE … passed` and rolls back.
+2. **Apply the database migrations** to the hosted project, in filename order, before the new code goes live. First check which ones it already has (`supabase migration list` after `supabase link`, or the dashboard's Database → Migrations); the first four are in its history, the Phase 6 and Phase 11 ones (`20261019120000_hybrid_search_v2.sql`, `20261020120000_usage_quota.sql`) may or may not be. Apply only the missing ones. `20261021120000_burst_quota.sql` must exist before the Phase 14 code serves traffic. Without it, chat and search answer 503 (ADR-0010 item 5). Use the SQL Editor, or `supabase db push` after `supabase link` ([supabase/README.md](../supabase/README.md#how-to-apply)). Then run `supabase/tests/usage_quota.sql` and `supabase/tests/burst_quota.sql` in the SQL Editor. Each prints `NOTICE … passed` and rolls back.
 
 3. **Ingest the corpus** with the local CLI. It uses the same pipeline as `/api/ingest`, and talks directly to the hosted Supabase project in `.env`:
 
@@ -28,7 +28,7 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
 ## 1. Create the Vercel project
 
 1. On vercel.com (Hobby), choose **Add New → Project** and import the GitHub repo. The repo is owned by a personal account, which Hobby requires.
-2. **Framework preset:** Nuxt.js (auto-detected). Leave the build command, output directory and root directory at their defaults. `vercel.json` sets the install command to `corepack pnpm install --frozen-lockfile`, so pnpm 11.10.0 from `packageManager` installs the lockfile. Nitro sees `VERCEL=1` and builds its vercel preset into `.vercel/output`.
+2. **Framework preset:** Nuxt.js (auto-detected). Leave the build command, output directory and root directory at their defaults. `vercel.json` sets the install command to `corepack pnpm install --frozen-lockfile`, so pnpm 11.28.5 from `packageManager` installs the lockfile. Nitro sees `VERCEL=1` and builds its vercel preset into `.vercel/output`.
 3. **Region:** nothing to set. The function config (`nitro.vercel.functions` in `nuxt.config.ts`) pins `dub1` next to Supabase eu-west-1. Project → Settings → Functions may still show the account default region. The build output takes precedence; check the deployment's function region (section 3).
 4. **Node.js version:** 24.x. `engines.node` and the function config both select it.
 5. **Environment variables** (Project → Settings → Environment Variables), for Production and Preview. Names only; the values come from your `.env` and the provider dashboards. [.env.example](../.env.example) documents each one.
@@ -47,16 +47,18 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
    | `NUXT_QUOTA_CHAT_PER_MINUTE`, `NUXT_QUOTA_CHAT_PER_CLIENT`, `NUXT_QUOTA_CHAT_GLOBAL` | optional | default 10 / 30 / 80 |
    | `NUXT_QUOTA_SEARCH_PER_MINUTE`, `NUXT_QUOTA_SEARCH_PER_CLIENT`, `NUXT_QUOTA_SEARCH_GLOBAL` | optional | default 30 / 100 / 300 |
    | `NUXT_INGEST_TOKEN` | **do not set** | ingestion stays on the CLI |
-   | `ENABLE_EXPERIMENTAL_COREPACK` | only if needed | `1`, if the build log shows a pnpm other than 11.10.0 |
+   | `ENABLE_EXPERIMENTAL_COREPACK` | only if needed | `1`, if the build log shows a pnpm other than 11.28.5 |
 
    Preview deployments share the hosted Supabase project and the free model quotas with Production, and the global daily budget counts both. Set lower `NUXT_QUOTA_*` values on Preview, or keep previews private (the default Vercel Authentication for previews).
 
-6. **Deploy.** The first build log should show `pnpm 11.10.0`, `nitro … vercel`, and `You can deploy this build using npx vercel deploy --prebuilt`.
+6. **Deploy.** The first build log should show `pnpm 11.28.5`, `nitro … vercel`, and `You can deploy this build using npx vercel deploy --prebuilt`.
+
+   Deploy only through git (a push to `main`) or `vercel deploy --prebuilt`, which uploads just `.vercel/output`. A plain `vercel deploy` uploads the working directory as the deployment's source, readable later by anyone with access to the Vercel team. `.vercelignore` keeps `.env` and local state out of it. One CLI deploy on 2026-10-21 happened before that file existed and stored `.env`. That deployment has to be deleted and every key in it rotated (section 6).
 
 ## 2. Optional extras
 
 - **Keep-alive check of the app:** set the repo variable `DEPLOY_URL` (GitHub → Settings → Secrets and variables → Actions → Variables) to the production URL. `keep-alive.yml` then also checks `/api/health` twice a week. The Supabase ping, which keeps the database awake, needs nothing new.
-- **Vercel WAF rate limit:** Hobby has one rate-limit rule per project. Burst limits are already enforced in Postgres for every instance. If bots hammer the site, a rule such as "path starts with `/api/` → 60 requests / 60 s per IP → 429" stops them before they cost a function invocation.
+- **Vercel WAF rate limit:** Hobby has one rate-limit rule per project. Burst limits are already enforced in Postgres for every instance. If bots hammer the site, a rule such as "path starts with `/api/` → 60 requests / 60 s per IP → 429" stops them before they cost a function invocation. The corpus PDFs at `/pdfs/` count against Fast Data Transfer instead; a rule for that path bounds repeated downloads.
 
 ## 3. Smoke checks (every production deploy, and the first preview)
 
@@ -79,6 +81,14 @@ curl -sI "$URL$(curl -s "$URL/" | grep -oE '/_nuxt/[^"]+\.js' | head -1)" | grep
 #   expect immutable cache-control. If x-content-type-options: nosniff is missing on static files,
 #   add a "headers" entry for /_nuxt/(.*) and /pdfjs/(.*) to vercel.json (ADR-0011 Consequences).
 
+# The corpus PDFs from the CDN: no Storage egress (ADR-0010).
+curl -sI "$URL/pdfs/nist-csf-2.0.pdf" | grep -iE '^(HTTP|content-type|cache-control)'
+#   expect: 200, application/pdf, max-age=86400
+
+# Error pages decode (curl exits 0), and other sites can't post to the quota routes.
+curl -s --compressed -H 'accept: text/html' -o /dev/null -w '%{http_code}\n' "$URL/no-such-page"   # 404
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -d 'question=hi' "$URL/api/chat"                  # 415
+
 # Ingestion is off: 503 before reading the body.
 curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-length: 10' --data 0123456789 "$URL/api/ingest"   # 503
 ```
@@ -86,7 +96,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-length: 10' --data 
 Then in a browser:
 
 1. **Ask → cite → highlight:** ask a golden question (e.g. "What does RC.RP-03 require?"). The answer streams with chips. Clicking a chip opens the PDF at the cited page with the highlight. Try it on a phone too.
-2. **Client IP:** in the Vercel runtime logs (kept 1 hour), there must be no `[quota] … NUXT_TRUSTED_IP_HEADER is unset` or `… is missing on a request` warning. A forged header must not change the client. Send 11 quick chats with `-H 'x-vercel-forwarded-for: 1.2.3.4'`; the 11th must still get the per-minute 429.
+2. **Client IP and quota store:** in the Vercel runtime logs (kept 1 hour), there must be no `[quota] … NUXT_TRUSTED_IP_HEADER is unset` or `… is missing on a request` warning, and no `[quota] … counter store unavailable` or `… refusing the request` error. A forged header must not change the client. Send 11 quick chats with `-H 'x-vercel-forwarded-for: 1.2.3.4'`; the 11th must still get the per-minute 429.
 3. **Per-minute limit across instances:** the 11th chat within a clock minute returns 429 with `Retry-After` ≤ 60 and the message "Too many questions in a short time …". The UI shows "Slow down a moment" with Retry.
 4. **Tracing:** with Langfuse keys set, the chat appears as one trace within a minute, including the `answer` output and `ttftMs`. If traces are missing, check the logs for `[tracing] flush failed`.
 5. **Stop / closed tab:** press Stop mid-answer. The Langfuse trace should end with `WARNING: client disconnected` and a short `totalMs`. If it runs to completion instead, Vercel isn't passing the disconnect through (`supportsCancellation`). That is acceptable (ADR-0011), but note it in TECH_NOTES.
@@ -106,3 +116,12 @@ These are the Vercel Hobby plan limits ([Hobby plan](https://vercel.com/docs/pla
 - **Monthly allotments:** 1,000,000 invocations, 4 Active CPU-hours, 360 GB-hours of provisioned memory, 100 GB Fast Data Transfer, 10 GB Fast Origin Transfer and 1,000,000 CDN requests. Past a limit, the project waits for the 30-day window instead of being billed.
 - **Per function:** 2 GB of memory and 1 vCPU, 300 s maximum duration (ours is 150 s), 4.5 MB request and response bodies, and one region.
 - **Logs and deployments:** runtime logs are kept for 1 hour, and the plan allows 100 deployments a day.
+
+## 6. Rotating a secret
+
+1. Create the new key at the provider, and keep the old one working for now: the Supabase secret key (Project Settings → API Keys), Groq, Gemini (Google AI Studio) or the Langfuse key pair. For `NUXT_INGEST_TOKEN`, any new random 64-hex string.
+2. Put it in `.env`, in the Vercel project's Production and Preview environment variables (Sensitive), and in the GitHub Actions secrets that copy it: `NUXT_SUPABASE_SERVICE_KEY`, `NUXT_GROQ_API_KEY`, `NUXT_GEMINI_API_KEY`. `NUXT_INGEST_TOKEN` goes into `.env` only; on Vercel it stays unset (section 1).
+3. Redeploy production, since environment changes reach new deployments only. Run the smoke checks (section 3), with one real chat.
+4. Revoke the old key.
+
+The service key also keys the IP HMAC (ADR-0010 item 4), so after a new one every client's daily count starts again. Older deployments keep the values they were built with, so after step 4 an Instant Rollback to one of them fails until it is redeployed.
