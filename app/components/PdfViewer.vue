@@ -31,6 +31,8 @@ const props = defineProps<{
   layout?: 'pane' | 'sheet'
   /** Sheet only: the answer's sentence that carries the open citation, shown beside the evidence. */
   claim?: string
+  /** Sheet only: the open citation's number as its chip shows it (order of first use in the answer). */
+  citationNumber?: number
   /**
    * The shareable link to the target (/?chunk=<id>), set only while it is
    * evidence (a citation or a deep link, not a "possibly related" page): the
@@ -68,8 +70,15 @@ const fitWidth = computed(() => autoZoom.value === 'width')
 const visible = ref(new Set<number>())
 const currentPage = ref(1)
 const announcement = ref('')
-/** Shows the focus ring on focus handed over from code (a citation chip), not only :focus-visible. */
+/**
+ * Shows the focus ring on focus handed over from code (a citation chip), not
+ * only :focus-visible, but only when the reader is on the keyboard: after a
+ * click or tap, a frame around the whole pane competes with the highlight.
+ */
 const focusRing = ref(false)
+let keyboardInput = false
+useEventListener('keydown', () => (keyboardInput = true), { capture: true, passive: true })
+useEventListener('pointerdown', () => (keyboardInput = false), { capture: true, passive: true })
 let observer: IntersectionObserver | undefined
 /** A page jumped to with the page buttons: it stays current while the scroller rests there. */
 let pinned: { page: number, top: number } | undefined
@@ -521,7 +530,7 @@ function onFallbackReady() {
 
 function focusScroller() {
   if (!scroller.value) return
-  focusRing.value = true
+  focusRing.value = keyboardInput
   scroller.value.focus({ preventScroll: true })
 }
 
@@ -571,17 +580,22 @@ defineExpose({ focus: focusScroller, scale, status, documentId: loadedDocumentId
         aria-label="Close document"
         @click="emit('close')"
       />
-      <h2 class="flex min-w-0 flex-1 basis-32 font-medium">
+      <!-- Sheet: the page count sits under the name, so the short name ("NIST
+           CSF 2.0") keeps the width at 390 px instead of truncating. -->
+      <h2
+        class="flex min-w-0 flex-1 basis-32 font-medium"
+        :class="{ 'flex-col items-start': sheet }"
+      >
         <USelect
           v-if="documentItems.length"
           :model-value="documentId"
           :items="documentItems"
           variant="ghost"
           :size="sheet ? 'md' : 'sm'"
-          placeholder="Choose a document"
-          aria-label="Document"
+          placeholder="Open a document"
+          aria-label="Reading"
           class="max-w-full min-w-0"
-          :class="sheet ? 'min-h-11' : '-ml-2'"
+          :class="sheet ? 'min-h-8 -mb-1' : '-ml-2'"
           :ui="{ value: 'font-medium', placeholder: 'text-muted' }"
           @update:model-value="onSelectDocument"
         />
@@ -590,15 +604,15 @@ defineExpose({ focus: focusScroller, scale, status, documentId: loadedDocumentId
           class="truncate"
           :class="{ 'px-2': sheet }"
         >{{ shortTitle }}</span>
+        <span
+          v-if="sheet && ready"
+          class="px-2.5 text-xs font-normal tabular-nums text-muted"
+        >Page {{ currentPage }} of {{ pages.length }}</span>
       </h2>
 
       <template v-if="ready">
-        <span
-          v-if="sheet"
-          class="shrink-0 px-1 tabular-nums text-muted"
-        >{{ currentPage }} / {{ pages.length }}</span>
         <div
-          v-else
+          v-if="!sheet"
           class="flex shrink-0 items-center gap-1 tabular-nums text-muted"
         >
           <UButton
@@ -860,7 +874,7 @@ defineExpose({ focus: focusScroller, scale, status, documentId: loadedDocumentId
         <span
           class="mt-0.5 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-primary px-1 font-serif text-xs font-semibold text-inverted tabular-nums"
           aria-hidden="true"
-        >{{ target.index }}</span>
+        >{{ citationNumber ?? target.index }}</span>
         <p
           :id="claimId"
           ref="claimEl"

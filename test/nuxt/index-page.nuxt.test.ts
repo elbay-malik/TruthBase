@@ -127,6 +127,31 @@ describe('index page', () => {
     expect(document.activeElement).not.toBe(box)
   })
 
+  it('numbers citations in order of first use and lays out a list answer', async () => {
+    mockChat(stream(sse([source(1, 26), source(2, 8), source(3, 10)], 'The Functions:\n- GOVERN [2] .\n- DETECT  [3]\n- RESPOND [3]\n- IDENTIFY [1]')))
+    const page = await mountPage()
+    await askQuestion(page)
+
+    // Retrieval indexes 2, 3, 3, 1 read as footnotes 1, 2, 2, 3.
+    const chips = page.findAll('button[data-cite]')
+    expect(chips.map(c => c.text())).toEqual(['1', '2', '2', '3'])
+    expect(chips[0]!.attributes('aria-label')).toBe('Citation 1: NIST CSF 2.0, page 3 (PDF page 8)')
+    const cards = page.findAll('button[aria-label^="Source "]')
+    expect(cards.map(c => c.attributes('aria-label'))).toEqual([
+      'Source 1: NIST CSF 2.0, page 3 (PDF page 8)',
+      'Source 2: NIST CSF 2.0, page 5 (PDF page 10)',
+      'Source 3: NIST CSF 2.0, page 21 (PDF page 26)',
+    ])
+    const answer = page.find('article [data-answer]')
+    expect(answer.findAll('ul > li').map(li => li.text())).toEqual(['GOVERN1.', 'DETECT2', 'RESPOND2', 'IDENTIFY3'])
+    expect(answer.text()).not.toContain('- ')
+
+    // The finished answer's first citation opens beside it (desktop), focus stays in the box.
+    expect(viewer(page).props('target')).toMatchObject({ chunkId: 'c2' })
+    expect(document.activeElement).toBe(page.find('textarea').element)
+    expect(chips[0]!.attributes('aria-current')).toBe('true')
+  })
+
   it('renders chips with short labels, no floating space, and a Sources list', async () => {
     mockChat(stream(sse([source(1, 28), source(2, null)], 'Backups are verified before restoration [1]. They are tested [2].')))
     const page = await mountPage()
@@ -138,7 +163,7 @@ describe('index page', () => {
       'Citation 2: NIST CSF 2.0, page unknown',
     ])
     expect(chips[0]!.attributes('aria-pressed')).toBeUndefined()
-    expect(page.find('article p.leading-relaxed').text()).toContain('restoration1.')
+    expect(page.find('article [data-answer]').text()).toContain('restoration1.')
     expect(page.text()).toContain('Sources')
     const cards = page.findAll('button[aria-label^="Source "]')
     expect(cards.map(c => c.attributes('aria-label'))).toEqual([
@@ -181,7 +206,7 @@ describe('index page', () => {
     await askQuestion(page)
     expect(page.text()).toContain('Answer interrupted.')
     expect(page.find('[role="status"]').text()).toBe('Answer interrupted.')
-    expect(page.find('article p.leading-relaxed').text()).not.toContain('[')
+    expect(page.find('article [data-answer]').text()).not.toContain('[')
     expect(conversation(page).findAll('button').some(b => b.text() === 'Regenerate')).toBe(true)
     expect(page.findAll('button[data-cite]')).toHaveLength(1)
   })

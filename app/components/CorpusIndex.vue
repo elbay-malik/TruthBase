@@ -100,6 +100,7 @@ const pages = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
       >
         How the highlight is checked
       </component>
+      <!-- Inline padding: the links reach the 24 px target (WCAG 2.5.8) without spacing the lines. -->
       <p class="max-w-prose text-sm text-toned">
         Highlight placement: <strong class="font-semibold tabular-nums text-highlighted">{{ HIGHLIGHT_CHECKS.passed }}/{{ HIGHLIGHT_CHECKS.total }}</strong>
         checks pass ({{ HIGHLIGHT_CHECKS.spans }} golden passages at {{ HIGHLIGHT_CHECKS.zooms }} zoom, in a real browser).
@@ -107,14 +108,14 @@ const pages = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
           :href="PROJECT_LINKS.highlightAccuracy"
           target="_blank"
           rel="noopener"
-          class="text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+          class="py-1 text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
         >Method<span class="sr-only"> (opens in a new tab)</span></a>
         ·
         <a
           :href="PROJECT_LINKS.limitations"
           target="_blank"
           rel="noopener"
-          class="text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+          class="py-1 text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
         >The {{ HIGHLIGHT_CHECKS.total - HIGHLIGHT_CHECKS.passed }} misses<span class="sr-only"> (opens in a new tab)</span></a>
       </p>
     </section>

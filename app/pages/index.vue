@@ -3,6 +3,7 @@ import type { ChatMessage, SourceRef } from '#shared/types/chat'
 import { claimSentence, isRefusal, looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '#shared/utils/citations'
 import type { AnswerSegment } from '#shared/utils/citations'
 import { MAX_QUESTION_LENGTH } from '#shared/limits'
+import { answerBlocks, tidySegments } from '~/utils/answer'
 import { documentInfo, pageName, passageText, sourceName } from '~/utils/corpus'
 import { loadDocument } from '~/utils/pdf-documents'
 import { loadPdfjs } from '~/utils/pdf-highlight'
@@ -340,18 +341,23 @@ const isStreaming = (message: ChatMessage) => busy.value && messages.value.at(-1
 
 /**
  * Segments as rendered: the space before a chip is dropped ("restoration [1]."
- * reads "restoration¹."), and so is a marker still streaming in ("[1", "【2†").
+ * reads "restoration¹."), and so is a marker still streaming in ("[1", "【2†");
+ * the space after one goes too when punctuation follows (utils/answer.ts).
  */
 function displaySegments(message: ChatMessage): AnswerSegment[] {
   const segments = segmentsOf(message)
-  return segments.flatMap((segment, i): AnswerSegment[] => {
+  return tidySegments(segments.flatMap((segment, i): AnswerSegment[] => {
     if (segment.type !== 'text') return [segment]
     let text = segment.text
     if (segments[i + 1]?.type === 'cite') text = text.trimEnd()
     if (i === segments.length - 1) text = text.replace(/\s*(?:\[[\d\s,，\-–]*|【[^】]*)$/, '')
     return text ? [{ type: 'text', text }] : []
-  })
+  }))
 }
+
+/** Each answer as paragraphs and lists, with its chips inline, by message id. */
+const answerLayout = computed(() => new Map(messages.value.map(m => [m.id, answerBlocks(displaySegments(m))])))
+const blocksOf = (message: ChatMessage) => answerLayout.value.get(message.id) ?? []
 
 /** An assistant turn with nothing to show yet (or ever: a stream that failed first). */
 const visibleMessages = computed(() => messages.value.filter(m =>
@@ -359,8 +365,24 @@ const visibleMessages = computed(() => messages.value.filter(m =>
 /** The question is out, but no answer has started. */
 const pending = computed(() => busy.value && messages.value.at(-1)?.role === 'user')
 
+/** Cited source indexes, in order of first use. */
 function citedIndexes(message: ChatMessage): Set<number> {
   return new Set(segmentsOf(message).flatMap(s => (s.type === 'cite' ? [s.index] : [])))
+}
+
+/**
+ * The number a reader sees for a cited source: its order of first use, like a
+ * footnote. The model cites retrieval indexes ("[2] … [1] … [4]"); renumbered,
+ * chip n, source card n and "Citation n of m" are the same passage.
+ */
+function citationNumber(message: ChatMessage, index: number): number {
+  return [...citedIndexes(message)].indexOf(index) + 1
+}
+
+/** An answer's cited sources, in citation-number order (the Sources list). */
+function citedSources(message: ChatMessage): SourceRef[] {
+  const sources = sourcesOf(message)
+  return [...citedIndexes(message)].flatMap(i => sources[i - 1] ?? [])
 }
 
 /** A refusal's "possibly related" passages: one row per page, at most three. */
@@ -399,7 +421,7 @@ const canHover = useMediaQuery('(hover: hover) and (pointer: fine)')
 
 function citationAriaLabel(message: ChatMessage, index: number): string {
   const source = sourcesOf(message)[index - 1]
-  return `Citation ${index}: ${source ? sourceName(source) : 'source'}`
+  return `Citation ${citationNumber(message, index)}: ${source ? sourceName(source) : 'source'}`
 }
 
 // One status line for screen readers instead of announcing every streamed token.
@@ -438,6 +460,10 @@ const viewerFilename = computed(() => documents.value.find(d => d.id === viewerD
 /** The sentence of the answer that the open citation backs (the phone sheet shows it with the evidence). */
 const viewerClaim = computed(() => targetKind.value === 'citation' && activeMessage.value && active.value
   ? claimSentence(segmentsOf(activeMessage.value), active.value.index) || undefined
+  : undefined)
+/** The open citation's number, as its chip shows it (the phone sheet's badge). */
+const viewerCitationNumber = computed(() => targetKind.value === 'citation' && activeMessage.value && active.value
+  ? citationNumber(activeMessage.value, active.value.index)
   : undefined)
 let returnFocusTo: HTMLElement | null = null
 /** Where focus goes once the phone sheet has closed (instead of its default: the element that opened it). */
@@ -508,22 +534,33 @@ const citationLabel = computed(() => {
   return `Citation ${order.indexOf(active.value.index) + 1} of ${order.length}`
 })
 
-function showInViewer(source: SourceRef, kind: 'citation' | 'link' | 'related', from?: EventTarget | null) {
+function showInViewer(source: SourceRef, kind: 'citation' | 'link' | 'related', from?: EventTarget | null, { focus = true } = {}) {
   returnFocusTo = from instanceof HTMLElement ? from : null
   targetKind.value = kind
   viewerDocumentId.value = source.documentId
   viewerTarget.value = source
   targetNonce.value++
   if (!isDesktop.value) viewerOpen.value = true
-  nextTick(() => viewer.value?.focus())
+  if (focus) nextTick(() => viewer.value?.focus())
 }
 
-function openCitation(message: ChatMessage, index: number, from?: EventTarget | null) {
+function openCitation(message: ChatMessage, index: number, from?: EventTarget | null, options?: { focus?: boolean }) {
   const source = sourcesOf(message)[index - 1]
   if (!source) return
   active.value = { messageId: message.id, index }
-  showInViewer(source, 'citation', from)
+  showInViewer(source, 'citation', from, options)
 }
+
+// Desktop: a finished answer opens its first citation beside it, so the
+// viewer never shows an earlier answer's evidence next to a new one. Focus
+// stays in the question box; phones keep the sheet closed until a chip is tapped.
+watch(busy, (now, before) => {
+  if (now || !before || !isDesktop.value) return
+  const last = messages.value.at(-1)
+  if (last?.role !== 'assistant' || error.value || refused(last) || ending.value) return
+  const first = citedIndexes(last).values().next().value
+  if (first !== undefined) openCitation(last, first, null, { focus: false })
+})
 
 /** A refusal's "possibly related" passage: its page, but no highlight — it is not evidence. */
 function openRelated(source: SourceRef, from?: EventTarget | null) {
@@ -756,52 +793,75 @@ onMounted(async () => {
               </template>
 
               <template v-else>
-                <p
+                <!-- Paragraphs and lists as the model wrote them (utils/answer.ts);
+                     chips sit inline, numbered in order of first use. -->
+                <div
                   v-if="!looksLikeRefusalPrefix(textOf(message))"
-                  class="font-serif text-[1.0625rem] leading-relaxed whitespace-pre-wrap text-highlighted"
+                  data-answer
+                  class="flex flex-col gap-3 font-serif text-[1.0625rem] leading-relaxed text-highlighted"
                 >
-                  <template
-                    v-for="(segment, i) in displaySegments(message)"
-                    :key="i"
+                  <component
+                    :is="block.type"
+                    v-for="(block, b) in blocksOf(message)"
+                    :key="b"
+                    :class="{ 'ms-5 flex list-disc flex-col gap-1.5 marker:text-muted': block.type === 'ul', 'ms-6 flex list-decimal flex-col gap-1.5 marker:text-muted marker:tabular-nums': block.type === 'ol' }"
                   >
-                    <span v-if="segment.type === 'text'">{{ segment.text }}</span>
-                    <UTooltip
-                      v-else
-                      :disabled="!canHover"
-                      ignore-non-keyboard-focus
-                      :content="{ side: 'top' }"
-                      :ui="{ content: 'h-auto max-w-[min(20rem,calc(100vw-1rem))] py-1.5' }"
+                    <component
+                      :is="block.type === 'p' ? 'span' : 'li'"
+                      v-for="(line, l) in block.type === 'p' ? block.lines : block.items"
+                      :key="l"
+                      :class="{ 'ps-0.5': block.type !== 'p' }"
                     >
-                      <template #content>
-                        <span
-                          v-if="citationTip(sourcesOf(message)[segment.index - 1])"
-                          class="flex flex-col gap-0.5"
-                        >
-                          <span class="font-medium tabular-nums">{{ citationTip(sourcesOf(message)[segment.index - 1])!.where }}</span>
-                          <span class="font-serif text-toned">“{{ citationTip(sourcesOf(message)[segment.index - 1])!.quote }}”</span>
-                        </span>
-                      </template>
-                      <UButton
-                        size="xs"
-                        :variant="isActive(message, segment.index) ? 'solid' : 'soft'"
-                        class="ml-0.5 min-w-6 cursor-pointer justify-center align-baseline font-semibold tabular-nums"
-                        :data-cite="`${message.id}-${segment.index}`"
-                        :aria-current="isActive(message, segment.index) ? 'true' : undefined"
-                        :aria-label="citationAriaLabel(message, segment.index)"
-                        @click="openCitation(message, segment.index, $event.currentTarget)"
-                        @pointerenter="warmViewer()"
-                        @focus="warmViewer()"
+                      <br v-if="block.type === 'p' && l > 0">
+                      <template
+                        v-for="(segment, i) in line"
+                        :key="i"
                       >
-                        {{ segment.index }}
-                      </UButton>
-                    </UTooltip>
-                  </template>
+                        <span v-if="segment.type === 'text'">{{ segment.text }}</span>
+                        <UTooltip
+                          v-else
+                          :disabled="!canHover"
+                          ignore-non-keyboard-focus
+                          :content="{ side: 'top' }"
+                          :ui="{ content: 'h-auto max-w-[min(20rem,calc(100vw-1rem))] py-1.5' }"
+                        >
+                          <template #content>
+                            <span
+                              v-if="citationTip(sourcesOf(message)[segment.index - 1])"
+                              class="flex flex-col gap-0.5"
+                            >
+                              <span class="font-medium tabular-nums">{{ citationTip(sourcesOf(message)[segment.index - 1])!.where }}</span>
+                              <span class="font-serif text-toned">“{{ citationTip(sourcesOf(message)[segment.index - 1])!.quote }}”</span>
+                            </span>
+                          </template>
+                          <UButton
+                            size="xs"
+                            :variant="isActive(message, segment.index) ? 'solid' : 'soft'"
+                            class="ml-0.5 min-w-6 cursor-pointer justify-center align-baseline font-semibold tabular-nums"
+                            :data-cite="`${message.id}-${segment.index}`"
+                            :aria-current="isActive(message, segment.index) ? 'true' : undefined"
+                            :aria-label="citationAriaLabel(message, segment.index)"
+                            @click="openCitation(message, segment.index, $event.currentTarget)"
+                            @pointerenter="warmViewer()"
+                            @focus="warmViewer()"
+                          >
+                            {{ citationNumber(message, segment.index) }}
+                          </UButton>
+                        </UTooltip>
+                      </template>
+                      <span
+                        v-if="isStreaming(message) && b === blocksOf(message).length - 1 && l === (block.type === 'p' ? block.lines : block.items).length - 1"
+                        class="ml-0.5 inline-block h-[1.1em] w-0.5 translate-y-[0.2em] animate-pulse bg-current motion-reduce:animate-none"
+                        aria-hidden="true"
+                      />
+                    </component>
+                  </component>
                   <span
-                    v-if="isStreaming(message)"
-                    class="ml-0.5 inline-block h-[1.1em] w-0.5 translate-y-[0.2em] animate-pulse bg-current motion-reduce:animate-none"
+                    v-if="isStreaming(message) && !blocksOf(message).length"
+                    class="ml-0.5 inline-block h-[1.1em] w-0.5 animate-pulse bg-current motion-reduce:animate-none"
                     aria-hidden="true"
                   />
-                </p>
+                </div>
 
                 <!-- Rendered once the answer is complete, so it doesn't jump with every line. -->
                 <div
@@ -813,7 +873,7 @@ onMounted(async () => {
                   </h4>
                   <ol class="flex flex-col gap-2">
                     <li
-                      v-for="source in sourcesOf(message).filter(s => citedIndexes(message).has(s.index))"
+                      v-for="source in citedSources(message)"
                       :key="source.chunkId"
                     >
                       <button
@@ -821,7 +881,7 @@ onMounted(async () => {
                         class="w-full cursor-pointer rounded-md border p-3 text-left text-sm transition-colors hover:bg-muted"
                         :class="isActive(message, source.index) ? 'border-primary bg-primary/5' : 'border-default'"
                         :aria-current="isActive(message, source.index) ? 'true' : undefined"
-                        :aria-label="`Source ${source.index}: ${sourceName(source)}`"
+                        :aria-label="`Source ${citationNumber(message, source.index)}: ${sourceName(source)}`"
                         :aria-describedby="`${message.id}-source-${source.index}`"
                         @click="openCitation(message, source.index, $event.currentTarget)"
                       >
@@ -829,7 +889,7 @@ onMounted(async () => {
                           <span
                             class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm px-1 font-serif text-xs font-semibold tabular-nums"
                             :class="isActive(message, source.index) ? 'bg-primary text-inverted' : 'bg-primary/10 text-primary'"
-                          >{{ source.index }}</span>
+                          >{{ citationNumber(message, source.index) }}</span>
                           <span class="min-w-0 truncate">{{ shortName(source) }}</span>
                           <span
                             class="ms-auto shrink-0 text-xs font-normal tabular-nums"
@@ -1107,6 +1167,7 @@ onMounted(async () => {
               :initial-scale="viewerZoom"
               layout="sheet"
               :claim="viewerClaim"
+              :citation-number="viewerCitationNumber"
               @update:zoom="viewerZoom = $event"
               @select-document="selectDocument"
               @close="closeViewer"

@@ -79,15 +79,32 @@ describe('passageText', () => {
   it('drops a trailing folio only when a line sits in the bottom margin', () => {
     const content = 'a mixture of several Gaussian distributions. 3'
     expect(passageText({ filename: 'raptor.pdf', pageNumber: 3, content, highlight: highlight(500, 20) }))
-      .toBe('a mixture of several Gaussian distributions.')
-    expect(passageText({ filename: 'raptor.pdf', pageNumber: 3, content, highlight: highlight(500, 480) })).toBe(content)
-    expect(passageText({ filename: 'raptor.pdf', pageNumber: 3, content, highlight: null })).toBe(content)
+      .toBe('…a mixture of several Gaussian distributions.')
+    expect(passageText({ filename: 'raptor.pdf', pageNumber: 3, content, highlight: highlight(500, 480) })).toBe(`…${content}`)
+    expect(passageText({ filename: 'raptor.pdf', pageNumber: 3, content, highlight: null })).toBe(`…${content}`)
   })
 
   it('keeps a head-like start that is not in the top margin', () => {
     const content = 'Preprint. Type Input Output'
     expect(passageText({ filename: 'self-rag.pdf', pageNumber: 4, content, highlight: highlight(500) })).toBe(content)
     expect(passageText({ filename: 'self-rag.pdf', pageNumber: 4, content, highlight: highlight(980, 500) })).toBe('Type Input Output')
+  })
+
+  it('drops a head glued to the folio and the figure text before a caption', () => {
+    // RAPTOR p. 2, as stored: the head runs into the folio and Figure 1's labels.
+    const content = 'Published as a conference paper at ICLR 20242 3 4 51 1 23 34 55 6 87 Index #8 Text: summary of nodes 2 and 3 Child Nodes: 2, 3 Text Embedding Text chunks 3 .1 4 .1 5 2. Summarization by LLM 1. Clustering 10 7 1 2 8 43 5 6 9 Formation of one tree layer Root layer Leaf layer Contents of a nodeRAPTOR Tree Figure 1: Tree construction process: RAPTOR recursively clusters chunks of text.'
+    expect(passageText({ filename: 'raptor.pdf', pageNumber: 2, content, highlight: highlight(960, 500) }))
+      .toBe('Figure 1: Tree construction process: RAPTOR recursively clusters chunks of text.')
+  })
+
+  it('keeps prose that leads into a caption', () => {
+    const content = 'The results in 2023 improved on all 3 tasks, as Table 2. shows for each model.'
+    expect(passageText({ filename: 'raptor.pdf', pageNumber: 5, content, highlight: highlight(500) })).toBe(content)
+  })
+
+  it('marks a passage that starts mid-sentence', () => {
+    expect(passageText({ filename: 'nist-csf-2.0.pdf', pageNumber: 9, content: 'NIST CSWP 29 The NIST Cybersecurity Framework (CSF) 2.0 February 26, 2024 4 improvement opportunities for the organization', highlight: highlight(970, 500) }))
+      .toBe('…improvement opportunities for the organization')
   })
 
   it('leaves unknown documents and furniture-only chunks as they are', () => {

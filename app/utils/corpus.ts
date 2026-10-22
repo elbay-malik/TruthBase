@@ -152,7 +152,8 @@ export function passageText(source: PassageSource): string {
   })
   const folio = source.pageNumber ? folioOf(source.filename, source.pageNumber) : undefined
 
-  const head = info.runningHead?.find(head => text === head || text.startsWith(`${head} `))
+  // PDF.js can glue the head to the next item: "…ICLR 2024" + "2 3 4" reads "…ICLR 20242 3 4".
+  const head = info.runningHead?.find(head => text === head || text.startsWith(`${head} `) || (!!h && new RegExp(`^${escapeRegExp(head)}\\d`).test(text)))
   if (head && (!h || inBand('top'))) {
     text = text.slice(head.length).trimStart()
     // Folios at the foot of the page can come right after the head in reading order.
@@ -161,7 +162,32 @@ export function passageText(source: PassageSource): string {
   if (folio && text.endsWith(` ${folio}`) && (inBand('bottom') || (!h && /\D/.test(folio)))) {
     text = text.slice(0, -folio.length).trimEnd()
   }
-  return text || source.content.trim()
+  text = dropFigureText(text)
+  if (!text) return source.content.trim()
+  // A chunk that starts mid-sentence says so.
+  return /^\p{Ll}/u.test(text) ? `…${text}` : text
+}
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** A figure or table caption: "Figure 1:", "Fig. 2.", "Table 3". */
+const CAPTION = /\b(?:Figure|Fig\.|Table)\s+\d+[.:]/
+
+/**
+ * Text read out of a figure (axis ticks, node numbers, box labels) before the
+ * passage proper: "3 4 51 1 23 34 55 … Root layer Figure 1: Tree construction…"
+ * starts at the caption. Only a run in which at least a quarter of the words
+ * are bare numbers counts, so prose that leads into a caption is kept. Without
+ * a caption, a leading run of three or more bare numbers is dropped.
+ */
+function dropFigureText(text: string): string {
+  const isNumber = (word: string) => /^[\d.,]+$/.test(word)
+  const caption = CAPTION.exec(text)
+  if (caption && caption.index > 0) {
+    const words = text.slice(0, caption.index).trim().split(' ')
+    if (words.filter(isNumber).length >= Math.max(3, words.length / 4)) return text.slice(caption.index)
+  }
+  return text.replace(/^(?:[\d.,]+ ){3,}/, '')
 }
 
 /**
