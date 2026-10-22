@@ -18,9 +18,9 @@ const source = (index: number, pageNumber: number | null, content = `Passage ${i
   ({ index, chunkId: `c${index}`, documentId: DOC, filename: 'nist-csf-2.0.pdf', pageNumber, content, highlight: null })
 
 /** A UI message stream as /api/chat sends it. */
-function sse(sources: SourceRef[], text: string, { finish = true } = {}): string {
+function sse(sources: SourceRef[], text: string, { finish = true, messageId = 'a1' } = {}): string {
   const parts: object[] = [
-    { type: 'start', messageId: 'a1' },
+    { type: 'start', messageId },
     { type: 'data-sources', data: { sources } },
     { type: 'text-start', id: 't' },
     ...[...text].map(delta => ({ type: 'text-delta', id: 't', delta })),
@@ -108,7 +108,8 @@ describe('index page', () => {
   it('renders the chat landmarks, example questions and the question box', async () => {
     const page = await mountPage()
     expect(page.text()).toContain('TruthBase')
-    expect(page.text()).toContain('What are the six Functions of the NIST CSF 2.0?')
+    expect(page.text()).toContain('Why is GOVERN placed at the center of the CSF Functions wheel?')
+    expect(page.findAll('section[aria-label="Example questions"] button')).toHaveLength(4)
     expect(page.find('main[aria-label="Chat"]').exists()).toBe(true)
     expect(page.find('form[aria-label="Ask a question"]').exists()).toBe(true)
     expect(conversation(page).find('h2').text()).toBe('Conversation')
@@ -364,9 +365,13 @@ describe('index page', () => {
     mockChat(stream(sse([source(1, 28)], 'Six Functions [1].')))
     const page = await mountPage()
     expect(page.find('#more-examples').exists()).toBe(false)
-    await askQuestion(page, 'What are the six Functions of the NIST CSF 2.0?')
+    await askQuestion(page, 'Why is GOVERN placed at the center of the CSF Functions wheel?')
     const more = page.find('section[aria-labelledby="more-examples"]')
-    expect(more.findAll('button').map(b => b.text())).toEqual(['How does RAPTOR cluster text chunks?', 'What is residual risk?'])
+    expect(more.findAll('button').map(b => b.text())).toEqual([
+      'How does the AI RMF define risk?',
+      'How does RAPTOR choose the number of clusters?',
+      'What are the four types of reflection tokens in Self-RAG?',
+    ])
     expect(page.find('button[aria-label^="Open The NIST"]').exists()).toBe(false)
   })
 
@@ -414,7 +419,9 @@ describe('index page', () => {
     await page.find('button[data-cite]').trigger('click')
     await nextTick()
     expect(new URL(window.location.href).searchParams.get('chunk')).toBe('c1')
-    expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c1`)
+    // Copy link carries the claim the passage backs; the address bar only the passage.
+    expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c1&claim=Verified.`)
+    expect(new URL(window.location.href).searchParams.has('claim')).toBe(false)
 
     page.find('textarea').setValue('A draft')
     await page.findAll('button').find(b => b.text() === 'New conversation')!.trigger('click')
@@ -427,6 +434,60 @@ describe('index page', () => {
     expect((page.find('textarea').element as HTMLTextAreaElement).value).toBe('A draft')
     expect(document.activeElement).toBe(page.find('textarea').element)
     expect(page.text()).toContain('Try a question')
+  })
+
+  it('clears the previous answer\'s citation when the next turn is a refusal', async () => {
+    let reply = sse([source(1, 28)], 'Verified [1].')
+    mockChat(() => stream(reply)())
+    const page = await mountPage()
+    await askQuestion(page)
+    expect(viewer(page).props('target')).toMatchObject({ chunkId: 'c1' })
+    expect(new URL(window.location.href).searchParams.get('chunk')).toBe('c1')
+
+    reply = sse([source(2, 30)], 'NO_ANSWER')
+    await askQuestion(page, 'What penalties does the EU AI Act set?')
+    expect(viewer(page).props('target')).toBeUndefined()
+    expect(viewer(page).props('documentId')).toBeUndefined()
+    expect(viewer(page).props('passageLink')).toBeUndefined()
+    expect(new URL(window.location.href).searchParams.has('chunk')).toBe(false)
+    expect(page.findAll('button[data-cite][aria-current="true"]')).toHaveLength(0)
+  })
+
+  it('clears the previous answer\'s citation beside a stopped answer that cites its own', async () => {
+    let reply: (init?: RequestInit) => Response = stream(sse([source(1, 28)], 'Verified [1].'))
+    mockChat(init => reply(init))
+    const page = await mountPage()
+    await askQuestion(page)
+    expect(viewer(page).props('target')).toMatchObject({ chunkId: 'c1' })
+
+    reply = openStream(sse([source(2, 30)], 'Partly [1]', { finish: false, messageId: 'a2' }))
+    await page.find('textarea').setValue('Another question?')
+    await page.find('form').trigger('submit')
+    await settle()
+    await page.findAll('button').find(b => b.text() === 'Stop')!.trigger('click')
+    await settle()
+    expect(viewer(page).props('target')).toBeUndefined()
+    expect(new URL(window.location.href).searchParams.has('chunk')).toBe(false)
+  })
+
+  it('offers only the example for the document in scope', async () => {
+    const page = await mountPage()
+    await page.findComponent({ name: 'USelect' }).vm.$emit('update:modelValue', DOC)
+    await nextTick()
+    expect(page.findAll('section[aria-label="Example questions"] button').map(b => b.text()))
+      .toEqual(['Why is GOVERN placed at the center of the CSF Functions wheel?'])
+  })
+
+  it('shows a shared passage with the claim it was sent with, as the sender\'s words', async () => {
+    const page = await mountPage('/?chunk=c9&claim=Backups%20are%20verified.')
+    await settle()
+    const shared = page.find('section[aria-labelledby="shared-passage"]')
+    expect(shared.text()).toContain('NIST CSF 2.0 · p. iii (PDF 4)')
+    expect(shared.text()).toContain('“Backups are verified.”')
+    expect(shared.text()).toContain('TruthBase didn’t write or check it')
+    expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c9&claim=Backups+are+verified.`)
+    // The address bar keeps the passage only; Copy link adds the claim back.
+    expect(new URL(window.location.href).searchParams.has('claim')).toBe(false)
   })
 
   it('offers no link for a possibly related page', async () => {

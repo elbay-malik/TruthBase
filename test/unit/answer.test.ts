@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerBlocks, tidySegments } from '../../app/utils/answer'
+import { answerBlocks, cleanClaim, MAX_CLAIM, tidySegments } from '../../app/utils/answer'
 import type { AnswerSegment } from '../../shared/utils/citations'
 
 const t = (text: string): AnswerSegment => ({ type: 'text', text })
@@ -34,5 +34,18 @@ describe('answerBlocks', () => {
   it('keeps a hyphen inside a sentence, and a chip-only item', () => {
     expect(answerBlocks([t('Risk - as defined - is measured.')])).toEqual([{ type: 'p', lines: [[t('Risk - as defined - is measured.')]] }])
     expect(answerBlocks([t('- '), c(1)])).toEqual([{ type: 'ul', items: [[c(1)]] }])
+  })
+})
+
+describe('cleanClaim', () => {
+  it('drops bidi controls and zero-width characters, and collapses whitespace', () => {
+    expect(cleanClaim(' Backups \u202Eare\u200B verified.\n')).toBe('Backups are verified.')
+  })
+
+  it('cuts at MAX_CLAIM code points with an ellipsis, never inside a surrogate pair', () => {
+    const cut = cleanClaim('😀'.repeat(MAX_CLAIM + 5))
+    expect([...cut]).toHaveLength(MAX_CLAIM)
+    expect(cut.endsWith('😀…')).toBe(true)
+    expect(cleanClaim('short')).toBe('short')
   })
 })

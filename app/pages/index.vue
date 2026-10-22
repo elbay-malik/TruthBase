@@ -3,7 +3,7 @@ import type { ChatMessage, SourceRef } from '#shared/types/chat'
 import { claimSentence, isRefusal, looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '#shared/utils/citations'
 import type { AnswerSegment } from '#shared/utils/citations'
 import { MAX_QUESTION_LENGTH } from '#shared/limits'
-import { answerBlocks, tidySegments } from '~/utils/answer'
+import { answerBlocks, cleanClaim, tidySegments } from '~/utils/answer'
 import { documentInfo, pageName, passageText, sourceName } from '~/utils/corpus'
 import { loadDocument } from '~/utils/pdf-documents'
 import { loadPdfjs } from '~/utils/pdf-highlight'
@@ -18,10 +18,17 @@ useSeoMeta({
   description: 'Ask the documents. Every answer cites its source.',
 })
 
+/**
+ * One example per document, each a golden question whose cited sources all
+ * hold its evidence in the measured answer eval (docs/evals/phase-8-groq.json:
+ * g-018, g-002, g-039, g-027), so the first check an evaluator makes holds up.
+ * With a document in scope, only its example is offered.
+ */
 const EXAMPLES = [
-  'What are the six Functions of the NIST CSF 2.0?',
-  'How does RAPTOR cluster text chunks?',
-  'What is residual risk?',
+  { question: 'Why is GOVERN placed at the center of the CSF Functions wheel?', filename: 'nist-csf-2.0.pdf' },
+  { question: 'How does the AI RMF define risk?', filename: 'nist-ai-rmf-1.0.pdf' },
+  { question: 'How does RAPTOR choose the number of clusters?', filename: 'raptor.pdf' },
+  { question: 'What are the four types of reflection tokens in Self-RAG?', filename: 'self-rag.pdf' },
 ]
 
 const { data: documents } = await useFetch('/api/documents', { default: () => [] })
@@ -36,6 +43,12 @@ const scopeName = computed(() => {
   if (documentId.value === 'all') return undefined
   const doc = documents.value.find(d => d.id === documentId.value)
   return doc ? documentInfo(doc.filename).short : undefined
+})
+
+/** The examples that fit the scope: asked elsewhere, they could only be refused. */
+const scopedExamples = computed(() => {
+  const filename = documents.value.find(d => d.id === documentId.value)?.filename
+  return EXAMPLES.filter(e => !filename || e.filename === filename).map(e => e.question)
 })
 
 function clearScope() {
@@ -82,7 +95,7 @@ const busy = computed(() => status.value === 'submitted' || status.value === 'st
 /** The examples not yet asked, offered again below the conversation. */
 const moreExamples = computed(() => {
   const asked = new Set(messages.value.filter(m => m.role === 'user').map(m => textOf(m).trim()))
-  return EXAMPLES.filter(example => !asked.has(example))
+  return scopedExamples.value.filter(example => !asked.has(example))
 })
 
 function focusQuestion() {
@@ -188,10 +201,7 @@ function newConversation() {
   clearError()
   ending.value = undefined
   lastQuestion.value = ''
-  active.value = undefined
-  viewerTarget.value = undefined
-  targetKind.value = undefined
-  viewerDocumentId.value = documentId.value === 'all' ? undefined : documentId.value
+  clearViewer()
   returnFocusTo = null
   following = undefined
   chatScroller.value?.scrollTo({ top: 0 })
@@ -529,7 +539,7 @@ const canStep = computed(() => targetKind.value === 'citation' && !!activeMessag
 const citationLabel = computed(() => {
   if (!viewerTarget.value) return undefined
   if (targetKind.value === 'related') return 'Possibly related, not a source'
-  if (targetKind.value !== 'citation' || !activeMessage.value || !active.value) return 'Linked citation'
+  if (targetKind.value !== 'citation' || !activeMessage.value || !active.value) return 'Shared passage'
   const order = citationOrder(activeMessage.value)
   return `Citation ${order.indexOf(active.value.index) + 1} of ${order.length}`
 })
@@ -551,15 +561,33 @@ function openCitation(message: ChatMessage, index: number, from?: EventTarget | 
   showInViewer(source, 'citation', from, options)
 }
 
-// Desktop: a finished answer opens its first citation beside it, so the
-// viewer never shows an earlier answer's evidence next to a new one. Focus
-// stays in the question box; phones keep the sheet closed until a chip is tapped.
+/** Back to no citation: the scope's document from page 1, or (all documents) the corpus index. */
+function clearViewer() {
+  // Focus inside the viewer would be lost with the pages: hand it to the box.
+  if (document.activeElement?.closest('[aria-label="Document viewer"]')) focusQuestion()
+  active.value = undefined
+  viewerTarget.value = undefined
+  targetKind.value = undefined
+  viewerDocumentId.value = documentId.value === 'all' ? undefined : documentId.value
+}
+
+// The viewer never shows an earlier answer's evidence next to a new turn. On
+// desktop a finished answer opens its first citation beside it (focus stays
+// in the question box). Otherwise (a refusal, an error, a stopped or cut
+// answer, any turn on a phone) a citation of another turn or a received link
+// is cleared, with its ?chunk= and Copy link: unless the phone sheet is open,
+// where the reader is looking at it.
 watch(busy, (now, before) => {
-  if (now || !before || !isDesktop.value) return
+  if (now || !before) return
   const last = messages.value.at(-1)
-  if (last?.role !== 'assistant' || error.value || refused(last) || ending.value) return
-  const first = citedIndexes(last).values().next().value
-  if (first !== undefined) openCitation(last, first, null, { focus: false })
+  const answer = last?.role === 'assistant' && !refused(last) ? last : undefined
+  const first = answer && citedIndexes(answer).values().next().value
+  if (answer && first !== undefined && isDesktop.value && !error.value && !ending.value) {
+    openCitation(answer, first, null, { focus: false })
+    return
+  }
+  const stale = targetKind.value === 'link' || (targetKind.value === 'citation' && active.value?.messageId !== answer?.id)
+  if (stale && !viewerOpen.value) clearViewer()
 })
 
 /** A refusal's "possibly related" passage: its page, but no highlight — it is not evidence. */
@@ -573,9 +601,14 @@ function stepCitation(delta: 1 | -1) {
   const order = citationOrder(activeMessage.value)
   const next = order[order.indexOf(active.value.index) + delta]
   if (next === undefined) return
-  // Esc then returns to the chip of the citation now shown.
+  // Esc then returns to the chip of the citation now shown, and (desktop) the
+  // chip scrolls into view, so the claim stays beside its passage.
   const chip = document.querySelector<HTMLElement>(`[data-cite="${activeMessage.value.id}-${next}"]`)
   openCitation(activeMessage.value, next, chip ?? returnFocusTo)
+  if (isDesktop.value) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    chip?.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' })
+  }
 }
 
 function closeViewer() {
@@ -601,9 +634,24 @@ const sharedChunk = computed(() => {
   if (!isDesktop.value && !viewerOpen.value) return undefined
   return viewerTarget.value.chunkId
 })
-const passageLink = computed(() => sharedChunk.value && import.meta.client
-  ? new URL(`/?chunk=${encodeURIComponent(sharedChunk.value)}`, window.location.origin).href
-  : undefined)
+/**
+ * The claim a shared link carries (&claim=): the answer sentence the passage
+ * backs, so the receiver sees what it is evidence for. Anyone can write one
+ * into a URL, so the page shows it as the sender's text, never as TruthBase's.
+ */
+const linkClaim = ref<{ chunkId: string, text: string }>()
+const sharedClaim = computed(() => {
+  if (targetKind.value === 'citation') return viewerClaim.value
+  if (targetKind.value === 'link' && linkClaim.value?.chunkId === viewerTarget.value?.chunkId) return linkClaim.value?.text
+  return undefined
+})
+const passageLink = computed(() => {
+  if (!sharedChunk.value || !import.meta.client) return undefined
+  const url = new URL('/', window.location.origin)
+  url.searchParams.set('chunk', sharedChunk.value)
+  if (sharedClaim.value) url.searchParams.set('claim', cleanClaim(sharedClaim.value))
+  return url.href
+})
 
 // replaceState, not the router: no navigation, no new history entry per
 // citation, and Vue Router's own history.state is kept. Other parameters
@@ -613,6 +661,8 @@ watch(sharedChunk, (id) => {
   const url = new URL(window.location.href)
   if (id) url.searchParams.set('chunk', id)
   else url.searchParams.delete('chunk')
+  // The address bar carries the passage only; Copy link adds the claim.
+  url.searchParams.delete('claim')
   if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
 })
 
@@ -624,6 +674,9 @@ onMounted(async () => {
   if (typeof chunk !== 'string') return
   try {
     const source = await $fetch(`/api/chunks/${chunk}`)
+    const claim = route.query.claim
+    const text = typeof claim === 'string' ? cleanClaim(claim) : ''
+    if (text) linkClaim.value = { chunkId: source.chunkId, text }
     targetKind.value = 'link'
     viewerDocumentId.value = source.documentId
     viewerTarget.value = source
@@ -663,8 +716,42 @@ onMounted(async () => {
           />
         </header>
 
+        <!-- A shared passage: what the link opened, and the claim it was sent
+             with, marked as the sender's words. -->
         <section
-          v-if="messages.length === 0"
+          v-if="targetKind === 'link' && viewerTarget && messages.length === 0"
+          class="flex flex-col gap-1.5 border-s-2 border-default ps-3"
+          aria-labelledby="shared-passage"
+        >
+          <h2
+            id="shared-passage"
+            class="text-xs font-semibold tracking-wider uppercase text-muted"
+          >
+            Shared passage
+          </h2>
+          <p class="text-sm text-toned tabular-nums">
+            {{ shortName(viewerTarget) }} · {{ pageText(viewerTarget) }}
+          </p>
+          <!-- The sender's words, not a document's: sans (Two Voices), and the
+               attribution comes first, so no one reads it as TruthBase's. -->
+          <template v-if="sharedClaim">
+            <p class="text-xs text-muted">
+              Sent with the link. TruthBase didn’t write or check it:
+            </p>
+            <p class="text-sm break-words text-default">
+              “<bdi>{{ sharedClaim }}</bdi>”
+            </p>
+          </template>
+        </section>
+
+        <p
+          v-if="messages.length === 0 && !scopedExamples.length"
+          class="text-sm text-muted"
+        >
+          No example for {{ scopeName ?? 'this document' }}. Ask about it below.
+        </p>
+        <section
+          v-if="messages.length === 0 && scopedExamples.length"
           class="flex flex-col gap-2"
           aria-label="Example questions"
         >
@@ -672,7 +759,7 @@ onMounted(async () => {
             Try a question
           </h2>
           <UButton
-            v-for="example in EXAMPLES"
+            v-for="example in scopedExamples"
             :key="example"
             variant="soft"
             color="neutral"
@@ -1166,7 +1253,8 @@ onMounted(async () => {
               :documents="documents"
               :initial-scale="viewerZoom"
               layout="sheet"
-              :claim="viewerClaim"
+              :claim="targetKind === 'link' ? sharedClaim : viewerClaim"
+              :claim-from="targetKind === 'link' ? 'link' : 'answer'"
               :citation-number="viewerCitationNumber"
               @update:zoom="viewerZoom = $event"
               @select-document="selectDocument"

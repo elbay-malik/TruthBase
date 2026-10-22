@@ -33,6 +33,8 @@ const props = defineProps<{
   claim?: string
   /** Sheet only: the open citation's number as its chip shows it (order of first use in the answer). */
   citationNumber?: number
+  /** Whose words `claim` is: the answer's (default), or the sender's, from a shared link. */
+  claimFrom?: 'answer' | 'link'
   /**
    * The shareable link to the target (/?chunk=<id>), set only while it is
    * evidence (a citation or a deep link, not a "possibly related" page): the
@@ -872,13 +874,33 @@ defineExpose({ focus: focusScroller, scale, status, documentId: loadedDocumentId
         class="flex items-start gap-2 px-1"
       >
         <span
+          v-if="claimFrom !== 'link'"
           class="mt-0.5 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-primary px-1 font-serif text-xs font-semibold text-inverted tabular-nums"
           aria-hidden="true"
         >{{ citationNumber ?? target.index }}</span>
+        <!-- A link's claim is the sender's text: the attribution first, then the
+             claim in the sans (Two Voices), quoted; never the answer's voice. -->
+        <div
+          v-if="claimFrom === 'link'"
+          class="min-w-0 flex-1"
+        >
+          <p class="text-xs text-muted">
+            Sent with the link. TruthBase didn’t write or check it:
+          </p>
+          <p
+            :id="claimId"
+            ref="claimEl"
+            class="text-sm leading-snug break-words text-default"
+            :class="{ 'line-clamp-3': !claimExpanded }"
+          >
+            “<bdi>{{ claim }}</bdi>”
+          </p>
+        </div>
         <p
+          v-else
           :id="claimId"
           ref="claimEl"
-          class="min-w-0 flex-1 font-serif text-[0.9375rem] leading-snug text-highlighted"
+          class="min-w-0 flex-1 font-serif text-[0.9375rem] leading-snug break-words text-highlighted"
           :class="{ 'line-clamp-3': !claimExpanded }"
         >
           <span class="sr-only">The answer says: </span>{{ claim }}

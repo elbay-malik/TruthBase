@@ -9,7 +9,7 @@ for (const [id, zoom] of [['g-020#1', 1], ['g-038#2', 2], ['g-045#1', 0.5]] as c
   const span = SPANS.find(s => s.id === id)!
   test(`/?chunk= ${id} (${span.document} p. ${span.page}) at zoom ${zoom}`, async ({ page, api, fakeWorker }) => {
     await open(page, `/?chunk=${chunkIdOf(span)}&zoom=${zoom}`)
-    await expect(viewer(page).getByText(`Linked citation · ${pageName(span.document, span.page).text}`)).toBeVisible()
+    await expect(viewer(page).getByText(`Shared passage · ${pageName(span.document, span.page).text}`)).toBeVisible()
     await expectHighlight(page, span, sourceOf(span), zoom)
     expect(api.questions).toEqual([])
     expect(fakeWorker.used).toBe(false)
