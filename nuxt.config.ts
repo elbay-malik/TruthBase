@@ -86,6 +86,16 @@ export default defineNuxtConfig({
     // Vercel preset only (ignored by node-server), written to the function's
     // .vc-config.json (ADR-0011). One function serves every route.
     vercel: {
+      // Vercel applies only the first header route that matches a static file:
+      // Nitro writes each static path's cache-control route (/_nuxt, /pdfs,
+      // /pdfjs, /favicon.ico) without `continue`, so nuxt-security's headers
+      // never reached them. This route goes first and lets routing continue.
+      config: {
+        routes: [
+          // @ts-expect-error Nitro types route headers as cache-control only; the Build Output API takes any header
+          { src: '/(.*)', headers: { 'x-content-type-options': 'nosniff' }, continue: true },
+        ],
+      },
       functions: {
         // Nitro 2 would write nodejs22.x (its list stops at 22); CI tests 24.
         runtime: 'nodejs24.x',

@@ -53,7 +53,7 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
 
 6. **Deploy.** The first build log should show `pnpm 11.28.5`, `nitro … vercel`, and `You can deploy this build using npx vercel deploy --prebuilt`.
 
-   Deploy only through git (a push to `main`) or `vercel deploy --prebuilt`, which uploads just `.vercel/output`. A plain `vercel deploy` uploads the working directory as the deployment's source, readable later by anyone with access to the Vercel team. `.vercelignore` keeps `.env` and local state out of it. One CLI deploy on 2026-10-21 happened before that file existed and stored `.env`. That deployment has to be deleted and every key in it rotated (section 6).
+   Deploy only through git (a push to `main`) or `vercel deploy --prebuilt`, which uploads just `.vercel/output`. A plain `vercel deploy` uploads the working directory as the deployment's source, readable later by anyone with access to the Vercel team. `.vercelignore` keeps `.env` and local state out of it. One CLI deploy on 2026-10-21 happened before that file existed and stored `.env`. On 2026-10-22 that deployment was deleted and every key in it rotated (section 6).
 
 ## 2. Optional extras
 
@@ -78,15 +78,15 @@ curl -sI -H 'accept-encoding: br' "$URL/api/documents" | grep -i content-encodin
 curl -sI "$URL/pdfjs/cmaps/UniJIS-UTF16-H.bcmap" | grep -iE '^(HTTP|cache-control)'
 curl -sI "$URL/pdfjs/wasm/openjpeg.wasm" | grep -iE '^(HTTP|content-type)'
 curl -sI "$URL$(curl -s "$URL/" | grep -oE '/_nuxt/[^"]+\.js' | head -1)" | grep -iE '^(cache-control|x-content-type-options):'
-#   expect immutable cache-control. If x-content-type-options: nosniff is missing on static files,
-#   add a "headers" entry for /_nuxt/(.*) and /pdfjs/(.*) to vercel.json (ADR-0011 Consequences).
+#   expect immutable cache-control and x-content-type-options: nosniff (on every static file,
+#   /pdfs and /pdfjs too: nitro.vercel.config's first route, ADR-0011 Consequences).
 
 # The corpus PDFs from the CDN: no Storage egress (ADR-0010).
 curl -sI "$URL/pdfs/nist-csf-2.0.pdf" | grep -iE '^(HTTP|content-type|cache-control)'
 #   expect: 200, application/pdf, max-age=86400
 
 # Error pages decode (curl exits 0), and other sites can't post to the quota routes.
-curl -s --compressed -H 'accept: text/html' -o /dev/null -w '%{http_code}\n' "$URL/no-such-page"   # 404
+curl -s --compressed -H 'accept: text/html' -o /dev/null -w '%{http_code}\n' "$URL/no-such-page"   # 404, TruthBase's error page
 curl -s -o /dev/null -w '%{http_code}\n' -X POST -d 'question=hi' "$URL/api/chat"                  # 415
 
 # Ingestion is off: 503 before reading the body.

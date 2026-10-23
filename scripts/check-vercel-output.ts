@@ -6,7 +6,8 @@
 // 1. The function config Nitro writes (.vc-config.json): Node 24, the Dublin
 //    region, maxDuration, streaming and cancellation.
 // 2. The static output: the PDF.js data files for the viewer, the corpus PDFs,
-//    and no prebuilt .br/.gz sidecars (Vercel's CDN compresses itself).
+//    no prebuilt .br/.gz sidecars (Vercel's CDN compresses itself), and the
+//    headers config.json gives them (nosniff as well as cache-control).
 // 3. The server assets bundled into the function (PDF.js CMaps and fonts).
 // 4. The function itself, booted as a Node listener the way Vercel's Node
 //    launcher calls it, with VERCEL=1 and no secrets: the page with its
@@ -38,6 +39,24 @@ const config = json(join(OUTPUT, 'config.json'))
 check(config.version === 3, 'config.json is Build Output API v3')
 check(config.routes?.some((r: { handle?: string }) => r.handle === 'filesystem'), 'config.json serves static files before the function')
 check(config.routes?.some((r: { dest?: string }) => r.dest === '/__fallback'), 'config.json routes everything else to the function')
+
+// The headers Vercel's CDN gives a static file: header routes in order, up to
+// the filesystem phase; a match without `continue: true` ends the walk.
+interface HeaderRoute { src?: string, headers?: Record<string, string>, continue?: boolean, handle?: string }
+const staticHeaders = (path: string) => {
+  const headers: Record<string, string> = {}
+  for (const route of config.routes as HeaderRoute[]) {
+    if (route.handle) break
+    if (!route.src || !new RegExp(`^(?:${route.src})$`).test(path)) continue
+    for (const [name, value] of Object.entries(route.headers ?? {})) headers[name.toLowerCase()] = value
+    if (!route.continue) break
+  }
+  return headers
+}
+for (const path of ['/_nuxt/entry.js', '/_nuxt/builds/meta/x.json', '/pdfs/nist-csf-2.0.pdf', '/pdfjs/cmaps/UniJIS-UTF16-H.bcmap', '/favicon.ico']) {
+  const headers = staticHeaders(path)
+  check(headers['x-content-type-options'] === 'nosniff' && /max-age/.test(headers['cache-control'] ?? ''), `static ${path}: nosniff and cache-control`)
+}
 
 const vc = json(join(FUNC, '.vc-config.json'))
 check(vc.runtime === 'nodejs24.x', `function runtime nodejs24.x (got ${vc.runtime})`)
@@ -128,7 +147,7 @@ try {
   // The error page is rendered by an internal request; it must not arrive double-handled.
   const missing = await fetch(`${base}/no-such-page`, { headers: { 'accept': 'text/html', 'accept-encoding': 'br, gzip' } })
   const missingHtml = await missing.text().catch((error: Error) => `undecodable: ${error.message}`)
-  check(missing.status === 404 && missingHtml.includes('<html'), `GET /no-such-page is a 404 page that decodes (got ${missing.status}, ${missingHtml.slice(0, 60)})`)
+  check(missing.status === 404 && missingHtml.includes('<title>Page not found · TruthBase</title>'), `GET /no-such-page is TruthBase's 404 page and decodes (got ${missing.status}, ${missingHtml.match(/<title>[^<]*<\/title>/)?.[0] ?? missingHtml.slice(0, 60)})`)
 
   // Icons ship in the client bundle; nothing proxies or caches icon lookups.
   const icon = await fetch(`${base}/api/_nuxt_icon/lucide?icons=x`)
