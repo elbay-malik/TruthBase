@@ -42,5 +42,5 @@ pnpm sample:traces --days 7        # writes .cache/golden-candidates.json for cu
 
 ## Files here
 
-- `retrieval-baseline.json`, `llm-baseline.json`: what the gates compare against.
+- `retrieval-baseline.json`, `llm-baseline.json`: what the gates compare against. There is no `llm-baseline.json` yet. The first full LLM run (2026-10-23) is kept as `phase-9-llm.json` (same fields): it met the faithfulness and citation precision targets by the judge's scoring but had 4 false refusals (≤ 1), and a hand check found the judge lenient ([ADR-0008](../adr/0008-evals-and-ci-gate.md)).
 - `phase-*.json`: the measurements behind each phase's ADR.

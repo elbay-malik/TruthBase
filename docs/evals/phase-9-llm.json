@@ -1,0 +1,29 @@
+{
+ "date": "2026-10-23",
+ "metrics": {
+  "records": 50,
+  "faithfulness": 0.9519230769230769,
+  "citationPrecision": 0.9251700680272109,
+  "answerRelevance": 1,
+  "evidenceCitation": 0.8780487804878049,
+  "unanswerableRefused": 5,
+  "unanswerable": 5,
+  "falseRefusals": 4
+ },
+ "pooled": {
+  "claims": 104,
+  "supportedClaims": 99,
+  "citations": 147,
+  "supportingCitations": 136,
+  "relevant": 41
+ },
+ "pipeline": {
+  "expander": "groq/openai/gpt-oss-20b",
+  "reranker": "groq/openai/gpt-oss-20b",
+  "rewritten": 8,
+  "rerankFallbacks": 0,
+  "answeredBy": {
+   "openai/gpt-oss-120b": 50
+  }
+ }
+}

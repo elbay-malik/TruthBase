@@ -45,7 +45,7 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
   <br>Done: the shipped gpt-oss-20b rewriter lifts `ambiguous` recall@5 75% → 100% with overall recall@5 76% → 80% and recall@8 unchanged at 87% ([ADR-0009](./docs/adr/0009-query-rewriting.md), 2026-10-21).
 - [ ] **Phase 9 — Evals harness** *(~1.5 wk)*
   promptfoo produces recall@k, MRR/nDCG, faithfulness, citation precision on the golden set; gates CI.
-  <br>Built: the retrieval gate runs in CI; the first full LLM eval is pending ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)).
+  <br>Built: the retrieval gate runs in CI. The first full LLM eval (2026-10-23, [phase-9-llm.json](./docs/evals/phase-9-llm.json)) measured faithfulness 95.2% and judged citation precision 92.5%. It fails its gate on 4 false refusals, and a hand check found the judge lenient, so there is no LLM baseline yet ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)).
 - [x] **Phase 10 — Tracing / observability** *(~0.5 wk)*
   Every chat request produces a Langfuse trace with chunk + token metadata.
 - [x] **Phase 11 — Rate limiting, demo mode, anti-abuse** *(~1 wk)*
@@ -70,9 +70,9 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 - [x] Hybrid RRF search beats dense-only on golden recall@k (numbers recorded).
 - [x] LLM reranker improves nDCG@5 / citation precision (numbers recorded). *(nDCG@5 0.638 → 0.811 at the shipped 15 candidates, ADR-0007.)*
 - [x] Multi-query expansion improves recall on ambiguous questions without precision collapse. *(Shipped gpt-oss-20b rewriter: `ambiguous` recall@5 75% → 100%, recall@8 unchanged, ADR-0009.)*
-- [ ] Answers are grounded, cite chunk IDs inline, and refuse when unsupported. *(Faithfulness awaits the first full promptfoo run, ADR-0008. The full-pipeline answer eval (2026-10-21) refuses 5/5 unanswerable and answers nothing without a citation, but has 3 false refusals against the SPEC target of ≤ 1.)*
+- [ ] Answers are grounded, cite chunk IDs inline, and refuse when unsupported. *(First full promptfoo run, 2026-10-23: faithfulness 95.2% and judged citation precision 92.5% by the LLM judge, about 92–94% and 88–90% once the 5 hand-checked answers are corrected; 5/5 unanswerable refused, but 4 false refusals against the SPEC target of ≤ 1. The full-pipeline answer eval (2026-10-21) also answered nothing without a citation, with 3 false refusals.)*
 - [ ] Clicking any golden citation scrolls to the right page and highlights the correct passage at multiple zoom levels. *(176/180 in `check:viewer`; the 4 misses are listed in ADR-0004 and the README.)*
-- [ ] promptfoo eval suite runs in CI as a PR gate. *(ADR-0008 gates PRs on the deterministic retrieval eval and runs promptfoo on a schedule; its first full run is pending.)*
+- [ ] promptfoo eval suite runs in CI as a PR gate. *(ADR-0008 gates PRs on the deterministic retrieval eval and runs promptfoo on a schedule. Its first full run, 2026-10-23, fails the LLM gate on false refusals, so there is no LLM baseline yet.)*
 - [x] Langfuse traces every chat request with chunk + token metadata.
 - [x] Per-IP rate limiting + output caps enforced; public demo works without login.
 - [x] Playwright E2E covers the citation-to-highlight flow; Vitest covers chunking/rects/RRF.

@@ -1,6 +1,6 @@
 # ADR-0008: Eval methodology and CI gate
 
-- **Status:** Proposed, pending the first full LLM eval. Built and shipped; the retrieval gate runs in CI, and the LLM eval runs end to end, but its first full run (baseline, judge validation) is pending (see Consequences).
+- **Status:** Proposed. The retrieval gate runs in CI. The first full LLM eval ran on 2026-10-23 (`docs/evals/phase-9-llm.json`), and the judge scores faithfulness and citation precision above SPEC's 0.90. But the gate fails on 4 false refusals (target ≤ 1), so there is no `llm-baseline.json`, and a hand check found the judge lenient (see Consequences).
 - **Date:** 2026-10-20
 
 ## Context
@@ -45,7 +45,22 @@ The binding constraint is the free tier. Groq allows 200K tokens/day per model, 
 
 ## Consequences
 
-- **Pending, before Accepted:** (1) The first full LLM eval: `pnpm eval:llm && pnpm eval:llm:summary --update-baseline` (spreads over two days of quota; it resumes). (2) **Validate the judge**: spot-check ~10 judgments by hand against the sources (SPEC), and confirm qwen returns valid structured output across all answers; its JSON failed Groq's validation as a reranker (ADR-0007), though not as a judge in the smoke test. Switch `JUDGE_MODEL` if it doesn't hold. (3) ~~Add the four secrets to the GitHub repo for the `llm-eval` workflow.~~ Done 2026-10-20.
+- **First full run (2026-10-23, `docs/evals/phase-9-llm.json`).** It covered all 50 records with no errored rows. It resumed from the cache of the run stopped by a spent quota on 2026-10-22 and spent about 93K tokens on the day.
+  - Faithfulness 95.2% (99 of 104 claims) and judged citation precision 92.5% (136 of 147 citations).
+  - Answer relevance 100% (41 of 41 answered) and evidence citation 87.8% (36 of 41).
+  - Refusals: 5/5 unanswerable refused, and **4 false refusals** (g-030, g-032, g-035, g-040; SPEC ≤ 1).
+  - The pipeline as shipped: gpt-oss-20b rewrites (8 of 50) and reranks (no fallbacks), and gpt-oss-120b answers all 50.
+
+  The gate fails on the false refusals, so `--update-baseline` wrote nothing.
+- **The judge, checked by hand.** Five answers, 31 claims, each compared claim by claim with the cited source text: the two lowest-scoring answers, one that dropped a citation, and two fully supported ones.
+  - Its support calls on a claim's own citations are mostly right. 28 match the hand check, 2 count a citation that doesn't support the claim, and 1 rejects support a lenient reader would accept.
+  - The faults are in what it chooses to judge. It split one answer so that four unsupported additions became a single claim, scoring 0.8 where a consistent split gives 0.5–0.63. It left a non-supporting citation off a claim, skipped three statements of another answer, copied source wording into claims, and once repeated a list of source numbers 61 times. The scorer ignores support from sources a claim doesn't cite, which kept that loop out of the score.
+  - Correcting only these five answers lowers the pooled figures to about 92–94% faithfulness and 88–90% citation precision. Faithfulness holds; citation precision sits at the target.
+  - qwen also needed retries for invalid JSON: 3 on 2026-10-23, and 15 JSON or schema errors plus 5 "Request too large" in the stopped 2026-10-22 run. All recovered.
+- **Still open, before Accepted:**
+  1. Fewer false refusals. All four are retrieval or table misses (README "Answers").
+  2. A firmer judge. Take the claims and their citations from the answer's own sentences and markers instead of letting the judge re-split them, and reject output whose supporting citations aren't a subset of the claim's or that repeats itself. Then hand-check ~10 judgments (SPEC) and decide whether to keep qwen.
+  3. ~~Add the four secrets to the GitHub repo for the `llm-eval` workflow.~~ Done 2026-10-20.
 - **The fixture must follow the corpus.** After re-ingesting or changing chunking/embeddings, run `pnpm fixtures:retrieval` and update the baseline in the same PR, or the gate measures the old corpus.
 - **LLM steps aren't in the PR gate.** A change to the rewrite, rerank or grounding prompts shows up only in the LLM eval, so run it (or a `GOLDEN_ONLY` slice) before merging such a change.
 - **The weekly run spends one day's quota on Sunday night.** If the demo needs that headroom, drop the schedule and keep it manual.
