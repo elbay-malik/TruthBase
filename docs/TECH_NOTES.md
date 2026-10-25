@@ -197,7 +197,7 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
   - Query embeddings are cached in `.cache/query-embeddings/<model>-RETRIEVAL_QUERY-<dims>.json`. The old `.cache/golden-query-embeddings.json` is a read-only fallback for `gemini-embedding-001` at 768 dims.
   - Pacing is per model id across all caches in a process. promptfoo's answer cache stores Groq and Gemini answers under their own model ids; Gemini is used only after Groq's retries run out, and a fallback counts as two `modelCalls`.
   - `GOLDEN_ONLY` ignores empty ids and fails on unknown ones.
-- **Keep-alive** declares `permissions: actions: write` and re-enables itself through the REST API on each run. GitHub doesn't document that this resets the 60-day inactivity timer for public repos, so check the workflow is still enabled after a quiet stretch.
+- **Keep-alive** is a daily Vercel cron since 2026-10-25 (ADR-0011 §7), so GitHub's 60-day inactivity rule for scheduled workflows no longer applies to it.
 
 ## 18. UI polish and accessibility (Phase 12)
 

@@ -11,7 +11,8 @@
 // 3. The server assets bundled into the function (PDF.js CMaps and fonts).
 // 4. The function itself, booted as a Node listener the way Vercel's Node
 //    launcher calls it, with VERCEL=1 and no secrets: the page with its
-//    security headers, /api/health, an error page that decodes, no icon
+//    security headers, /api/health, the keep-alive cron refusing without its
+//    secret, an error page that decodes, no icon
 //    endpoint, and the routes refusing politely.
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -39,6 +40,8 @@ const config = json(join(OUTPUT, 'config.json'))
 check(config.version === 3, 'config.json is Build Output API v3')
 check(config.routes?.some((r: { handle?: string }) => r.handle === 'filesystem'), 'config.json serves static files before the function')
 check(config.routes?.some((r: { dest?: string }) => r.dest === '/__fallback'), 'config.json routes everything else to the function')
+// The daily Supabase keep-alive (Hobby allows daily schedules only).
+check(JSON.stringify(config.crons) === '[{"path":"/api/cron/keep-alive","schedule":"0 6 * * *"}]', `config.json has the daily keep-alive cron (got ${JSON.stringify(config.crons)})`)
 
 // The headers Vercel's CDN gives a static file: header routes in order, up to
 // the filesystem phase; a match without `continue: true` ends the walk.
@@ -131,6 +134,9 @@ try {
   const health = await fetch(`${base}/api/health`, { headers: { 'accept-encoding': 'br' } })
   check(health.status === 200 && (await health.json()).status === 'ok', '/api/health is ok')
   check(!health.headers.has('content-encoding'), '/api/health JSON is left to the CDN to compress')
+
+  const keepAlive = await fetch(`${base}/api/cron/keep-alive`, { headers: { authorization: 'Bearer guess' } })
+  check(keepAlive.status === 503, `GET /api/cron/keep-alive is 503 without CRON_SECRET (got ${keepAlive.status})`)
 
   const ingest = await fetch(`${base}/api/ingest`, { method: 'POST', body: '0123456789' })
   check(ingest.status === 503, `POST /api/ingest is 503 without NUXT_INGEST_TOKEN (got ${ingest.status})`)

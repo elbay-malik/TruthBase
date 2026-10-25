@@ -91,6 +91,10 @@ export default defineNuxtConfig({
       // /pdfjs, /favicon.ico) without `continue`, so nuxt-security's headers
       // never reached them. This route goes first and lets routing continue.
       config: {
+        // The Supabase keep-alive (server/api/cron/keep-alive.get.ts). Hobby
+        // allows daily jobs only, run within the hour (06:00–06:59 UTC): well
+        // inside the 7-day pause window. Vercel calls it on production only.
+        crons: [{ path: '/api/cron/keep-alive', schedule: '0 6 * * *' }],
         routes: [
           // @ts-expect-error Nitro types route headers as cache-control only; the Build Output API takes any header
           { src: '/(.*)', headers: { 'x-content-type-options': 'nosniff' }, continue: true },

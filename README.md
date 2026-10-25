@@ -207,7 +207,7 @@ Each ADR records context, the decision, measurements and rejected alternatives. 
   - `build-vercel`: builds the Vercel preset and boots the function (`pnpm check:vercel`).
   - `e2e`: the Playwright suite above.
   - `db`: migrations on the Supabase Postgres image, SQL acceptance checks for `hybrid_search` and both quota layers, and the **retrieval gate** against `retrieval-baseline.json` (any drop fails).
-- **Scheduled:** the promptfoo LLM eval (`llm-eval.yml`, Sundays and on demand; first full run 2026-10-23, [phase-9-llm.json](./docs/evals/phase-9-llm.json)) and the Supabase keep-alive (`keep-alive.yml`, twice a week).
+- **Scheduled:** the promptfoo LLM eval (`llm-eval.yml`, Sundays and on demand; first full run 2026-10-23, [phase-9-llm.json](./docs/evals/phase-9-llm.json)). The Supabase keep-alive is a daily Vercel cron (`/api/cron/keep-alive`, [ADR-0011](./docs/adr/0011-deployment-topology.md)).
 
 ### Lighthouse and Core Web Vitals
 
@@ -283,7 +283,7 @@ Before the first deploy, apply `supabase/migrations` to the hosted project, inge
 |---|---|---|
 | Groq (per model) | 8K tokens/min, 1K requests/day, 200K tokens/day | Answers on gpt-oss-120b (~100/day); rewriting and reranking on gpt-oss-20b (~60 fully enhanced chats/day, then fused order). Daily caps: chat 30 per client, 80 for the whole demo; search 100 / 300. Per-minute: 10 chats, 30 searches per client |
 | Gemini | free embedding and Flash-Lite quotas | Query embeddings only at run time; Flash-Lite is the answer fallback |
-| Supabase | 500 MB, pauses after 7 idle days | 564 chunks at 768 dims (~2 MB of vectors); keep-alive workflow twice a week |
+| Supabase | 500 MB, pauses after 7 idle days | 564 chunks at 768 dims (~2 MB of vectors); daily keep-alive cron on Vercel |
 | Vercel Hobby | non-commercial; 1M invocations, 4 Active CPU-hours, 100 GB transfer per month; 4.5 MB bodies; one region | Waiting on models doesn't count as Active CPU; ingestion stays off the function |
 | Langfuse Hobby | 50K units/month | ~17–20 observations per chat; 80 chats/day is ~45K/month, close to the cap |
 

@@ -61,12 +61,11 @@ pgvector guides (July 2026).
   response); `toSearchHit()` maps the snake_case rows to `SearchHit`
   (`server/rag/search.ts`).
 - `documents` and `chunks` have RLS enabled with no policies, and
-  `hybrid_search` is executable by `service_role` only: the anon key (which
-  the keep-alive ping uses) cannot read or write the corpus. The public demo
+  `hybrid_search` is executable by `service_role` only: the anon key cannot
+  read or write the corpus. The public demo
   goes through Nitro routes, not direct client queries.
 - Highlight data must be captured at ingestion into `highlight jsonb`;
   retrofitting positions later means re-parsing every PDF.
 - Free-tier pausing is mitigated by the keep-alive table + scheduled ping, not
-  by the schema itself.
-  GitHub disables scheduled workflows in a public repo after 60 days without
-  activity, so the keep-alive workflow re-enables itself on each run.
+  by the schema itself. The ping is a daily Vercel cron since 2026-10-25
+  (ADR-0011 §7); it was a GitHub Actions workflow before.

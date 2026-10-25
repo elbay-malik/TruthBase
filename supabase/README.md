@@ -83,11 +83,11 @@ The server reads these via `runtimeConfig` (server-only; see
 - `NUXT_SUPABASE_URL` — `https://<project-ref>.supabase.co`
 - `NUXT_SUPABASE_SERVICE_KEY` — the **service_role** key (server only; never shipped to the client)
 
-For the keep-alive GitHub Action, add repo secrets `SUPABASE_URL` and
-`SUPABASE_ANON_KEY` (the **anon** key — RLS-gated, not the service key). In a
-public repo GitHub disables scheduled workflows after 60 days without repository
-activity; the workflow re-enables itself on each run, but watch for GitHub's
-warning email and re-enable it by hand if it stops.
+The keep-alive is a daily Vercel cron (`server/api/cron/keep-alive.get.ts`,
+ADR-0011 §7) that reads `keep_alive` with the service key; it needs only
+`CRON_SECRET` in the Vercel project. The anon SELECT policy on `keep_alive`
+dates from the earlier GitHub Actions ping, which used the anon key; it is
+harmless and kept, and `tests/hybrid_search.sql` still asserts it.
 
 ## Design notes
 
