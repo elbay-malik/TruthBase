@@ -6,9 +6,11 @@
 //   pnpm ingest:golden --highlights-only
 //                                    # recomputes stored highlight rects from each
 //                                    # chunk's offsets (after highlight-math changes;
-//                                    # no re-embedding, text must be unchanged)
+//                                    # no re-embedding, text must be unchanged;
+//                                    # chunk ids stay; docs/DEPLOYMENT.md §0)
 //
-// Needs NUXT_SUPABASE_URL, NUXT_SUPABASE_SERVICE_KEY and NUXT_GEMINI_API_KEY.
+// Needs NUXT_SUPABASE_URL, NUXT_SUPABASE_SERVICE_KEY and (except for
+// --highlights-only) NUXT_GEMINI_API_KEY.
 
 import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -77,6 +79,13 @@ for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sor
 }
 
 async function refreshHighlights() {
+  // Two passes: compute and check every document's highlights first, then write.
+  // A text mismatch in any PDF (say the last one) therefore stops the run before
+  // anything is written, instead of leaving the earlier documents refreshed and the
+  // rest stale. The writes themselves are one update per chunk (supabase-js has no
+  // transaction), so a failed update mid-run can still leave a partial refresh;
+  // re-running is idempotent and finishes it (docs/DEPLOYMENT.md §0, ADR-0004).
+  const planned: { label: string, updates: { id: string, highlight: ReturnType<typeof chunkHighlight> }[] }[] = []
   for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sort()) {
     // filename is not unique (no constraint; uploads can repeat it): refresh every copy.
     const { data: docs, error } = await supabase.from('documents').select('id').eq('filename', filename)
@@ -90,21 +99,23 @@ async function refreshHighlights() {
       const { data: chunks, error: chunksError } = await supabase.from('chunks')
         .select('id, page_number, content, highlight').eq('document_id', doc.id)
       if (chunksError) throw new Error(`chunk read failed: ${chunksError.message}`)
-
-      // Validate every chunk before writing any, so a mismatch leaves the document untouched.
       const updates = chunks.map((chunk) => {
         const page = pages[chunk.page_number - 1]
         const { startOffset: start, endOffset: end } = chunk.highlight as { startOffset: number, endOffset: number }
         if (!page || page.text.slice(start, end) !== chunk.content) {
-          throw new Error(`${filename} (${doc.id}) chunk ${chunk.id}: stored text no longer matches page ${chunk.page_number} — re-ingest with --replace`)
+          throw new Error(`${filename} (${doc.id}) chunk ${chunk.id}: stored text no longer matches page ${chunk.page_number} — re-ingest with --replace (nothing written)`)
         }
-        return { id: chunk.id, highlight: chunkHighlight(page, { start, end }) }
+        return { id: chunk.id as string, highlight: chunkHighlight(page, { start, end }) }
       })
-      for (const { id, highlight } of updates) {
-        const { error: updateError } = await supabase.from('chunks').update({ highlight }).eq('id', id)
-        if (updateError) throw new Error(`update failed for ${id}: ${updateError.message}`)
-      }
-      console.log(`updated  ${filename} (${doc.id}): ${updates.length} chunk highlights`)
+      planned.push({ label: `${filename} (${doc.id})`, updates })
     }
+  }
+  console.log(`checked  ${planned.reduce((n, p) => n + p.updates.length, 0)} chunks in ${planned.length} documents; writing`)
+  for (const { label, updates } of planned) {
+    for (const { id, highlight } of updates) {
+      const { error: updateError } = await supabase.from('chunks').update({ highlight }).eq('id', id)
+      if (updateError) throw new Error(`update failed for ${id} (${label}): ${updateError.message} — re-run to finish the refresh`)
+    }
+    console.log(`updated  ${label}: ${updates.length} chunk highlights`)
   }
 }

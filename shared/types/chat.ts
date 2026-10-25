@@ -13,7 +13,7 @@ export interface SourceRef {
   pageNumber: number | null
   /** Chunk text, for previews and to verify a citation. */
   content: string
-  /** Stored per-line PDF-space rects: what Phase 5 draws on click. */
+  /** Stored PDF-space rects (per line, plus big-operator glyphs): what Phase 5 draws on click. */
   highlight: ChunkHighlight | null
 }
 

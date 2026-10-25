@@ -20,7 +20,10 @@ export interface HighlightRect {
 export interface ChunkHighlight {
   pageNumber: number
   boundingRect: HighlightRect
-  /** One rect per rendered line; drawn as stacked overlay divs. */
+  /**
+   * One rect per rendered line, each followed by a narrow rect for any glyph
+   * whose outline leaves the line (big operators, ADR-0004); drawn as overlay divs.
+   */
   rects: HighlightRect[]
   /** From `page.getViewport({ scale: 1 })`. */
   pageWidth: number

@@ -25,6 +25,14 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
 
    Ingestion never runs on Vercel. Request bodies are capped at 4.5 MB, and `NUXT_INGEST_TOKEN` stays unset there, so the route answers 503.
 
+   **After a change to the highlight math** (`server/ingest/{extract,glyphs,highlight}.ts`), the operator refreshes the stored rects in place:
+
+   ```bash
+   pnpm ingest:golden --highlights-only  # rewrites chunks.highlight only
+   ```
+
+   It recomputes each stored chunk's highlight from the repo PDFs and its stored offsets. There is no re-embedding and no Storage read, and chunk ids (citation deep links) stay the same. It runs in two passes: first it recomputes and checks every chunk of every document, then it writes. If any chunk's page text changed, it stops with "re-ingest with --replace" before writing anything. The writes are one update per chunk, not a transaction, so a network or database error during the write pass can leave a partial refresh. Re-running the command is idempotent and finishes it. Until it runs, `pnpm check:viewer` against the hosted corpus fails the spans whose rects changed, because it compares against `test/fixtures/highlight-spans.json`. This applies to the 2026-10-25 big-operator change (ADR-0004): g-035 fails at all three zooms until the refresh.
+
 ## 1. Create the Vercel project
 
 1. On vercel.com (Hobby), choose **Add New → Project** and import the GitHub repo. The repo is owned by a personal account, which Hobby requires.

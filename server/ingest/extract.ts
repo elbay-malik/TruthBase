@@ -33,6 +33,14 @@ export interface PositionedItem {
   charX0?: Float64Array
   charX1?: Float64Array
   /**
+   * Vertical extent of each character's glyph outline (PDF space, 0.01 pt),
+   * set together with `charX0`/`charX1`. NaN for whitespace and glyphs
+   * without an outline. Highlights stay on the fixed em box and use this only
+   * for glyphs that leave it (big operators, ./highlight.ts).
+   */
+  charY0?: Float64Array
+  charY1?: Float64Array
+  /**
    * Text direction when the item is not horizontal (rotated stamps, rotated
    * figure captions): unit vector along the baseline (u) and towards the
    * ascender (n), in PDF space. Highlights then follow the transform instead
@@ -67,9 +75,15 @@ export interface ExtractOptions {
 }
 
 export async function extractPages(data: Uint8Array, options: ExtractOptions = {}): Promise<PageLayout[]> {
-  // fontExtraProperties exposes each font's fontMatrix/vertical to the glyph replay.
+  // fontExtraProperties exposes each font's fontMatrix/vertical to the glyph
+  // replay and keeps the glyph outlines PDF.js sends with the operator list.
+  // disableFontFace makes the worker compile those outlines at all (it does so
+  // only for fonts it can't hand to the platform as a FontFace): unpdf already
+  // sets it under Node, but the outline extents (./glyphs.ts, ADR-0004) depend
+  // on it, so it is explicit rather than an environment default.
   const pdf = await getDocumentProxy(data, {
     fontExtraProperties: true,
+    disableFontFace: true,
     ...pdfjsAssetOptions(options.assets ?? nodeAssetReader()),
   })
   try {

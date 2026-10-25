@@ -2,7 +2,7 @@ import { getResolvedPDFJS } from 'unpdf'
 import type { PDFPageProxy } from 'unpdf/pdfjs'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { PositionedItem } from '../../server/ingest/extract'
-import { attachGlyphPositions } from '../../server/ingest/glyphs'
+import { attachGlyphPositions, outlineYRange } from '../../server/ingest/glyphs'
 
 // The showText replay on hand-built operator lists: each advance rule (font
 // matrix, Tc, Tw, Tz, TJ kerning, CTM) and each alignment rejection in
@@ -146,5 +146,78 @@ describe('attachGlyphPositions (synthetic operator lists)', () => {
       ['showText', [[g('a'), g('b')]]],
     ]
     expect((await attach(ops, [item('ab', 100, 10)])).aligned).toBe(0)
+  })
+})
+
+describe('glyph outline extents (charY0/charY1)', () => {
+  // FontPath buffers as PDF.js sends them: DrawOPS codes (0 moveTo, 1 lineTo,
+  // 2 curveTo, 3 quadraticCurveTo, 4 closePath) with em-unit points, y up.
+  const PATHS: Record<string, number[]> = {
+    // A box from the baseline to 0.7 em.
+    a: [0, 0, 0, 1, 0.5, 0, 1, 0.5, 0.7, 1, 0, 0.7, 4],
+    // A cubic bowl whose control points dip to −1 em: the curve itself bottoms out at −0.75.
+    u: [0, 0, 0, 2, 0.1, -1, 0.4, -1, 0.5, 0, 4],
+    // A quadratic arch with its control point at 1.2 em: the curve tops out at 0.6.
+    n: [0, 0, 0, 3, 0.25, 1.2, 0.5, 0, 4],
+  }
+  const pathKey = (font: string, ch: string) => `${font}_path_${ch}`
+  /** Like page(), plus glyph outlines for font F1 and a Type3 font T3 that has them too. */
+  function outlinePage(ops: [keyof Ops, unknown[]][]): PDFPageProxy {
+    const objects = new Map<string, unknown>([
+      ['F1', { fontMatrix: [0.001, 0, 0, 0.001, 0, 0], loadedName: 'F1' }],
+      ['T3', { fontMatrix: [0.001, 0, 0, 0.001, 0, 0], loadedName: 'T3', isType3Font: true }],
+      ...Object.entries(PATHS).flatMap(([ch, path]) => ['F1', 'T3'].map(font => [pathKey(font, ch), { path: Float32Array.from(path) }] as [string, unknown])),
+    ])
+    return {
+      getOperatorList: async () => ({ fnArray: ops.map(([op]) => OPS[op]), argsArray: ops.map(([, args]) => args) }),
+      commonObjs: {
+        has: (key: string) => objects.has(key),
+        get: (key: string) => {
+          if (!objects.has(key)) throw new Error(`Requesting object that isn't resolved yet ${key}`)
+          return objects.get(key)
+        },
+      },
+    } as unknown as PDFPageProxy
+  }
+  const og = (unicode: string) => ({ ...g(unicode), fontChar: unicode })
+  async function extents(ops: [keyof Ops, unknown[]][], items: PositionedItem[], font = 'F1') {
+    await attachGlyphPositions(outlinePage(ops), items, items.map(() => font))
+    return items.map(i => i.charY0 && [[...i.charY0], [...i.charY1!]])
+  }
+
+  it('maps each outline to PDF space, curve extrema included, rounded to 0.01 pt', async () => {
+    const ops = text(100, 700, ['showText', [[og('a'), og('u'), og(' '), og('n')]]])
+    expect(await extents(ops, [item('au n', 100, 20)])).toEqual([[
+      [700, 692.5, Number.NaN, 700],
+      [707, 700, Number.NaN, 706],
+    ]])
+  })
+
+  it('follows text rise and the CTM like the x-positions do', async () => {
+    const rise = text(100, 700, ['setTextRise', [2]], ['showText', [[og('a')]]])
+    expect(await extents(rise, [item('a', 100, 5, { y: 702 })])).toEqual([[[702], [709]]])
+    // cm 2 0 0 2 0 0: Tm origin (50, 350) lands at (100, 700), and 0.7 em at size 10 becomes 14 pt.
+    const ctm: [keyof Ops, unknown[]][] = [['transform', [2, 0, 0, 2, 0, 0]], ...text(50, 350, ['showText', [[og('a')]]])]
+    expect(await extents(ctm, [item('a', 100, 10, { fontSize: 20 })])).toEqual([[[700], [714]]])
+  })
+
+  it('leaves NaN for glyphs without an outline and for Type3 fonts', async () => {
+    // "b" has no FontPath object (e.g. a non-embedded font): x still aligns.
+    const ops = text(100, 700, ['showText', [[og('a'), og('b')]]])
+    expect(await extents(ops, [item('ab', 100, 10)])).toEqual([[[700, Number.NaN], [707, Number.NaN]]])
+    const type3 = [['beginText', []], ['setFont', ['T3', 10]], ['setTextMatrix', [1, 0, 0, 1, 100, 700]], ['showText', [[og('a')]]]] as [keyof Ops, unknown[]][]
+    expect(await extents(type3, [item('a', 100, 5)], 'T3')).toEqual([[[Number.NaN], [Number.NaN]]])
+  })
+})
+
+describe('outlineYRange', () => {
+  it('returns undefined for an empty path or an unknown command', () => {
+    expect(outlineYRange([])).toBeUndefined()
+    expect(outlineYRange([4])).toBeUndefined()
+    expect(outlineYRange([0, 0, 0, 9, 1, 1])).toBeUndefined()
+  })
+
+  it('takes a straight cubic (no interior extremum) at its end points', () => {
+    expect(outlineYRange([0, 0, 0, 2, 0, 1, 0, 2, 0, 3])).toEqual([0, 3])
   })
 })

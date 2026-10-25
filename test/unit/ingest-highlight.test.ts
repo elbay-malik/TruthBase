@@ -100,6 +100,14 @@ describe('chunkHighlight', () => {
     expect(highlightOf(page, 'ab cd').rects).toEqual([{ x1: 100, y1: 697.5, x2: 115, y2: 708 }])
   })
 
+  it('keeps the line left edge as a running min when a tolerated overlap starts further left', () => {
+    // "cd" starts at 97: within 1·size of where "a" ends (105), so the same
+    // line, but left of "a" itself (a narrow glyph over a wider one, like a
+    // display ∑ under its index).
+    const page = layout([item('a', 100, 700, { hasEOL: true }), item('cd', 97, 700)])
+    expect(highlightOf(page, 'a cd').rects).toEqual([{ x1: 97, y1: 697.5, x2: 107, y2: 708 }])
+  })
+
   it('keeps the line right edge as a running max when an item ends inside the previous one', () => {
     // "x" (121–126) is overprinted inside "abcdef" (100–130): the line still ends at 130.
     const inside = layout([item('abcdef', 100, 700, { hasEOL: true }), item('x', 121, 700)])
@@ -149,6 +157,69 @@ describe('chunkHighlight', () => {
   it('ignores the separator space at either edge of the span', () => {
     const page = layout([item('ab', 100, 700, { hasEOL: true }), item('cd', 110, 700)])
     expect(chunkHighlight(page, { start: 2, end: 5 }).rects).toEqual([{ x1: 110, y1: 697.5, x2: 120, y2: 708 }])
+  })
+
+  describe('glyph outlines beyond the em box (big operators, ADR-0004)', () => {
+    // Running text at 12 pt leading: "the ∑ sum" on the middle line, its ∑
+    // (x 110–118) hanging 1.15 em below the baseline like TeX's cmex sum,
+    // i.e. well into the next line's em box (686 − 2.5 .. 686 + 8).
+    const nan = Number.NaN
+    const sumLine = (bottom: number, top = 703) => item('a∑b', 105, 698, {
+      charX0: Float64Array.from([105, 110, 118]),
+      charX1: Float64Array.from([110, 118, 123]),
+      charY0: Float64Array.from([698, bottom, 698]),
+      charY1: Float64Array.from([703, top, 703]),
+      width: 18,
+      hasEOL: true,
+    })
+    const runningText = (sum: PositionedItem) => layout([
+      item('first line', 100, 710, { hasEOL: true }),
+      sum,
+      item('next line', 100, 686),
+    ])
+    const withoutOutlines = (sum: PositionedItem) => ({ ...sum, charY0: undefined, charY1: undefined })
+
+    it('adds a rect over just the glyph, from the line edge to the outline, and never grows the line', () => {
+      const sum = sumLine(686.5) // 698 − 1.15 · 10
+      const page = runningText(sum)
+      const { rects, boundingRect } = chunkHighlight(page, { start: 0, end: page.text.length })
+      const lines = chunkHighlight(runningText(withoutOutlines(sum)), { start: 0, end: page.text.length }).rects
+      expect(lines).toHaveLength(3)
+      // The line rects are exactly the em-box model; the glyph rect follows its line.
+      expect(rects).toEqual([lines[0], lines[1], { x1: 110, y1: 686.5, x2: 118, y2: 695.5 }, lines[2]])
+      // The ∑ line still ends above the next line's box.
+      expect(lines[1]!.y1).toBeGreaterThan(lines[2]!.y2)
+      expect(boundingRect).toEqual({ x1: 100, y1: 683.5, x2: 150, y2: 718 })
+    })
+
+    it('covers a glyph that rises above the line the same way', () => {
+      const page = layout([sumLine(698, 711)]) // top 3 pt above 706 (ascent 0.8 em)
+      expect(chunkHighlight(page, { start: 0, end: 3 }).rects).toEqual([
+        { x1: 105, y1: 695.5, x2: 123, y2: 706 },
+        { x1: 110, y1: 706, x2: 118, y2: 711 },
+      ])
+    })
+
+    it('ignores overhangs up to 0.05 · fontSize and glyphs outside the span', () => {
+      // 695.5 is the em-box bottom: 0.5 pt (0.05 em) below it is tolerated, 0.6 pt is not.
+      expect(chunkHighlight(layout([sumLine(695)]), { start: 0, end: 3 }).rects).toHaveLength(1)
+      expect(chunkHighlight(layout([sumLine(694.9)]), { start: 0, end: 3 }).rects).toHaveLength(2)
+      // Only "a" covered: the ∑ is not part of the highlight.
+      expect(chunkHighlight(layout([sumLine(686.5)]), { start: 0, end: 1 }).rects).toEqual([{ x1: 105, y1: 695.5, x2: 110, y2: 706 }])
+    })
+
+    it('measures the overhang against the finished line, including taller items that join it', () => {
+      // A 20 pt item on the same baseline lowers the line to 698 − 5 = 693: the
+      // ∑ at 692.8 leaves the 10 pt item's box but not the line (0.2 < 0.5).
+      const page = layout([sumLine(692.8), item(' X', 123, 698, { fontSize: 20, width: 20 })])
+      const { rects } = chunkHighlight(page, { start: 0, end: page.text.length })
+      expect(rects).toEqual([{ x1: 105, y1: 693, x2: 143, y2: 714 }])
+    })
+
+    it('skips glyphs without an outline extent (NaN)', () => {
+      const sum = { ...sumLine(686.5), charY0: Float64Array.from([nan, nan, nan]), charY1: Float64Array.from([nan, nan, nan]) }
+      expect(chunkHighlight(layout([sum]), { start: 0, end: 3 }).rects).toHaveLength(1)
+    })
   })
 
   it('keeps every rect well-formed and inside the item hull on a multi-line page', () => {
