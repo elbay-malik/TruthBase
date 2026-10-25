@@ -14,7 +14,7 @@ The highlight, retrieval and answer numbers below are on [`docs/golden/golden.js
 
 | What | Result | Measured on | Source |
 |---|---|---|---|
-| **Highlight placement** | **180/180** checks pass (60 golden spans × zoom 50/100/200%) with the 2026-10-25 highlights; placement error ≤ 0.03 px. The hosted corpus still stores the previous rects: 177/180 until its highlights are refreshed (see [Limitations](#limitations-and-roadmap)) | Real viewer in headless Chromium on a local dev server against the hosted corpus, new rects served in place of the stored ones (`pnpm check:viewer`, 2026-10-25) | [ROADMAP Phase 5](./ROADMAP.md) |
+| **Highlight placement** | **180/180** checks pass (60 golden spans × zoom 50/100/200%); placement error ≤ 0.03 px | Real viewer in headless Chromium on a local dev server against the hosted corpus (`pnpm check:viewer`, 2026-10-25) | [ROADMAP Phase 5](./ROADMAP.md) |
 | **Highlight edges vs an independent PDF engine** | within ±0.05 pt of MuPDF on every golden span (spike max: 0.001 pt) | Vitest, `ingest-glyphs.test.ts` | [ADR-0004](./docs/adr/0004-extraction-and-highlights.md) |
 | **Hybrid retrieval recall@8** | **87%** (dense-only 76%) | Hybrid v2, 564 chunks, gated in CI | [ADR-0006](./docs/adr/0006-hybrid-search.md), [retrieval-baseline.json](./docs/evals/retrieval-baseline.json) |
 | **Reranking: MRR / nDCG@5** | 0.515 → **0.735** / 0.638 → **0.811** (document filter on: MRR 0.547 → **0.791**) | gpt-oss-20b, top 4 + fused tail, 15 candidates as shipped | [ADR-0007](./docs/adr/0007-reranking.md), [phase-7-groq-20b-15.json](./docs/evals/phase-7-groq-20b-15.json) |
@@ -175,7 +175,7 @@ Taking the claims and citations from the answer itself, rather than from the jud
 | Span edges vs MuPDF glyph positions (120 edges) | proportional cut: max 15.6 pt off → glyph replay: max **0.001 pt** | [ADR-0004](./docs/adr/0004-extraction-and-highlights.md) spike |
 | Items with exact glyph positions | 10,919 / 10,959 (99.6%), ~9 ms per page | ADR-0004 |
 | PDF → screen conversion at item boundaries (n = 53) | median 0.00 pt, max 0.6 pt, identical at every zoom | ADR-0004 |
-| `check:viewer`: right document and page, scrolled into view, boxes within 0.5 px, text-ink coverage ≥ 0.99 at zoom ≥ 100%, ≤ 0.2% stray ink, real PDF.js worker | **180/180** with the 2026-10-25 highlights (hosted corpus before its refresh: 177/180), placement error ≤ 0.03 px | [ROADMAP Phase 5](./ROADMAP.md) |
+| `check:viewer`: right document and page, scrolled into view, boxes within 0.5 px, text-ink coverage ≥ 0.99 at zoom ≥ 100%, ≤ 0.2% stray ink, real PDF.js worker | **180/180**, placement error ≤ 0.03 px | [ROADMAP Phase 5](./ROADMAP.md) |
 | Playwright in CI: 45 golden questions (desktop) and 8 (phone), zoom 0.5/1/2 | all pass; a 10% smaller canvas fails all 52 desktop highlight tests, a 2 px overlay shift fails all 67 geometry tests | [ADR-0012](./docs/adr/0012-hermetic-e2e.md) |
 
 ## Design decisions
@@ -297,7 +297,7 @@ Sources: [ADR-0007](./docs/adr/0007-reranking.md), [ADR-0009](./docs/adr/0009-qu
 
 **Known gaps:**
 
-- **The hosted corpus needs a highlights refresh** before `check:viewer` against it reaches 180/180. Big operators (TeX sums hanging below the em box, e.g. the two `Σ` in g-035) now get their own glyph rects, but the stored rects predate that, so g-035 fails at all three zooms (177/180) until the operator runs `pnpm ingest:golden --highlights-only` ([DEPLOYMENT](./docs/DEPLOYMENT.md), [ADR-0004](./docs/adr/0004-extraction-and-highlights.md)). Big operators in fonts without usable outlines are still covered only by the em box.
+- **Big operators in fonts without usable outlines are covered only by the em box.** TeX sums that hang below the em box (e.g. the two `Σ` in g-035) get their own glyph rects from the font outline; a Type3 or non-embedded font has no outline to read ([ADR-0004](./docs/adr/0004-extraction-and-highlights.md)).
 - **Six golden questions are never retrieved** in the top 15 (g-029, g-030, g-035, g-038, g-040, g-045: three multi-page or multi-hop, three numeric or factoid details; [phase-8-groq-120b-gated.json](./docs/evals/phase-8-groq-120b-gated.json)). Query rewriting doesn't reach them; it is a chunking or evidence-structure problem.
 - **Tables are flattened into running text** by extraction, which causes refusals even when the evidence is retrieved.
 - **False refusals are above the SPEC target** (≤ 1). There were 3 in the end-to-end answer eval of the shipped pipeline (down from 7 before Phases 6–8): two are among the six questions above, and one is a flattened table. The first full promptfoo run had 4, adding g-035, also among the six.
