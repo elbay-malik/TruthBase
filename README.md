@@ -309,6 +309,10 @@ Sources: [ADR-0007](./docs/adr/0007-reranking.md), [ADR-0009](./docs/adr/0009-qu
 
 **Further reading:** [EXECUTION_PLAN](./docs/EXECUTION_PLAN.md) (phase-by-phase plan), [SPEC](./docs/SPEC.md) (scope and acceptance metrics), [TECH_NOTES](./docs/TECH_NOTES.md) (verified API deltas and findings), [WIREFRAMES](./docs/WIREFRAMES.md).
 
+## Acknowledgements
+
+Built with the help of [Claude Code](https://claude.com/claude-code) (Anthropic), which assisted with the code, tests and documentation throughout the project's history.
+
 ## License
 
 [MIT](./LICENSE)
