@@ -196,7 +196,7 @@ function dropFigureText(text: string): string {
  */
 export const HIGHLIGHT_CHECKS = { passed: 176, total: 180, spans: 60, zooms: '50, 100 and 200%' } as const
 
-const REPO = 'https://github.com/EleoXDA/TruthBase'
+const REPO = 'https://github.com/elbay-malik/TruthBase'
 export const PROJECT_LINKS = {
   repo: REPO,
   readme: `${REPO}#readme`,
