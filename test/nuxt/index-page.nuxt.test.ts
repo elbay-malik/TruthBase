@@ -349,12 +349,12 @@ describe('index page', () => {
     expect(row.text()).toContain('NIST CSF 2.0')
     expect(row.text()).toContain('32 pages')
     expect(page.text()).toContain('Highlight placement: 176/180 checks pass')
-    expect(page.find('a[href="https://github.com/EleoXDA/TruthBase#highlight-accuracy"]').exists()).toBe(true)
+    expect(page.find('a[href="https://github.com/elbay-malik/TruthBase#highlight-accuracy"]').exists()).toBe(true)
     expect(page.findAll('nav[aria-label="Project"] a').map(a => a.attributes('href'))).toEqual([
-      'https://github.com/EleoXDA/TruthBase',
-      'https://github.com/EleoXDA/TruthBase#readme',
-      'https://github.com/EleoXDA/TruthBase/tree/main/docs/adr',
-      'https://github.com/EleoXDA/TruthBase/tree/main/docs/evals',
+      'https://github.com/elbay-malik/TruthBase',
+      'https://github.com/elbay-malik/TruthBase#readme',
+      'https://github.com/elbay-malik/TruthBase/tree/main/docs/adr',
+      'https://github.com/elbay-malik/TruthBase/tree/main/docs/evals',
     ])
     await row.trigger('click')
     expect(viewer(page).props('documentId')).toBe(DOC)
