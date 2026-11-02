@@ -348,7 +348,7 @@ describe('index page', () => {
     const row = page.find('button[aria-label="Open The NIST Cybersecurity Framework (CSF) 2.0, 32 pages"]')
     expect(row.text()).toContain('NIST CSF 2.0')
     expect(row.text()).toContain('32 pages')
-    expect(page.text()).toContain('Highlight placement: 176/180 checks pass')
+    expect(page.text()).toContain('Highlight placement: 180/180 checks pass')
     expect(page.find('a[href="https://github.com/elbay-malik/TruthBase#highlight-accuracy"]').exists()).toBe(true)
     expect(page.findAll('nav[aria-label="Project"] a').map(a => a.attributes('href'))).toEqual([
       'https://github.com/elbay-malik/TruthBase',
