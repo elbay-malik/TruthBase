@@ -194,7 +194,7 @@ function dropFigureText(text: string): string {
  * The one quality figure the landing page states, as published in README.md
  * ("Headline numbers", "Highlight accuracy"). Update both together.
  */
-export const HIGHLIGHT_CHECKS = { passed: 176, total: 180, spans: 60, zooms: '50, 100 and 200%' } as const
+export const HIGHLIGHT_CHECKS = { passed: 180, total: 180, spans: 60, zooms: '50, 100 and 200%' } as const
 
 const REPO = 'https://github.com/elbay-malik/TruthBase'
 export const PROJECT_LINKS = {

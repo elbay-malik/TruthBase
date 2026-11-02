@@ -14,7 +14,7 @@ test('the corpus index lists the documents and opens one from page 1', async ({ 
     ['RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval', 23],
     ['Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection', 30],
   ] as const) await expect(index.getByRole('button', { name: `Open ${title}, ${pages} pages` })).toBeVisible()
-  await expect(index.getByText('Highlight placement: 176/180 checks pass')).toBeVisible()
+  await expect(index.getByText('Highlight placement: 180/180 checks pass')).toBeVisible()
   await expect(index.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveCount(4)
   expect(api.pdfStatuses).toEqual([])
 

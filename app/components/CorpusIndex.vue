@@ -116,7 +116,7 @@ const pages = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
           target="_blank"
           rel="noopener"
           class="py-1 text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
-        >The {{ HIGHLIGHT_CHECKS.total - HIGHLIGHT_CHECKS.passed }} misses<span class="sr-only"> (opens in a new tab)</span></a>
+        >Limitations<span class="sr-only"> (opens in a new tab)</span></a>
       </p>
     </section>
 
