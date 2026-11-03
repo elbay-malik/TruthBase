@@ -2,7 +2,7 @@
 
 How TruthBase goes live, and how to check and roll back a deploy. The reasons behind each choice are in [ADR-0011](./adr/0011-deployment-topology.md).
 
-**Topology:** one Vercel Function (Node.js 24, Fluid compute, region `dub1`) serves SSR and `/api/*`. Vercel's CDN serves `/_nuxt`, `/pdfjs`, the corpus PDFs at `/pdfs` and `favicon.ico`. Supabase (AWS eu-west-1) holds the corpus index, the original PDFs and the quota counters. Groq and Gemini answer, and Langfuse traces. Ingestion runs from the operator's machine.
+**Topology:** one Vercel Function (Node.js 24, Fluid compute, region `dub1`) serves SSR and `/api/*`. Vercel's CDN serves `/_nuxt`, `/pdfjs`, the corpus PDFs at `/pdfs` and `favicon.ico`. Supabase (AWS eu-west-1) holds the corpus index, the original PDFs and the quota counters. Groq answers, with Cloudflare Workers AI as the fallback. Gemini embeds questions, and Langfuse traces. Ingestion runs from the operator's machine.
 
 ## 0. Before the first deploy
 
@@ -44,7 +44,8 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
    | Name | Required | Notes |
    |---|---|---|
    | `NUXT_GROQ_API_KEY` | yes | answers, rewrites, reranking |
-   | `NUXT_GEMINI_API_KEY` | yes | query embeddings; answer fallback |
+   | `NUXT_GEMINI_API_KEY` | yes | query embeddings |
+   | `NUXT_CLOUDFLARE_ACCOUNT_ID`, `NUXT_CLOUDFLARE_API_TOKEN` | recommended | answer fallback; a token with Workers AI scope only. Without them, answers are Groq-only |
    | `NUXT_SUPABASE_URL` | yes | |
    | `NUXT_SUPABASE_SERVICE_KEY` | yes | server-only; also keys the IP HMAC |
    | `NUXT_TRUSTED_IP_HEADER` | recommended | `x-vercel-forwarded-for` (also the default on Vercel) |

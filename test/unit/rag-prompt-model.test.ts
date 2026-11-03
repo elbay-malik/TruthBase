@@ -64,9 +64,16 @@ describe('model fallback', () => {
     expect(await withFallback(healthy, ok).doGenerate(options)).toBe('primary result')
   })
 
-  it('does not fall back on a bad request', async () => {
+  it('falls back on a rejected request too, though that is not a "busy" error', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const ok = fakeModel('fallback', async () => 'fallback result')
+    expect(await withFallback(fakeModel('primary', () => Promise.reject(apiError(400))), ok).doStream(options)).toBe('fallback result')
+    expect(isFallbackError(apiError(400))).toBe(false)
+  })
+
+  it('does not fall back on an error that is not from the API', async () => {
     const fallback = fakeModel('fallback', async () => 'never')
-    await expect(withFallback(fakeModel('primary', () => Promise.reject(apiError(400))), fallback).doStream(options)).rejects.toThrow('HTTP 400')
+    await expect(withFallback(fakeModel('primary', () => Promise.reject(new Error('boom'))), fallback).doStream(options)).rejects.toThrow('boom')
     expect(fallback.doStream).not.toHaveBeenCalled()
   })
 

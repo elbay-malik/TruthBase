@@ -150,7 +150,7 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 - **Expanding every question hurts.** Rewrites of clear questions pull in near-misses: recall@8 fell from 87% to 84%. The rewriter now returns an empty list unless the question is ambiguous or multi-part ([ADR-0009](./adr/0009-query-rewriting.md)).
 - **Filenames aren't enough context.** Given only `nist-csf-2.0.pdf`, `raptor.pdf` …, gpt-oss wrote "which function" queries for the RAG papers. A catalog line with the start of each document's first page fixed it (`server/rag/catalog.ts`). The topmost page-1 chunk is the one with the largest `highlight.rects` y (PDF space has a bottom-left origin).
 - **Cache instructions, not just prompts.** The eval caches (`scripts/lib/task-cache.ts`) first keyed on the user prompt only, so changing the system instructions silently reused stale results. Entries now store an instructions hash (mandatory: rerank entries from before it count as `LEGACY_RERANK_HASH`) and a `RESULT_VERSIONS` version for the post-processing, and a mismatch in either is a miss.
-- **Gemini Flash-Lite's free quota runs out** within a day of eval runs ("You exceeded your current quota"). It's also the answer fallback, so keep evals off it unless needed.
+- **Gemini Flash-Lite's free quota runs out** within a day of eval runs ("You exceeded your current quota"). It was the answer fallback until 2026-11 (ADR-0005 note).
 
 ## 14. Evals harness (Phase 9)
 
@@ -195,7 +195,7 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
   - `eval:llm:summary --update-baseline` ignores the existing `llm-baseline.json`, so the 0.05 tolerance doesn't apply; it writes only an error-free run of the full golden set that meets the SPEC targets.
   - The retrieval gate's nDCG@5 ideal is every relevant chunk in the database searched (under `--install`, the fixture corpus): all-documents nDCG@5 0.638 → 0.633, filtered unchanged at 0.627; recall and MRR unchanged. The gate also fails on a changed record count, baseline records missing from the run, or a NaN or empty scope, so removing golden records needs `--update-baseline` in the same PR.
   - Query embeddings are cached in `.cache/query-embeddings/<model>-RETRIEVAL_QUERY-<dims>.json`. The old `.cache/golden-query-embeddings.json` is a read-only fallback for `gemini-embedding-001` at 768 dims.
-  - Pacing is per model id across all caches in a process. promptfoo's answer cache stores Groq and Gemini answers under their own model ids; Gemini is used only after Groq's retries run out, and a fallback counts as two `modelCalls`.
+  - Pacing is per model id across all caches in a process. promptfoo's answer cache stores answers under their model ids, and promptfoo runs on Groq alone.
   - `GOLDEN_ONLY` ignores empty ids and fails on unknown ones.
 - **Keep-alive** is a daily Vercel cron since 2026-10-25 (ADR-0011 §7), so GitHub's 60-day inactivity rule for scheduled workflows no longer applies to it.
 

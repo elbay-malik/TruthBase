@@ -7,8 +7,9 @@
 //   pnpm eval:answers --label x --only g-020,g-046         # subset: printed, not written
 //   … --force                                              # overwrite an existing <label>.json
 //
-// --model groq|gemini pins one provider (no fallback), so a run measures one
-// model; without it the run uses the app's chain (Groq → Gemini on 429/5xx),
+// --model groq|cloudflare|gemini pins one provider (no fallback), so a run
+// measures one model; without it the run uses Groq alone. Cloudflare's Neurons
+// are the live demo's: use --only with it (a full run spends about 3,400),
 // and each result records the model that actually answered.
 //
 // Generation sees exactly what POST /api/chat retrieves: hybrid search with
@@ -56,7 +57,7 @@ const ROOT = resolve(import.meta.dirname, '..')
 const { values } = parseArgs({
   options: {
     label: { type: 'string' },
-    model: { type: 'string' }, // groq | gemini; default: the app's fallback chain
+    model: { type: 'string' }, // groq | cloudflare | gemini; default: groq
     delay: { type: 'string', default: '4000' }, // ms between generations (free-tier RPM)
     only: { type: 'string' },
     force: { type: 'boolean', default: false },
@@ -67,8 +68,8 @@ const { values } = parseArgs({
 if (!values.label || !/^[\w.-]+$/.test(values.label)) {
   throw new Error('--label <name> is required (letters, digits, . _ -): it names docs/evals/<label>.json')
 }
-if (values.model !== undefined && values.model !== 'groq' && values.model !== 'gemini') {
-  throw new Error('--model must be groq or gemini')
+if (values.model !== undefined && values.model !== 'groq' && values.model !== 'cloudflare' && values.model !== 'gemini') {
+  throw new Error('--model must be groq, cloudflare or gemini')
 }
 const outFile = join(ROOT, 'docs/evals', `${values.label}.json`)
 if (!values.only && !values.force && await access(outFile).then(() => true, () => false)) {
@@ -87,8 +88,8 @@ const env = (name: string) => {
 const supabase = createClient(env('NUXT_SUPABASE_URL'), env('NUXT_SUPABASE_SERVICE_KEY'), { auth: { persistSession: false } })
 const embed = geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_QUERY')
 const { model, id: modelId, providerOptions } = chatModel(
-  { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') },
-  values.model as 'groq' | 'gemini' | undefined,
+  { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY'), cloudflareAccountId: process.env.NUXT_CLOUDFLARE_ACCOUNT_ID, cloudflareApiToken: process.env.NUXT_CLOUDFLARE_API_TOKEN },
+  (values.model ?? 'groq') as 'groq' | 'cloudflare' | 'gemini',
 )
 
 const reranker = values.rerank === 'off'
