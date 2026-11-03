@@ -37,7 +37,7 @@ useSeoMeta({
       <li><strong>Groq</strong> (USA) rewrites the question, ranks the passages and writes the answer. Groq states that it doesn't retain inference data by default, but keeps abuse and reliability logs for up to 30 days.</li>
       <li><strong>Cloudflare Workers AI</strong> (USA) writes the answer when Groq is unavailable. Cloudflare states that it doesn't retain this content after the response or use it for training.</li>
       <li><strong>Google Gemini</strong> (USA) turns the question into a search vector. Google states that it retains prompts for 55 days to detect abuse. This demo uses Google's unpaid tier, for which Google's terms allow use of the content to improve its products and review by people, and its terms set different rules for users in the EEA, Switzerland and the UK.</li>
-      <li><strong>Langfuse</strong> records the question, the passages and the answer for quality checks, without your IP address. On the free plan used here, records can be viewed for 30 days, but Langfuse doesn't delete them automatically. They stay stored until they are deleted by hand, which you can ask for.</li>
+      <li><strong>Langfuse</strong> records the question, the passages and the answer for quality checks, without your IP address. A daily job deletes these records automatically, so they are normally gone within 30 days. You can ask for earlier deletion.</li>
     </ul>
 
     <h2 class="mt-8 text-base font-semibold">

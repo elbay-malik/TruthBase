@@ -40,8 +40,8 @@ const config = json(join(OUTPUT, 'config.json'))
 check(config.version === 3, 'config.json is Build Output API v3')
 check(config.routes?.some((r: { handle?: string }) => r.handle === 'filesystem'), 'config.json serves static files before the function')
 check(config.routes?.some((r: { dest?: string }) => r.dest === '/__fallback'), 'config.json routes everything else to the function')
-// The daily Supabase keep-alive (Hobby allows daily schedules only).
-check(JSON.stringify(config.crons) === '[{"path":"/api/cron/keep-alive","schedule":"0 6 * * *"}]', `config.json has the daily keep-alive cron (got ${JSON.stringify(config.crons)})`)
+// The daily Supabase keep-alive and Langfuse clean-up (Hobby allows daily schedules only).
+check(JSON.stringify(config.crons) === '[{"path":"/api/cron/keep-alive","schedule":"0 6 * * *"},{"path":"/api/cron/prune-traces","schedule":"0 7 * * *"}]', `config.json has the two daily crons (got ${JSON.stringify(config.crons)})`)
 
 // The headers Vercel's CDN gives a static file: header routes in order, up to
 // the filesystem phase; a match without `continue: true` ends the walk.
@@ -137,6 +137,9 @@ try {
 
   const keepAlive = await fetch(`${base}/api/cron/keep-alive`, { headers: { authorization: 'Bearer guess' } })
   check(keepAlive.status === 503, `GET /api/cron/keep-alive is 503 without CRON_SECRET (got ${keepAlive.status})`)
+
+  const pruneTraces = await fetch(`${base}/api/cron/prune-traces`, { headers: { authorization: 'Bearer guess' } })
+  check(pruneTraces.status === 503, `GET /api/cron/prune-traces is 503 without CRON_SECRET (got ${pruneTraces.status})`)
 
   const ingest = await fetch(`${base}/api/ingest`, { method: 'POST', body: '0123456789' })
   check(ingest.status === 503, `POST /api/ingest is 503 without NUXT_INGEST_TOKEN (got ${ingest.status})`)
