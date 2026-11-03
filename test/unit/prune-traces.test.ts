@@ -36,12 +36,16 @@ function stubLangfuse(pages: Page[], options: { listStatus?: number, deleteStatu
 const deletes = (calls: Call[]) => calls.filter(c => c.method === 'DELETE')
 
 describe('pruneOldTraces', () => {
-  it('only asks for records past 27 days, using Basic auth', async () => {
+  it('scans day by day from the oldest, stopping at 26 days, using Basic auth', async () => {
     const calls = stubLangfuse([{ data: [] }])
     expect(await pruneOldTraces(auth, NOW)).toEqual({ deleted: 0, partial: false })
-    const params = calls[0]!.url.searchParams
-    expect(params.get('toStartTime')).toBe('2026-11-03T07:00:00.000Z')
-    expect(params.get('fromStartTime')).toBe('2026-10-30T07:00:00.000Z')
+    expect(calls.map(c => [c.url.searchParams.get('fromStartTime')!.slice(0, 10), c.url.searchParams.get('toStartTime')!.slice(0, 10)])).toEqual([
+      ['2026-10-30', '2026-10-31'],
+      ['2026-10-31', '2026-11-01'],
+      ['2026-11-01', '2026-11-02'],
+      ['2026-11-02', '2026-11-03'],
+      ['2026-11-03', '2026-11-04'],
+    ])
     expect(calls[0]!.authorization).toBe(`Basic ${Buffer.from('pk:sk').toString('base64')}`)
     expect(deletes(calls)).toEqual([])
   })
@@ -71,10 +75,10 @@ describe('pruneOldTraces', () => {
   })
 
   it('reports a run stopped by the page cap as partial', async () => {
-    const pages = Array.from({ length: 12 }, (_, i) => ({ data: [{ traceId: `t${i}`, startTime: '2026-11-01T00:00:00Z' }], meta: { cursor: String(i + 1) } }))
+    const pages = Array.from({ length: 25 }, (_, i) => ({ data: [{ traceId: `t${i}`, startTime: '2026-11-01T00:00:00Z' }], meta: { cursor: String(i + 1) } }))
     const calls = stubLangfuse(pages)
-    expect(await pruneOldTraces(auth, NOW)).toEqual({ deleted: 10, partial: true })
-    expect(calls.filter(c => c.method === 'GET')).toHaveLength(10)
+    expect(await pruneOldTraces(auth, NOW)).toEqual({ deleted: 20, partial: true })
+    expect(calls.filter(c => c.method === 'GET')).toHaveLength(20)
   })
 
   it('throws when listing or deleting fails', async () => {
@@ -87,6 +91,16 @@ describe('pruneOldTraces', () => {
 
 describe('GET /api/cron/prune-traces', () => {
   afterEach(() => vi.unstubAllEnvs())
+
+  it('drops a trailing slash from LANGFUSE_BASE_URL', async () => {
+    const calls = stubLangfuse([{ data: [] }])
+    vi.stubEnv('CRON_SECRET', 's3cret')
+    vi.stubEnv('LANGFUSE_PUBLIC_KEY', 'pk')
+    vi.stubEnv('LANGFUSE_SECRET_KEY', 'sk')
+    vi.stubEnv('LANGFUSE_BASE_URL', 'https://lf.test/')
+    await call('Bearer s3cret')
+    expect(calls[0]!.url.pathname).toBe('/api/public/v2/observations')
+  })
 
   it('is closed without CRON_SECRET and refuses a wrong token, calling nothing', async () => {
     const calls = stubLangfuse([{ data: [] }])

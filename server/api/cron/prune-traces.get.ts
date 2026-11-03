@@ -4,7 +4,7 @@ import { pruneOldTraces } from '../../utils/trace-retention'
 // GET /api/cron/prune-traces: the daily Langfuse clean-up, called by a Vercel
 // cron job (nuxt.config.ts nitro.vercel.config.crons, privacy page). A failed
 // run is a 502 in the Vercel logs, and two in a row are survivable; see
-// server/utils/trace-retention.ts for why that matters.
+// server/utils/trace-retention.ts.
 export default defineEventHandler(async (event) => {
   requireCronSecret(event)
 
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const result = await pruneOldTraces({
-      baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+      baseUrl: (process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com').replace(/\/+$/, ''),
       publicKey,
       secretKey,
     })
