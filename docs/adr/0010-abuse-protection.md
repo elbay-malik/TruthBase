@@ -19,8 +19,8 @@ Phase 11's acceptance criterion (EXECUTION_PLAN): exceeding the cap returns a cl
 
    | Route | Per client / day | Whole demo / day | Why |
    |---|---|---|---|
-   | `/api/chat` | 30 | 80 | gpt-oss-120b's 200K tokens/day ≈ 100 answers; 20 left for evals and retries |
-   | `/api/search` | 100 | 300 | embeddings only: no rewrite, rerank or answer |
+   | `/api/chat` | 10 | 80 | gpt-oss-120b's 200K tokens/day ≈ 100 answers; 20 left for evals and retries |
+   | `/api/search` | 30 | 300 | embeddings only: no rewrite, rerank or answer |
 
    All four are `NUXT_QUOTA_*` settings; a limit below 1, or a value that isn't a whole number, closes the route (with a warning at startup). The day is UTC.
 
@@ -50,7 +50,7 @@ Phase 11's acceptance criterion (EXECUTION_PLAN): exceeding the cap returns a cl
 ## Consequences
 
 - **Deploy:** apply the migration, and set `NUXT_TRUSTED_IP_HEADER` for the host (Phase 14: `x-vercel-forwarded-for`, also the default on Vercel); it keys both layers. Until the migration exists, chat and search answer 503.
-- **Shared IPs** (offices, carrier NAT) share one allowance of 30 chats a day. Acceptable for a demo.
+- **Shared IPs** (offices, carrier NAT) share one allowance of 10 chats a day. Acceptable for a demo.
 - **gpt-oss-20b runs out before the chat budget:** 80 chats a day exceed its ~60 enhanced chats, so late in a busy day chat skips rewriting and reranking and answers from the fused order (ADR-0007, ADR-0009). Answers still work.
 - **PDF egress:** the corpus PDFs are static files on the CDN (amended 2026-10-22, see the last note). Any other document gets a 12-minute signed Storage URL that can be fetched again until it expires. Only the per-minute limiter bounds signing, so egress for those documents has no daily cap.
 - **The global budget is spent by evals too** only if they go through the routes; they don't (they call the pipeline directly), so the 20 left over is headroom for their direct use of the same Groq quota.
@@ -68,3 +68,11 @@ The semantics above are unchanged. A per-minute block is a 429 with `Retry-After
 **Failing closed on configuration errors.** On 2026-10-21 the first production deploy went live about ten minutes before `20261021120000_burst_quota.sql` was applied. `consume_quotas` answered 404 (`PGRST202`), so every chat and search was let through. The only record was a warning in runtime logs, which Hobby keeps for an hour. None of item 5's mitigations held: retrieval kept working, the per-instance limiter resets on every cold start, and nobody was reading the logs. Now only an outage fails open: no response at all, or a 5xx. A 4xx or an empty result means the deployment is wrong, and the routes answer 503 until it is fixed. Both cases log at error level. `NUXT_QUOTA_*_GLOBAL=0` is still the quick off-switch. Revoking or dropping `consume_quotas` used to lift every cap; now it closes the routes too.
 
 **The corpus PDFs come from the CDN.** Supabase Free includes 5 GB of uncached egress per organization and billing cycle. Past that, Supabase can answer 402 to every request. By 2026-10-22, local verification runs had downloaded about 4 GB of it: viewer checks, Lighthouse and audit sweeps, all against a local server that signed URLs on the hosted bucket. The four public PDFs are now published from `docs/golden/pdfs` at `/pdfs` (`nitro.publicAssets`, cached for a day), and the file route returns that same-origin URL for them (`server/utils/static-pdfs.ts`). They are byte-identical to the bucket objects the highlights were computed from, so changing one means a new filename. Vercel Hobby includes 100 GB of transfer a month, and the CDN caches the files. Signed URLs remain for documents outside the corpus (Phase 11b uploads).
+
+## Security audit note (2026-11-03): one client, the CDN and `/pdfs`
+
+**Lower per-client caps.** At 30 chats a client, three addresses could spend the whole day's 80, and every visitor then saw the budget message until midnight UTC. The per-client caps are now 10 chats and 30 searches, so it takes eight and ten addresses. This raises the bar without closing the gap: someone with enough addresses can still spend the budget. An office behind one address shares the 10 chats. Keying IPv6 per /48 was rejected, because carriers can place unrelated phones in one /48 and they would share that smaller allowance.
+
+**`/api/chunks/:id` is cached.** It was the one route that queried Postgres on every call with only the per-instance limiter in front, and every call counts as Supabase egress. It is now cached for a day in the function and on Vercel's CDN, keyed by id. Only successful answers are cached. After `pnpm ingest:golden --replace`, an old chunk or highlight can be served for up to a day, or until the next deploy clears the CDN.
+
+**A Vercel Firewall rule limits `/pdfs/`.** The PDFs are on the CDN with no function in the path, so no code here can limit them. Hobby allows one rate-limit rule per project, fixed window, keyed by IP. It lives in the Vercel project, not in this repository (DEPLOYMENT.md §5). It slows a single host; it can't stop many hosts from using up the 100 GB of monthly transfer.

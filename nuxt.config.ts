@@ -188,10 +188,10 @@ export default defineNuxtConfig({
     quota: {
       enabled: !rateLimitOff, // off only with NUXT_DISABLE_RATE_LIMIT=1 in `nuxt dev`
       chatPerMinute: PER_MINUTE.chat, // NUXT_QUOTA_CHAT_PER_MINUTE
-      chatPerClient: 30, // NUXT_QUOTA_CHAT_PER_CLIENT
+      chatPerClient: 10, // NUXT_QUOTA_CHAT_PER_CLIENT
       chatGlobal: 80, // NUXT_QUOTA_CHAT_GLOBAL
       searchPerMinute: PER_MINUTE.search, // NUXT_QUOTA_SEARCH_PER_MINUTE
-      searchPerClient: 100, // NUXT_QUOTA_SEARCH_PER_CLIENT
+      searchPerClient: 30, // NUXT_QUOTA_SEARCH_PER_CLIENT
       searchGlobal: 300, // NUXT_QUOTA_SEARCH_GLOBAL
     },
     public: {},

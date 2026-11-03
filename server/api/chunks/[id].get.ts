@@ -4,7 +4,11 @@ import type { SourceRef } from '#shared/types/chat'
 // GET /api/chunks/:id — one chunk with its document and stored highlight, for
 // citation deep links (/?chunk=<id>) and the Phase 5 viewer check. Public demo
 // data; explicit columns only (never the embedding or tsvector).
-export default defineEventHandler(async (event): Promise<SourceRef> => {
+// Cached for a day, in the function and on Vercel's CDN (s-maxage): every miss
+// is Supabase egress, and chunks change only through operator ingestion. Keyed
+// by id alone, so a query string cannot add entries, and a thrown error is not
+// cached, so unknown ids cannot fill the cache either.
+export default defineCachedEventHandler(async (event): Promise<SourceRef> => {
   const { id } = await getValidatedRouterParams(event, documentParamsSchema.parse)
   const { data, error } = await serverSupabase()
     .from('chunks')
@@ -30,4 +34,9 @@ export default defineEventHandler(async (event): Promise<SourceRef> => {
     content: data.content as string,
     highlight: data.highlight as SourceRef['highlight'],
   }
+}, {
+  name: 'chunks',
+  getKey: event => getRouterParam(event, 'id') ?? '',
+  maxAge: 24 * 60 * 60,
+  swr: true,
 })

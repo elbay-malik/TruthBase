@@ -281,7 +281,7 @@ Before the first deploy, apply `supabase/migrations` to the hosted project, inge
 
 | Service | Binding limit | How TruthBase stays inside it |
 |---|---|---|
-| Groq (per model) | 8K tokens/min, 1K requests/day, 200K tokens/day | Answers on gpt-oss-120b (~100/day); rewriting and reranking on gpt-oss-20b (~60 fully enhanced chats/day, then fused order). Daily caps: chat 30 per client, 80 for the whole demo; search 100 / 300. Per-minute: 10 chats, 30 searches per client |
+| Groq (per model) | 8K tokens/min, 1K requests/day, 200K tokens/day | Answers on gpt-oss-120b (~100/day); rewriting and reranking on gpt-oss-20b (~60 fully enhanced chats/day, then fused order). Daily caps: chat 10 per client, 80 for the whole demo; search 30 / 300. Per-minute: 10 chats, 30 searches per client |
 | Gemini | free embedding and Flash-Lite quotas | Query embeddings only at run time; Flash-Lite is the answer fallback |
 | Supabase | 500 MB, pauses after 7 idle days | 564 chunks at 768 dims (~2 MB of vectors); daily keep-alive cron on Vercel |
 | Vercel Hobby | non-commercial; 1M invocations, 4 Active CPU-hours, 100 GB transfer per month; 4.5 MB bodies; one region | Waiting on models doesn't count as Active CPU; ingestion stays off the function |
