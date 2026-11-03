@@ -15,7 +15,7 @@ import { retrieveSources } from '../rag/retrieve'
 // Retrieval: Gemini query embedding → hybrid RRF search, plus multi-query
 // rewrites of an ambiguous question fused with RRF (ADR-0009) → LLM rerank of
 // the fused top 15 (ADR-0007) → top 8; each LLM step is skipped on failure. Generation:
-// Groq gpt-oss-120b with Gemini fallback (server/rag/model.ts), temperature 0.
+// Groq gpt-oss-120b with Cloudflare fallback (server/rag/model.ts), temperature 0.
 // A client disconnect (Stop, closed tab) aborts the embedding and LLM calls.
 // Generation that stalls (no chunk for 15 s, or 45 s in all) or hits the
 // output cap ends the answer with an error part saying so.
@@ -42,7 +42,10 @@ export default defineEventHandler(async (event) => {
   if (!config.geminiApiKey) {
     throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Query embeddings are not configured (set NUXT_GEMINI_API_KEY).' })
   }
-  const { model, id: modelId, providerOptions } = chatModel({ groqApiKey: config.groqApiKey, geminiApiKey: config.geminiApiKey })
+  if (!config.groqApiKey && !(config.cloudflareAccountId && config.cloudflareApiToken)) {
+    throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Answers are not configured (set NUXT_GROQ_API_KEY or the NUXT_CLOUDFLARE_* values).' })
+  }
+  const { model, id: modelId, providerOptions } = chatModel(config)
   const supabase = serverSupabase()
   // Per-minute and daily limits (ADR-0010): a clean 429 before any model call or stream.
   const quota = quotaConfig('chat')
@@ -112,13 +115,14 @@ export default defineEventHandler(async (event) => {
           onChunk: ({ chunk }) => {
             if (ttftMs === undefined && chunk.type === 'text-delta') ttftMs = ms()
           },
-          onFinish: ({ text, finishReason }) => {
+          onFinish: ({ text, finishReason, response }) => {
             const truncated = finishReason === 'length'
             if (truncated) notice = 'The answer was cut off at the length limit. Ask a narrower question for the rest.'
             trace.end({
               output: text,
               ...(truncated && { level: 'WARNING' as const, statusMessage: 'answer truncated at maxOutputTokens' }),
-              metadata: { ...retrieval, ttftMs, totalMs: ms(), finishReason },
+              // answeredBy: which provider of the chain gave this answer.
+              metadata: { ...retrieval, ttftMs, totalMs: ms(), finishReason, answeredBy: response.modelId },
             })
           },
           onAbort: () => {
@@ -132,7 +136,12 @@ export default defineEventHandler(async (event) => {
           },
         })
         // Generation errors surface here, not in createUIMessageStream's onError.
-        writer.merge(toUIMessageStream<ToolSet, ChatMessage>({ stream: result.stream, onError }).pipeThrough(new TransformStream({
+        writer.merge(toUIMessageStream<ToolSet, ChatMessage>({
+          stream: result.stream,
+          onError,
+          // Cloudflare streams the model's reasoning as its own parts.
+          sendReasoning: false,
+        }).pipeThrough(new TransformStream({
           flush: (controller) => {
             if (notice) controller.enqueue({ type: 'error', errorText: notice })
           },

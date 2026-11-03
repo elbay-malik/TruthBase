@@ -1188,7 +1188,12 @@ onMounted(async () => {
           </UButton>
         </form>
         <p class="mt-2 text-center text-xs text-muted">
-          Answers come only from these documents.
+          Answers come only from these documents. Questions go to AI providers and are logged, so don't enter personal data.
+          <NuxtLink
+            to="/privacy"
+            target="_blank"
+            class="underline underline-offset-2 hover:text-default"
+          >Privacy</NuxtLink>
         </p>
       </div>
     </main>

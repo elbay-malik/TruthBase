@@ -1,25 +1,32 @@
 import { createGoogle } from '@ai-sdk/google'
 import { createGroq } from '@ai-sdk/groq'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModelV4, LanguageModelV4CallOptions } from '@ai-sdk/provider'
 import { APICallError, RetryError } from 'ai'
+import { withoutHarmony } from './harmony'
 
 // Generation model selection (ADR-0001, amended in ADR-0005): Groq
-// gpt-oss-120b, with Gemini Flash-Lite as the fallback. llama-3.3-70b-versatile
-// (the plan's choice) is no longer served by Groq and gemini-2.5-flash-lite is
-// closed to new users (TECH_NOTES §9).
+// gpt-oss-120b, with the same model on Cloudflare Workers AI as the fallback.
+// llama-3.3-70b-versatile (the plan's choice) is no longer served by Groq.
 //
 // Groq's free tier is 8K tokens/min (~3 answers/min across all users), so when
-// both keys are set, a Groq request that is rejected before streaming starts
-// (429 rate limit, 5xx, unreachable, or no stream within 10 s) goes straight
-// to Gemini. The AI SDK's own retry loop (`maxRetries`) wraps this whole
-// chain, so each SDK attempt tries both.
+// both are configured, a Groq request that fails before streaming starts (any
+// API error, unreachable, or no stream within 10 s) goes straight to
+// Cloudflare. The AI SDK's own retry loop (`maxRetries`) wraps this whole
+// chain, so each SDK attempt tries both. Cloudflare's free 10,000 Neurons a day
+// cover about 147 answers; past that its requests fail, and the visitor gets
+// the "busy" message.
 
 export const GROQ_MODEL = 'openai/gpt-oss-120b'
 export const GEMINI_MODEL = 'gemini-3.5-flash-lite'
+export const CLOUDFLARE_MODEL = '@cf/openai/gpt-oss-120b'
 
 export interface ModelKeys {
   groqApiKey?: string
+  /** Only for `chatModel(keys, 'gemini')` and the `gemini` task model. */
   geminiApiKey?: string
+  cloudflareAccountId?: string
+  cloudflareApiToken?: string
 }
 
 type SharedProviderOptions = NonNullable<Parameters<typeof import('ai').streamText>[0]['providerOptions']>
@@ -35,27 +42,41 @@ export interface ChatModel {
 // gpt-oss is a reasoning model: keep reasoning short (latency, free-tier token
 // quota) and out of the answer stream.
 const GROQ_OPTIONS = { groq: { reasoningEffort: 'low', reasoningFormat: 'hidden' } } as const
+const CLOUDFLARE_OPTIONS = { cloudflare: { reasoningEffort: 'low' } } as const
+
+function cloudflareModel(keys: ModelKeys): LanguageModelV4 | undefined {
+  if (!keys.cloudflareAccountId || !keys.cloudflareApiToken) return undefined
+  return withoutHarmony(createOpenAICompatible({
+    name: 'cloudflare',
+    baseURL: `https://api.cloudflare.com/client/v4/accounts/${keys.cloudflareAccountId}/ai/v1`,
+    apiKey: keys.cloudflareApiToken,
+  }).chatModel(CLOUDFLARE_MODEL))
+}
 
 /**
- * @param prefer Force one provider (the eval compares them); by default Groq
- *   with Gemini as fallback when both keys are configured.
+ * @param prefer Force one provider (the evals compare them); by default Groq
+ *   with Cloudflare as fallback when both are configured. Gemini only by name.
  */
-export function chatModel(keys: ModelKeys, prefer?: 'groq' | 'gemini'): ChatModel {
-  const groq = keys.groqApiKey && prefer !== 'gemini' ? createGroq({ apiKey: keys.groqApiKey })(GROQ_MODEL) : undefined
-  const gemini = keys.geminiApiKey && prefer !== 'groq' ? createGoogle({ apiKey: keys.geminiApiKey })(GEMINI_MODEL) : undefined
+export function chatModel(keys: ModelKeys, prefer?: 'groq' | 'cloudflare' | 'gemini'): ChatModel {
+  if (prefer === 'gemini') {
+    if (!keys.geminiApiKey) throw new Error('The gemini model is not configured (set its API key).')
+    return { model: createGoogle({ apiKey: keys.geminiApiKey })(GEMINI_MODEL), id: `google/${GEMINI_MODEL}`, providerOptions: {} }
+  }
+  const groq = keys.groqApiKey && prefer !== 'cloudflare' ? createGroq({ apiKey: keys.groqApiKey })(GROQ_MODEL) : undefined
+  const cloudflare = prefer === 'groq' ? undefined : cloudflareModel(keys)
 
-  if (groq && gemini) {
+  if (groq && cloudflare) {
     return {
-      model: withFallback(groq, gemini),
-      id: `groq/${GROQ_MODEL} → google/${GEMINI_MODEL}`,
-      providerOptions: GROQ_OPTIONS,
+      model: withFallback(groq, cloudflare),
+      id: `groq/${GROQ_MODEL} → cloudflare/${CLOUDFLARE_MODEL}`,
+      providerOptions: { ...GROQ_OPTIONS, ...CLOUDFLARE_OPTIONS },
     }
   }
   if (groq) return { model: groq, id: `groq/${GROQ_MODEL}`, providerOptions: GROQ_OPTIONS }
-  if (gemini) return { model: gemini, id: `google/${GEMINI_MODEL}`, providerOptions: {} }
+  if (cloudflare) return { model: cloudflare, id: `cloudflare/${CLOUDFLARE_MODEL}`, providerOptions: CLOUDFLARE_OPTIONS }
   throw new Error(prefer
     ? `The ${prefer} model is not configured (set its API key).`
-    : 'No generation model configured (set NUXT_GROQ_API_KEY or NUXT_GEMINI_API_KEY).')
+    : 'No generation model configured (set NUXT_GROQ_API_KEY or the NUXT_CLOUDFLARE_* values).')
 }
 
 /**
@@ -70,12 +91,23 @@ export function isFallbackError(error: unknown): boolean {
   return error.statusCode === undefined || error.statusCode === 429 || error.statusCode >= 500
 }
 
+/**
+ * Any API error from the primary, also the 4xx that isFallbackError leaves out:
+ * a retired model or a parameter Groq starts rejecting shouldn't take answers
+ * down while the fallback works. Not used for the "busy" message, which must
+ * stay true to isFallbackError.
+ */
+function isApiError(error: unknown): boolean {
+  if (RetryError.isInstance(error)) return isApiError(error.lastError)
+  return APICallError.isInstance(error)
+}
+
 /** How long the primary may take to start streaming before the fallback gets the request. */
 export const PRIMARY_STREAM_TIMEOUT_MS = 10_000
 
 /**
- * A model that calls `primary` and, if the request is rejected before any
- * output (429 / 5xx / unreachable) or a stream doesn't start within
+ * A model that calls `primary` and, if the request fails before any output
+ * (an API error of any status, unreachable) or a stream doesn't start within
  * `streamTimeoutMs`, calls `fallback` with the same options. Once streaming
  * has started there is no switch: the stream's own error handling applies.
  */
@@ -92,7 +124,7 @@ export function withFallback(primary: LanguageModelV4, fallback: LanguageModelV4
       return await call(primary, { ...options, abortSignal })
     }
     catch (error) {
-      if (options.abortSignal?.aborted || !(budget.signal.aborted || isFallbackError(error))) throw error
+      if (options.abortSignal?.aborted || !(budget.signal.aborted || isApiError(error))) throw error
       const reason = budget.signal.aborted ? 'timed out' : (error as APICallError).statusCode ?? 'unreachable'
       console.warn(`[model] ${primary.provider}/${primary.modelId} unavailable (${reason}); falling back to ${fallback.provider}/${fallback.modelId}`)
       return await call(fallback, options)

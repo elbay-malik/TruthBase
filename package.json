@@ -38,6 +38,7 @@
   "dependencies": {
     "@ai-sdk/google": "4.0.9",
     "@ai-sdk/groq": "4.0.5",
+    "@ai-sdk/openai-compatible": "3.0.5",
     "@ai-sdk/provider": "4.0.2",
     "@ai-sdk/vue": "4.0.17",
     "@langfuse/otel": "6.0.1",

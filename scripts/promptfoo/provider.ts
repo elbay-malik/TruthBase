@@ -7,15 +7,14 @@
 //
 // Models follow the app's runtime config: NUXT_EXPAND_MODEL and
 // NUXT_RERANK_MODEL (task models; "off" disables), the answer model chain
-// from server/rag/model.ts. The fallback wraps the caches, not the other way
-// round: a Groq rate limit is paced and retried (or stops the run) before
-// Gemini answers, and each answer is cached under the model that gave it.
+// is Groq's alone: a rate limit is paced and retried, or stops the run. The
+// Cloudflare fallback stays out, because its free Neurons are the live demo's.
 
 import { createClient } from '@supabase/supabase-js'
 import { generateText } from 'ai'
 import { geminiEmbedder } from '../../server/ingest/embed'
 import { DEFAULT_EXPAND_MODEL } from '../../server/rag/expand'
-import { chatModel, configuredTaskModel, withFallback, type TaskModel } from '../../server/rag/model'
+import { chatModel, configuredTaskModel, type TaskModel } from '../../server/rag/model'
 import { buildPrompt, GROUNDING_INSTRUCTIONS, isRefusal, parseCitations } from '../../server/rag/prompt'
 import { DEFAULT_RERANK_MODEL } from '../../server/rag/rerank'
 import { retrieveSources } from '../../server/rag/retrieve'
@@ -43,15 +42,13 @@ async function cachedTaskModel(tm: TaskModel | undefined, namespace: string): Pr
 
 const pipeline = (async () => {
   const keys = { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') }
-  const answer = chatModel(keys)
-  // A Gemini fallback counts as a second call in stats.
-  const cachedAnswer = async (prefer: 'groq' | 'gemini') => cachedLanguageModel(chatModel(keys, prefer).model, 'answer', TPM, stats)
+  const answer = chatModel(keys, 'groq')
   return {
     supabase: createClient(env('NUXT_SUPABASE_URL'), env('NUXT_SUPABASE_SERVICE_KEY'), { auth: { persistSession: false } }),
     embed: geminiEmbedder(keys.geminiApiKey, 'RETRIEVAL_QUERY'),
     expander: await cachedTaskModel(configuredTaskModel(keys, process.env.NUXT_EXPAND_MODEL ?? DEFAULT_EXPAND_MODEL), 'expand'),
     reranker: await cachedTaskModel(configuredTaskModel(keys, process.env.NUXT_RERANK_MODEL ?? DEFAULT_RERANK_MODEL), 'rerank'),
-    answer: { ...answer, model: keys.groqApiKey ? withFallback(await cachedAnswer('groq'), await cachedAnswer('gemini')) : await cachedAnswer('gemini') },
+    answer: { ...answer, model: await cachedLanguageModel(answer.model, 'answer', TPM, stats) },
   }
 })()
 

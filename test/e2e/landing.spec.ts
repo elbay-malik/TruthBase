@@ -24,3 +24,15 @@ test('the corpus index lists the documents and opens one from page 1', async ({ 
   await expect(pagesRegion(page, 'nist-csf-2.0.pdf')).toBeFocused()
   expect(api.questions).toEqual([])
 })
+
+test('the privacy page is linked from the ask box and names the processors', async ({ page }) => {
+  await open(page)
+  const opened = page.waitForEvent('popup')
+  await page.getByRole('link', { name: 'Privacy' }).click()
+  const privacy = await opened
+  await expect(privacy.getByRole('heading', { name: 'Privacy', level: 1 })).toBeVisible()
+  for (const name of ['Groq', 'Cloudflare Workers AI', 'Google Gemini', 'Langfuse', 'Supabase', 'Vercel']) {
+    await expect(privacy.getByRole('main').getByText(name, { exact: true })).toBeVisible()
+  }
+})
+
