@@ -8,7 +8,7 @@ import { STUB_ORIGIN } from './ports'
 
 // Hermetic API for the E2E suite: every /api/* request the browser makes is
 // answered here from repo fixtures (page.route), so no Supabase, Groq or
-// Gemini key is needed. The server renders the page and serves the corpus
+// Cloudflare key is needed. The server renders the page and serves the corpus
 // PDFs from /pdfs, as in production; its SSR call to GET /api/documents, and
 // the signed PDF URLs a stalled download uses, reach ./supabase-stub.ts.
 

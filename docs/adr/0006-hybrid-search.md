@@ -75,3 +75,9 @@ With only 45 questions, one question moves a metric by 2.2 points, so the best s
 - `supabase/tests/hybrid_search.sql` (CI `db` job) asserts the OR matching (including a hyphenated control ID), the new default scores, `candidate_count` and the absence of zero-score rows.
 - OR matching computes `ts_rank_cd` for every chunk that shares a word with the question. That's cheap at this size. At 10⁵+ chunks, consider a `ts_rank` cut-off or a GIN-friendly pre-filter.
 - Revisit when the corpus or golden set changes materially, or with Phase 7: a reranker may prefer a bigger pool or different weights.
+
+## Note (2026-11-04): the same function on bge-m3
+
+The app now searches `hybrid_search_bge_m3` ([ADR-0013](./0013-leaving-gemini.md)): v2 with only the column and vector size changed, so the defaults above carried over unchanged. The tables above were measured on Gemini embeddings and were not re-run, and the dense-only comparison has no bge-m3 row.
+
+With bge-m3, question only, 45 answerable (`pnpm eval:retrieval`, [retrieval-baseline.json](../evals/retrieval-baseline.json)): recall@5 73%, recall@8 76%, recall@10 76%, recall@15 84%, MRR 0.548, nDCG@5 0.640. The 87% recall@8 above doesn't describe the current system. In the full pipeline the final top 8 holds 39/45, the same as Gemini, because rewrites and reranking at 20 candidates reach evidence below rank 8.

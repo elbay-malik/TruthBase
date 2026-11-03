@@ -1,7 +1,7 @@
 // Phase 7: does listwise LLM reranking improve the top of the list? (ADR-0007)
 //
 // For every answerable golden record: the fused top-N from the hosted
-// `hybrid_search` (as the chat route retrieves it) → one rerank call → metrics
+// `hybrid_search_bge_m3` (as the chat route retrieves it) → one rerank call → metrics
 // on the fused and the reranked order of the same candidates.
 //
 //   pnpm eval:rerank --model groq-20b                 # 45 records, all documents
@@ -58,7 +58,7 @@ if (!rm) throw new Error(`--model ${choice} is not configured (missing API key) 
 
 const golden = await answerableRecords(values.only)
 const { filenameById, idByFilename } = await documentMaps(supabase)
-const embed = await queryEmbeddings(env('NUXT_GEMINI_API_KEY'))
+const embed = await queryEmbeddings({ cloudflareAccountId: process.env.NUXT_CLOUDFLARE_ACCOUNT_ID, cloudflareApiToken: process.env.NUXT_CLOUDFLARE_API_TOKEN })
 const embeddings = Object.fromEntries((await embed(golden.map(r => r.question))).map((v, i) => [golden[i]!.question, v]))
 
 // ── metrics (scripts/lib/golden.ts) ──────────────────────────────────────

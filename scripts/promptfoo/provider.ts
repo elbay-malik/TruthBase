@@ -1,5 +1,5 @@
 // promptfoo provider: the production answer pipeline (ADR-0008). Retrieval is
-// server/rag/retrieve.ts unchanged (hosted hybrid_search, multi-query
+// server/rag/retrieve.ts unchanged (hosted hybrid_search_bge_m3, multi-query
 // rewriting, reranking), then a grounded answer as POST /api/chat generates it
 // (non-streamed). Every model call goes through a disk cache
 // (scripts/lib/cached-model.ts), so a run stopped by a spent daily quota
@@ -12,7 +12,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { generateText } from 'ai'
-import { geminiEmbedder } from '../../server/ingest/embed'
+import { cloudflareEmbedder } from '../../server/ingest/embed'
 import { DEFAULT_EXPAND_MODEL } from '../../server/rag/expand'
 import { chatModel, configuredTaskModel, type TaskModel } from '../../server/rag/model'
 import { buildPrompt, GROUNDING_INSTRUCTIONS, isRefusal, parseCitations } from '../../server/rag/prompt'
@@ -41,11 +41,11 @@ async function cachedTaskModel(tm: TaskModel | undefined, namespace: string): Pr
 }
 
 const pipeline = (async () => {
-  const keys = { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') }
+  const keys = { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: process.env.NUXT_GEMINI_API_KEY }
   const answer = chatModel(keys, 'groq')
   return {
     supabase: createClient(env('NUXT_SUPABASE_URL'), env('NUXT_SUPABASE_SERVICE_KEY'), { auth: { persistSession: false } }),
-    embed: geminiEmbedder(keys.geminiApiKey, 'RETRIEVAL_QUERY'),
+    embed: cloudflareEmbedder({ cloudflareAccountId: env('NUXT_CLOUDFLARE_ACCOUNT_ID'), cloudflareApiToken: env('NUXT_CLOUDFLARE_API_TOKEN') }),
     expander: await cachedTaskModel(configuredTaskModel(keys, process.env.NUXT_EXPAND_MODEL ?? DEFAULT_EXPAND_MODEL), 'expand'),
     reranker: await cachedTaskModel(configuredTaskModel(keys, process.env.NUXT_RERANK_MODEL ?? DEFAULT_RERANK_MODEL), 'rerank'),
     answer: { ...answer, model: await cachedLanguageModel(answer.model, 'answer', TPM, stats) },

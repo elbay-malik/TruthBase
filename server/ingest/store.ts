@@ -69,7 +69,7 @@ export async function storeDocument(
         document_id: document.id,
         page_number: chunk.pageNumber,
         content: chunk.content,
-        embedding: chunk.embedding, // JSON array → pgvector input; don't stringify
+        embedding_bge_m3: chunk.embedding, // JSON array → pgvector input; don't stringify
         highlight: chunk.highlight,
       }))
       const { error } = await supabase.from('chunks').insert(batch)

@@ -164,7 +164,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/burst_quota.sql
 
       # The retrieval quality gate (ADR-0008): the real corpus and golden-question
-      # embeddings from test/fixtures/retrieval-corpus.json.gz, hybrid_search as
+      # embeddings from test/fixtures/retrieval-corpus.json.gz, hybrid_search_bge_m3 as
       # migrated above, compared with docs/evals/retrieval-baseline.json. No API
       # keys; any drop in recall@k, MRR or nDCG@5 fails.
       - uses: pnpm/action-setup@v6

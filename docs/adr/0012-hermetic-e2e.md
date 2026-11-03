@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-20
+- **Note (2026-11-04):** The real flow now needs the `NUXT_CLOUDFLARE_*` values rather than a Gemini key, and searches `hybrid_search_bge_m3`, which has its own CI check ([ADR-0013](./0013-leaving-gemini.md)).
 
 ## Context
 

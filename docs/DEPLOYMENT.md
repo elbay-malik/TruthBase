@@ -2,7 +2,7 @@
 
 How TruthBase goes live, and how to check and roll back a deploy. The reasons behind each choice are in [ADR-0011](./adr/0011-deployment-topology.md).
 
-**Topology:** one Vercel Function (Node.js 24, Fluid compute, region `dub1`) serves SSR and `/api/*`. Vercel's CDN serves `/_nuxt`, `/pdfjs`, the corpus PDFs at `/pdfs` and `favicon.ico`. Supabase (AWS eu-west-1) holds the corpus index, the original PDFs and the quota counters. Groq answers, with Cloudflare Workers AI as the fallback. Gemini embeds questions, and Langfuse traces. Ingestion runs from the operator's machine.
+**Topology:** one Vercel Function (Node.js 24, Fluid compute, region `dub1`) serves SSR and `/api/*`. Vercel's CDN serves `/_nuxt`, `/pdfjs`, the corpus PDFs at `/pdfs` and `favicon.ico`. Supabase (AWS eu-west-1) holds the corpus index, the original PDFs and the quota counters. Groq answers. Cloudflare Workers AI embeds every question with bge-m3 and is the answer fallback. Langfuse traces. Ingestion runs from the operator's machine.
 
 ## 0. Before the first deploy
 
@@ -16,7 +16,9 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
 
 2. **Apply the database migrations** to the hosted project, in filename order, before the new code goes live. First check which ones it already has (`supabase migration list` after `supabase link`, or the dashboard's Database → Migrations); the first four are in its history, the Phase 6 and Phase 11 ones (`20261019120000_hybrid_search_v2.sql`, `20261020120000_usage_quota.sql`) may or may not be. Apply only the missing ones. `20261021120000_burst_quota.sql` must exist before the Phase 14 code serves traffic. Without it, chat and search answer 503 (ADR-0010 item 5). Use the SQL Editor, or `supabase db push` after `supabase link` ([supabase/README.md](../supabase/README.md#how-to-apply)). Then run `supabase/tests/usage_quota.sql` and `supabase/tests/burst_quota.sql` in the SQL Editor. Each prints `NOTICE … passed` and rolls back.
 
-3. **Ingest the corpus** with the local CLI. It uses the same pipeline as `/api/ingest`, and talks directly to the hosted Supabase project in `.env`:
+   `20261104120000_bge_m3_column.sql` adds `chunks.embedding_bge_m3` and `hybrid_search_bge_m3` ([ADR-0013](./adr/0013-leaving-gemini.md)). The current code searches and writes only these. It is live on the hosted project, but it was pasted into the SQL Editor, so the hosted migration list doesn't show it. `supabase migration list` reports it as missing, and `supabase db push` would run it again and fail, because the column exists. Its check, `supabase/tests/hybrid_search_bge_m3.sql`, needs an empty `chunks` table, so it runs in CI and on a fresh local database, not on the hosted project.
+
+3. **Ingest the corpus** with the local CLI. It uses the same pipeline as `/api/ingest`, embeds through Cloudflare (the `NUXT_CLOUDFLARE_*` values), and talks directly to the hosted Supabase project in `.env`:
 
    ```bash
    pnpm ingest:golden            # skips PDFs already there
@@ -44,15 +46,15 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
    | Name | Required | Notes |
    |---|---|---|
    | `NUXT_GROQ_API_KEY` | yes | answers, rewrites, reranking |
-   | `NUXT_GEMINI_API_KEY` | yes | query embeddings |
-   | `NUXT_CLOUDFLARE_ACCOUNT_ID`, `NUXT_CLOUDFLARE_API_TOKEN` | recommended | answer fallback; a token with Workers AI scope only. Without them, answers are Groq-only |
-   | `NUXT_SUPABASE_URL` | yes | |
+   | `NUXT_CLOUDFLARE_ACCOUNT_ID`, `NUXT_CLOUDFLARE_API_TOKEN` | yes | bge-m3 embeddings and the answer fallback; a token with Workers AI scope only. Without them, chat, search and ingest answer 503. Free plan: 10,000 Neurons a day, and requests fail over quota rather than bill |
+      | `NUXT_SUPABASE_URL` | yes | |
    | `NUXT_SUPABASE_SERVICE_KEY` | yes | server-only; also keys the IP HMAC |
    | `NUXT_TRUSTED_IP_HEADER` | recommended | `x-vercel-forwarded-for` (also the default on Vercel) |
    | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | optional | tracing off without them |
    | `LANGFUSE_BASE_URL` | optional | EU `https://cloud.langfuse.com` |
    | `LANGFUSE_TRACING_ENVIRONMENT` | optional | e.g. `preview` for the Preview environment |
    | `NUXT_RERANK_MODEL`, `NUXT_EXPAND_MODEL` | optional | default `groq-20b` |
+   | `NUXT_GEMINI_API_KEY` | no | only serves the explicit `gemini` model choices. It goes after a 7-day soak, with the old column, the old function and `@ai-sdk/google` (ADR-0013) |
    | `NUXT_QUOTA_CHAT_PER_MINUTE`, `NUXT_QUOTA_CHAT_PER_CLIENT`, `NUXT_QUOTA_CHAT_GLOBAL` | optional | default 10 / 10 / 80 |
    | `NUXT_QUOTA_SEARCH_PER_MINUTE`, `NUXT_QUOTA_SEARCH_PER_CLIENT`, `NUXT_QUOTA_SEARCH_GLOBAL` | optional | default 30 / 30 / 300 |
    | `CRON_SECRET` | yes, Production only | any random 64-hex string. Vercel sends it to the daily crons (`/api/cron/keep-alive`, `/api/cron/prune-traces`), which are 503 without it. Crons run on Production only, so Preview doesn't need it |
@@ -120,6 +122,7 @@ Then in a browser:
 - **App:** Vercel → Deployments → pick the last good production deployment → **Instant Rollback** (or `vercel rollback <url>`). It switches the alias without a rebuild. Hobby keeps previous deployments, so this takes seconds. Cron jobs follow the deployment: rolling back to one from before 2026-10-25 removes the daily keep-alive, so roll forward soon or ping the database by hand.
 - **Quick off-switch for spend:** set `NUXT_QUOTA_CHAT_GLOBAL=0` (and/or `NUXT_QUOTA_SEARCH_GLOBAL=0`) and redeploy. The routes answer with the daily-cap 429 and spend no model quota.
 - **Database:** migrations are forward-only. `20261021120000_burst_quota.sql` keeps the 3-argument `consume_quotas` call working, so a rolled-back app (Phase 11–13 code) runs against the migrated database unchanged. Don't drop `burst_counters` while the Phase 14 code is live.
+- **Embeddings:** until the 7-day soak ends, `chunks.embedding` and `hybrid_search` stay in place, so a deployment from before the switch still runs, given `NUXT_GEMINI_API_KEY`. Anything ingested since then has no Gemini vector, because ingestion writes `embedding_bge_m3` only.
 - **Corpus:** `pnpm ingest:golden --replace` re-ingests from the repo PDFs. Instances may show the old document list for up to 10 minutes (per-instance catalog and list caches).
 
 ## 5. Limits to keep in mind (Hobby)
@@ -134,8 +137,8 @@ These are the Vercel Hobby plan limits ([Hobby plan](https://vercel.com/docs/pla
 
 ## 6. Rotating a secret
 
-1. Create the new key at the provider, and keep the old one working for now: the Supabase secret key (Project Settings → API Keys), Groq, Gemini (Google AI Studio) or the Langfuse key pair. For `NUXT_INGEST_TOKEN`, any new random 64-hex string.
-2. Put it in `.env`, in the Vercel project's Production and Preview environment variables (Sensitive), and in the GitHub Actions secrets that copy it: `NUXT_SUPABASE_SERVICE_KEY`, `NUXT_GROQ_API_KEY`, `NUXT_GEMINI_API_KEY`. `NUXT_INGEST_TOKEN` goes into `.env` only; on Vercel it stays unset (section 1).
+1. Create the new key at the provider, and keep the old one working for now: the Supabase secret key (Project Settings → API Keys), Groq, the Cloudflare API token (Workers AI scope only) or the Langfuse key pair. For `NUXT_INGEST_TOKEN`, any new random 64-hex string.
+2. Put it in `.env`, in the Vercel project's Production and Preview environment variables (Sensitive), and in the GitHub Actions secrets that copy it: `NUXT_SUPABASE_SERVICE_KEY`, `NUXT_GROQ_API_KEY`, `NUXT_CLOUDFLARE_ACCOUNT_ID`, `NUXT_CLOUDFLARE_API_TOKEN`. `NUXT_INGEST_TOKEN` goes into `.env` only; on Vercel it stays unset (section 1).
 3. Redeploy production, since environment changes reach new deployments only. Run the smoke checks (section 3), with one real chat.
 4. Revoke the old key.
 

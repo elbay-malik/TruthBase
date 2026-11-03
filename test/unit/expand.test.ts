@@ -182,7 +182,7 @@ describe('documentCatalog cache', () => {
 })
 
 describe('retrieveSources with an expander', () => {
-  /** Fake Supabase: hybrid_search answers per query text; documents and first-page chunks for the catalog. */
+  /** Fake Supabase: hybrid_search_bge_m3 answers per query text; documents and first-page chunks for the catalog. */
   function fakeSupabase(results: Record<string, string[]>) {
     const rpc = vi.fn(async (_fn: string, args: { query_text: string }) => ({
       data: (results[args.query_text] ?? []).map(id => ({ id, document_id: 'd1', page_number: 1, content: id, highlight: null, created_at: '', score: 1 })),

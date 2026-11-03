@@ -39,10 +39,10 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
   <br>Done: see [ADR-0006](./docs/adr/0006-hybrid-search.md).
 - [x] **Phase 7 — Reranking** *(~1 wk)*
   LLM reranker improves nDCG@5 / citation precision (numbers recorded).
-  <br>Done: at the shipped 15 candidates, MRR 0.515 → 0.735 and nDCG@5 0.638 → 0.811 with recall@8 kept at 87% (document filter on: MRR 0.547 → 0.791); end to end, correct citations for 69% → 80% of answerable questions ([ADR-0007](./docs/adr/0007-reranking.md), 2026-10-21).
+  <br>Done: at the then-shipped 15 candidates, on Gemini embeddings, MRR 0.515 → 0.735 and nDCG@5 0.638 → 0.811 with recall@8 kept at 87% (document filter on: MRR 0.547 → 0.791); end to end, correct citations for 69% → 80% of answerable questions ([ADR-0007](./docs/adr/0007-reranking.md), 2026-10-21).
 - [x] **Phase 8 — Query rewriting / advanced retrieval** *(~1 wk)*
   Multi-query improves recall on ambiguous questions without precision collapse.
-  <br>Done: the shipped gpt-oss-20b rewriter lifts `ambiguous` recall@5 75% → 100% with overall recall@5 76% → 80% and recall@8 unchanged at 87% ([ADR-0009](./docs/adr/0009-query-rewriting.md), 2026-10-21).
+  <br>Done: on Gemini embeddings, the shipped gpt-oss-20b rewriter lifts `ambiguous` recall@5 75% → 100% with overall recall@5 76% → 80% and recall@8 unchanged at 87% ([ADR-0009](./docs/adr/0009-query-rewriting.md), 2026-10-21).
 - [ ] **Phase 9 — Evals harness** *(~1.5 wk)*
   promptfoo produces recall@k, MRR/nDCG, faithfulness, citation precision on the golden set; gates CI.
   <br>Built: the retrieval gate runs in CI. The first full LLM eval (2026-10-23, [phase-9-llm.json](./docs/evals/phase-9-llm.json)) measured faithfulness 95.2% and judged citation precision 92.5%. It fails its gate on 4 false refusals, and a hand check found the judge lenient, so there is no LLM baseline yet ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)).
@@ -66,11 +66,11 @@ Phase-by-phase progress against the [execution plan](./docs/EXECUTION_PLAN.md). 
 
 ## Definition of Done
 
-- [ ] Upload → parse-with-positions → chunk → embed (768-dim) → store works for all demo PDFs. *(The pipeline works for all 4 PDFs from the CLI; browser upload is Phase 11b.)*
+- [ ] Upload → parse-with-positions → chunk → embed → store works for all demo PDFs (768-dim when written; 1024-dim bge-m3 since 2026-11-04, [ADR-0013](./docs/adr/0013-leaving-gemini.md)). *(The pipeline works for all 4 PDFs from the CLI; browser upload is Phase 11b.)*
 - [x] Hybrid RRF search beats dense-only on golden recall@k (numbers recorded).
-- [x] LLM reranker improves nDCG@5 / citation precision (numbers recorded). *(nDCG@5 0.638 → 0.811 at the shipped 15 candidates, ADR-0007.)*
-- [x] Multi-query expansion improves recall on ambiguous questions without precision collapse. *(Shipped gpt-oss-20b rewriter: `ambiguous` recall@5 75% → 100%, recall@8 unchanged, ADR-0009.)*
-- [ ] Answers are grounded, cite chunk IDs inline, and refuse when unsupported. *(First full promptfoo run, 2026-10-23: faithfulness 95.2% and judged citation precision 92.5% by the LLM judge, about 92–94% and 88–90% once the 5 hand-checked answers are corrected; 5/5 unanswerable refused, but 4 false refusals against the SPEC target of ≤ 1. The full-pipeline answer eval (2026-10-21) also answered nothing without a citation, with 3 false refusals.)*
+- [x] LLM reranker improves nDCG@5 / citation precision (numbers recorded). *(nDCG@5 0.638 → 0.811 at 15 candidates on Gemini embeddings, ADR-0007; 20 candidates on bge-m3 since 2026-11-04, ADR-0013.)*
+- [x] Multi-query expansion improves recall on ambiguous questions without precision collapse. *(Shipped gpt-oss-20b rewriter, measured on Gemini embeddings: `ambiguous` recall@5 75% → 100%, recall@8 unchanged, ADR-0009.)*
+- [ ] Answers are grounded, cite chunk IDs inline, and refuse when unsupported. *(First full promptfoo run, 2026-10-23, on Gemini embeddings: faithfulness 95.2% and judged citation precision 92.5% by the LLM judge, about 92–94% and 88–90% once the 5 hand-checked answers are corrected; 5/5 unanswerable refused, but 4 false refusals against the SPEC target of ≤ 1. The full-pipeline answer eval (2026-10-21) also answered nothing without a citation, with 3 false refusals.)*
 - [x] Clicking any golden citation scrolls to the right page and highlights the correct passage at multiple zoom levels. *(`check:viewer` 2026-10-25, after the hosted highlights refresh: 180/180 against the hosted corpus. ADR-0004.)*
 - [ ] promptfoo eval suite runs in CI as a PR gate. *(ADR-0008 gates PRs on the deterministic retrieval eval and runs promptfoo on a schedule. Its first full run, 2026-10-23, fails the LLM gate on false refusals, so there is no LLM baseline yet.)*
 - [x] Langfuse traces every chat request with chunk + token metadata.

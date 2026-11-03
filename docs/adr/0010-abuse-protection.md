@@ -4,6 +4,7 @@
 - **Date:** 2026-10-20
 - **Amended:** 2026-10-20 (Phase 14, [ADR-0011](./0011-deployment-topology.md)): the per-minute limits on chat and search also moved into Postgres; see the Phase 14 note.
 - **Amended:** 2026-10-22 (security audit): the quota check fails closed on configuration errors, and the corpus PDFs are served from the CDN; see the last note.
+- **Note (2026-11-04):** Embeddings moved to Cloudflare ([ADR-0013](./0013-leaving-gemini.md)), so "Gemini's free embeddings" below is now Cloudflare's 10,000 Neurons a day. At 20 rerank candidates gpt-oss-20b covers about 40 enhanced chats a day, not ~60.
 
 ## Context
 

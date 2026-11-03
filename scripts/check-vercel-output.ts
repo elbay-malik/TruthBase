@@ -104,7 +104,7 @@ check(nitroChunk.includes('pdfjs-standard-fonts:FoxitSerif.pfb'), 'PDF.js standa
 // No secrets, so the routes that need them must say so.
 process.env.VERCEL = '1'
 process.env.NODE_ENV = 'production'
-for (const name of ['NUXT_GROQ_API_KEY', 'NUXT_GEMINI_API_KEY', 'NUXT_SUPABASE_URL', 'NUXT_SUPABASE_SERVICE_KEY', 'NUXT_INGEST_TOKEN', 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY']) {
+for (const name of ['NUXT_GROQ_API_KEY', 'NUXT_CLOUDFLARE_ACCOUNT_ID', 'NUXT_CLOUDFLARE_API_TOKEN', 'NUXT_SUPABASE_URL', 'NUXT_SUPABASE_SERVICE_KEY', 'NUXT_INGEST_TOKEN', 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY']) {
   Reflect.deleteProperty(process.env, name)
 }
 const { default: listener } = await import(pathToFileURL(join(FUNC, 'index.mjs')).href) as { default: (req: IncomingMessage, res: ServerResponse) => void }

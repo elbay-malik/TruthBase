@@ -1,5 +1,5 @@
 // Phase 9: the offline retrieval gate (ADR-0008). Runs the installed
-// `hybrid_search` for every answerable golden record against the fixture
+// `hybrid_search_bge_m3` for every answerable golden record against the fixture
 // corpus (test/fixtures/retrieval-corpus.json.gz) and compares recall@k, MRR
 // and nDCG@5 with docs/evals/retrieval-baseline.json. No API keys: the
 // fixture carries the query embeddings.
@@ -65,7 +65,7 @@ async function search(record: GoldenRecord, filter: string | null): Promise<Sear
   if (!encoded) throw new Error(`${record.id}: no query embedding in the fixture (run pnpm fixtures:retrieval)`)
   const rows = await sql<{ id: string, document_id: string, page_number: number | null, content: string, score: number }[]>`
     select id, document_id, page_number, content, score
-    from hybrid_search(${record.question}, ${vectorLiteral(decodeVector(encoded))}::extensions.vector, 15, filter_document_id => ${filter}::uuid)`
+    from hybrid_search_bge_m3(${record.question}, ${vectorLiteral(decodeVector(encoded))}::extensions.vector, 15, filter_document_id => ${filter}::uuid)`
   return rows.map(r => ({ id: r.id, documentId: r.document_id, pageNumber: r.page_number, content: r.content, score: r.score }) as SearchHit)
 }
 

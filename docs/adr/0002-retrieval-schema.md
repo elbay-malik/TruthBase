@@ -69,3 +69,11 @@ pgvector guides (July 2026).
 - Free-tier pausing is mitigated by the keep-alive table + scheduled ping, not
   by the schema itself. The ping is a daily Vercel cron since 2026-10-25
   (ADR-0011 §7); it was a GitHub Actions workflow before.
+
+## Note (2026-11-04): a new vector column and function
+
+The app now uses `chunks.embedding_bge_m3 vector(1024)` and `hybrid_search_bge_m3` (`supabase/migrations/20261104120000_bge_m3_column.sql`, [ADR-0013](./0013-leaving-gemini.md)). The function is `hybrid_search` v2 with only the column and vector size changed, and is executable by `service_role` only. The new column has no HNSW index, because the planner doesn't use one inside this function (ADR-0006).
+
+- `/api/chat` and `/api/search` call `cloudflareEmbedder`, not `geminiEmbedder`, with the same `INTERACTIVE_EMBED_LIMITS`.
+- `/api/search` still answers 504 on a timeout. It now also answers 503 "busy" on provider limits and 502 otherwise.
+- The 768-dim column, its HNSW index and `hybrid_search` stay for a 7-day soak, then go.

@@ -42,7 +42,7 @@ import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
 import { generateText } from 'ai'
 import type { SourceRef } from '../shared/types/chat'
-import { geminiEmbedder } from '../server/ingest/embed'
+import { cloudflareEmbedder } from '../server/ingest/embed'
 import { buildPrompt, GROUNDING_INSTRUCTIONS, isRefusal, parseCitations } from '../server/rag/prompt'
 import { chatModel, taskModel, type TaskModelChoice } from '../server/rag/model'
 import { blendRanking, DEFAULT_RERANK_MODEL, RERANK_CANDIDATES } from '../server/rag/rerank'
@@ -86,19 +86,19 @@ const env = (name: string) => {
 }
 
 const supabase = createClient(env('NUXT_SUPABASE_URL'), env('NUXT_SUPABASE_SERVICE_KEY'), { auth: { persistSession: false } })
-const embed = geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_QUERY')
+const embed = cloudflareEmbedder({ cloudflareAccountId: env('NUXT_CLOUDFLARE_ACCOUNT_ID'), cloudflareApiToken: env('NUXT_CLOUDFLARE_API_TOKEN') })
 const { model, id: modelId, providerOptions } = chatModel(
-  { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY'), cloudflareAccountId: process.env.NUXT_CLOUDFLARE_ACCOUNT_ID, cloudflareApiToken: process.env.NUXT_CLOUDFLARE_API_TOKEN },
+  { groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: process.env.NUXT_GEMINI_API_KEY, cloudflareAccountId: process.env.NUXT_CLOUDFLARE_ACCOUNT_ID, cloudflareApiToken: process.env.NUXT_CLOUDFLARE_API_TOKEN },
   (values.model ?? 'groq') as 'groq' | 'cloudflare' | 'gemini',
 )
 
 const reranker = values.rerank === 'off'
   ? undefined
-  : taskModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') }, values.rerank as TaskModelChoice)
+  : taskModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: process.env.NUXT_GEMINI_API_KEY }, values.rerank as TaskModelChoice)
 if (values.rerank !== 'off' && !reranker) throw new Error(`--rerank ${values.rerank} is unknown or its API key is missing`)
 const expander = values.expand === 'off'
   ? undefined
-  : taskModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: env('NUXT_GEMINI_API_KEY') }, values.expand as TaskModelChoice)
+  : taskModel({ groqApiKey: process.env.NUXT_GROQ_API_KEY, geminiApiKey: process.env.NUXT_GEMINI_API_KEY }, values.expand as TaskModelChoice)
 if (values.expand !== 'off' && !expander) throw new Error(`--expand ${values.expand} is unknown or its API key is missing`)
 
 let golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))

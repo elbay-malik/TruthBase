@@ -23,7 +23,7 @@ if (documents.error) throw new Error(documents.error.message)
 
 const chunks: Fixture['chunks'] = []
 for (let from = 0; ; from += 500) {
-  const page = await supabase.from('chunks').select('id, document_id, page_number, content, embedding').order('id').range(from, from + 499)
+  const page = await supabase.from('chunks').select('id, document_id, page_number, content, embedding:embedding_bge_m3').order('id').range(from, from + 499)
   if (page.error) throw new Error(page.error.message)
   // embedding arrives as pgvector text ('[0.1,…]').
   chunks.push(...page.data.map(c => ({ ...c, embedding: encodeVector(JSON.parse(c.embedding as string)) })))
@@ -34,7 +34,7 @@ for (let from = 0; ; from += 500) {
 // LLM eval (promptfoo) can retrieve for all of them offline.
 const golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
 const questions = golden.map(r => r.question)
-const vectors = await (await queryEmbeddings(env('NUXT_GEMINI_API_KEY')))(questions)
+const vectors = await (await queryEmbeddings({ cloudflareAccountId: env('NUXT_CLOUDFLARE_ACCOUNT_ID'), cloudflareApiToken: env('NUXT_CLOUDFLARE_API_TOKEN') }))(questions)
 
 await writeFixture({
   exportedAt: new Date().toISOString(),

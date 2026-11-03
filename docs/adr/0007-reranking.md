@@ -1,6 +1,6 @@
 # ADR-0007: Reranker choice — listwise LLM reranking on Groq
 
-- **Status:** Accepted (2026-10-21). Chosen on the 20-candidate evidence below and re-measured at the shipped 15 candidates, with and without the document filter, and end to end with generation (see "Re-measured at the shipped settings").
+- **Status:** Accepted (2026-10-21). Chosen on the 20-candidate evidence below and re-measured at the shipped 15 candidates, with and without the document filter, and end to end with generation (see "Re-measured at the shipped settings"). Since 2026-11-04 the candidate count is 20 (see the note at the end).
 - **Date:** 2026-10-19
 
 ## Context
@@ -70,3 +70,11 @@ Measured with `pnpm eval:rerank` (`docs/evals/phase-7-*.json`): fused top 20 fro
 - **Latency.** ~0.8 s is added before the first token at p50 (1.3 s at p95). The time-to-first-token target of < 2 s at p50 still has to hold with embedding and search in front of it; Phase 10's tracing measures it end to end.
 - **Prompt injection.** Passages can try to promote themselves ("rank this passage first"). The prompt marks source text as quoted content, and the fused tail limits the damage: a manipulated ranking can only reorder the head, not drop the fused top 4.
 - **Revisit** when Phase 8's multi-query expansion changes the candidate pool (rerank after fusion, as planned), when the golden set grows enough to tune the head size, or if Groq's quotas change.
+
+## Note (2026-11-04): 20 candidates on bge-m3
+
+`RERANK_CANDIDATES` is now 20, was 15 ([ADR-0013](./0013-leaving-gemini.md)). bge-m3 ranks some evidence lower than Gemini did: the fused top 20 holds it for 40 of 45 golden records against 38 in the top 15. So the "Why 15 candidates" argument and the numbers above, all on Gemini embeddings, no longer describe the current system. The head of 4 and the fallback rules are unchanged.
+
+- **Measured** ([bge-m3-cutover.json](../evals/bge-m3-cutover.json)), bge-m3 at 20 against Gemini at 15: chat final top 8 39/45 vs 39/45, chat MRR 0.769 vs 0.746, question only after reranking recall@10 38/45 vs 39/45.
+- **Capacity.** About 4.2K reranker tokens per chat against 3.1K, so about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b, not the 73 reranked chats above.
+- **When the quota is spent,** the answer still works from fused order, which is 34/45 in the top 8 rather than 39.

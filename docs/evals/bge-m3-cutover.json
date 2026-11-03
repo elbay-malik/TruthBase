@@ -1,0 +1,422 @@
+{
+ "note": "Go/no-go for leaving Gemini, run 2026-11-02 to 2026-11-03: the full chat pipeline (rewrites, fusion, rerank, answer, judge) on the 50 golden records with recorded Groq calls. One-off harness, not in this repo; pnpm eval:llm measures the same pipeline going forward.",
+ "gemini": {
+  "embedding": "gemini-embedding-001 (768)",
+  "rerankCandidates": 15,
+  "arm": "gemini",
+  "questionShipped": {
+   "n": 45,
+   "recall5": 0.8444444444444444,
+   "recall8": 0.8666666666666667,
+   "recall10": 0.8666666666666667,
+   "recall15": 0.8666666666666667,
+   "mrr": 0.7346560846560847,
+   "ndcg5": 0.8113882375205935
+  },
+  "chatFinal": {
+   "r5": 38,
+   "r8": 39,
+   "r10": 39,
+   "r15": 39,
+   "mrr": 0.7462962962962963,
+   "n": 45
+  },
+  "rewritten": 5,
+  "rerankFallbacks": 3,
+  "replay": {
+   "expand": {
+    "hit": 50,
+    "miss": 0
+   },
+   "rerank": {
+    "hit": 47,
+    "miss": 3
+   },
+   "answer": {
+    "hit": 47,
+    "miss": 3
+   }
+  },
+  "answers": {
+   "records": 47,
+   "answered": 38,
+   "faithfulness": 0.9574468085106383,
+   "citationPrecision": 0.9236641221374046,
+   "answerRelevance": 1,
+   "evidenceCitation": 0.868421052631579,
+   "unanswerableRefused": 5,
+   "unanswerable": 5,
+   "falseRefusals": [
+    "g-030",
+    "g-032",
+    "g-035",
+    "g-040"
+   ],
+   "pooled": {
+    "claims": 94,
+    "supportedClaims": 90,
+    "citations": 131,
+    "supportingCitations": 121,
+    "relevant": 38
+   },
+   "answeredBy": {
+    "openai/gpt-oss-120b": 47
+   }
+  }
+ },
+ "bgeM3": {
+  "embedding": "@cf/baai/bge-m3 with title prefix (1024)",
+  "rerankCandidates": 20,
+  "arm": "bge-m3-hosted",
+  "questionShipped": {
+   "n": 45,
+   "recall5": 0.8444444444444444,
+   "recall8": 0.8444444444444444,
+   "recall10": 0.8444444444444444,
+   "recall15": 0.8666666666666667,
+   "mrr": 0.7576992143658812,
+   "ndcg5": 0.8534228567412347
+  },
+  "chatFinal": {
+   "r5": 39,
+   "r8": 39,
+   "r10": 39,
+   "r15": 40,
+   "mrr": 0.7688103254769924,
+   "n": 45
+  },
+  "rewritten": 8,
+  "rerankFallbacks": 0,
+  "modelCalls": {
+   "calls": 195,
+   "cached": 187
+  },
+  "answers": {
+   "records": 50,
+   "answered": 42,
+   "faithfulness": 1,
+   "citationPrecision": 0.9496402877697842,
+   "answerRelevance": 1,
+   "evidenceCitation": 0.8809523809523809,
+   "unanswerableRefused": 5,
+   "unanswerable": 5,
+   "falseRefusals": [
+    "g-027",
+    "g-032",
+    "g-040"
+   ],
+   "pooled": {
+    "claims": 88,
+    "supportedClaims": 88,
+    "citations": 139,
+    "supportingCitations": 132,
+    "relevant": 42
+   },
+   "answeredBy": {
+    "openai/gpt-oss-120b": 50
+   }
+  }
+ },
+ "records": [
+  {
+   "id": "g-001",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-002",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-003",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-004",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-005",
+   "finalRank": 1,
+   "rewrites": 2,
+   "reranked": true
+  },
+  {
+   "id": "g-006",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-007",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-008",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-009",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-010",
+   "finalRank": 1,
+   "rewrites": 1,
+   "reranked": true
+  },
+  {
+   "id": "g-011",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-012",
+   "finalRank": 1,
+   "rewrites": 2,
+   "reranked": true
+  },
+  {
+   "id": "g-013",
+   "finalRank": 5,
+   "rewrites": 3,
+   "reranked": true
+  },
+  {
+   "id": "g-014",
+   "finalRank": 2,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-015",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-016",
+   "finalRank": 1,
+   "rewrites": 2,
+   "reranked": true
+  },
+  {
+   "id": "g-017",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-018",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-019",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-020",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-021",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-022",
+   "finalRank": 4,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-023",
+   "finalRank": 2,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-024",
+   "finalRank": 2,
+   "rewrites": 1,
+   "reranked": true
+  },
+  {
+   "id": "g-025",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-026",
+   "finalRank": 2,
+   "rewrites": 2,
+   "reranked": true
+  },
+  {
+   "id": "g-027",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-028",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-029",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-030",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-031",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-032",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-033",
+   "finalRank": 2,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-034",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-035",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-036",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-037",
+   "finalRank": 1,
+   "rewrites": 3,
+   "reranked": true
+  },
+  {
+   "id": "g-038",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-039",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-040",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-041",
+   "finalRank": 2,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-042",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-043",
+   "finalRank": 11,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-044",
+   "finalRank": 1,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-045",
+   "finalRank": 18,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-046",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-047",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-048",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-049",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  },
+  {
+   "id": "g-050",
+   "finalRank": null,
+   "rewrites": 0,
+   "reranked": true
+  }
+ ]
+}

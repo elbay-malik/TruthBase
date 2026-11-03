@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { propagateAttributes, startActiveObservation } from '@langfuse/tracing'
-import { geminiEmbedder } from '../ingest/embed'
+import { cloudflareEmbedder, embeddingsConfigured } from '../ingest/embed'
 import { IngestError, ingestPdf, type IngestProgress } from '../ingest/pipeline'
 import { storeDocument } from '../ingest/store'
 import { clearCatalogCache } from '../rag/catalog'
@@ -39,8 +39,8 @@ export default defineEventHandler(async (event) => {
   if (declaredLength > limit.maxRequestBytes) {
     throw createError({ statusCode: 413, statusMessage: 'Payload Too Large', message: limit.message })
   }
-  if (!config.geminiApiKey) {
-    throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Embeddings are not configured (set NUXT_GEMINI_API_KEY).' })
+  if (!embeddingsConfigured(config)) {
+    throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Embeddings are not configured (set the NUXT_CLOUDFLARE_* values).' })
   }
 
   const file = (await readMultipartFormData(event))?.find(part => part.name === 'file')
@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
     observation.update({ input: { filename, bytes: file.data.length } })
     try {
       const result = await ingestPdf(new Uint8Array(file.data), filename, {
-        embed: geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_DOCUMENT', abort.signal),
+        embed: cloudflareEmbedder(config, abort.signal),
         store: (document, pdf, chunks, onBatch, signal) => storeDocument(supabase, document, pdf, chunks, onBatch, signal),
         onProgress: (progress: IngestProgress) => void send('progress', progress),
         assets: nitroPdfAssets(),

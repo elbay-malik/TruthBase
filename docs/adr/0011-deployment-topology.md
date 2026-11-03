@@ -70,3 +70,7 @@ Ingestion (PDF parse, chunk, embed and store) is operator-only (ADR-0010). The c
 - **Migrations before code.** The new code calls `consume_quotas` with four arguments. Against a database without the migration that call fails. The routes then answer 503 (ADR-0010 item 5; before its 2026-10-22 amendment they let the requests through unmetered), so apply the migration first. The migration keeps the 3-argument call working, so the old code runs against the new database.
 - **Node 24 everywhere:** the function runtime is pinned in `.vc-config.json`. `engines.node` is `24.x`, not `>=24`: Vercel builds with the newest major a `>=` range allows, and Node 25+ no longer bundles the corepack that the install command uses.
 - **Revisit** if the project becomes commercial (Pro, $20/month per member), if Active CPU approaches 4 h a month, if Phase 11b needs uploads larger than 4.5 MB through the app, or if Vercel ships cross-region rate limiting worth moving the burst layer to.
+
+## Note (2026-11-04): Cloudflare in place of Gemini
+
+The topology is unchanged. Requests now wait on Cloudflare Workers AI, not Gemini, for embeddings ([ADR-0013](./0013-leaving-gemini.md)), and each chat calls `hybrid_search_bge_m3` where the Context above says `hybrid_search`. The embedding's 8 s budget in the `maxDuration` sum still holds, since `INTERACTIVE_EMBED_LIMITS` didn't change. `NUXT_CLOUDFLARE_ACCOUNT_ID` and `NUXT_CLOUDFLARE_API_TOKEN` are now required on Vercel: chat, search and ingest answer 503 without them. `pnpm ingest:golden` needs them too.

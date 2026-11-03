@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ChunkHighlight } from '#shared/types'
 
-// Typed wrapper around the `hybrid_search` SQL RPC
-// (supabase/migrations/20261019120000_hybrid_search_v2.sql). Framework-free so
+// Typed wrapper around the `hybrid_search_bge_m3` SQL RPC
+// (supabase/migrations/20261104120000_bge_m3_column.sql). Framework-free so
 // the chat route, the search route and the golden-set eval run the same code.
 //
 // Tuning parameters left undefined are not sent, so the SQL defaults (tuned in
@@ -13,7 +13,7 @@ import type { ChunkHighlight } from '#shared/types'
 
 export interface HybridSearchParams {
   queryText: string
-  /** 768-dim, L2-normalized query embedding (see l2Normalize / TECH_NOTES §2). */
+  /** 1024-dim, L2-normalized query embedding (see l2Normalize / TECH_NOTES §21). */
   queryEmbedding: number[]
   matchCount?: number
   /** RRF weight of the keyword arm (SQL default 0.5). */
@@ -27,7 +27,7 @@ export interface HybridSearchParams {
   documentId?: string
 }
 
-/** A row exactly as `hybrid_search` returns it (Postgres snake_case). */
+/** A row exactly as `hybrid_search_bge_m3` returns it (Postgres snake_case). */
 export interface HybridSearchRow {
   id: string
   document_id: string
@@ -72,7 +72,7 @@ export async function searchChunks(supabase: SupabaseClient, params: HybridSearc
     rrf_k: params.rrfK,
     candidate_count: params.candidateCount,
   }
-  const { data, error } = await supabase.rpc('hybrid_search', {
+  const { data, error } = await supabase.rpc('hybrid_search_bge_m3', {
     query_text: params.queryText,
     query_embedding: params.queryEmbedding,
     match_count: params.matchCount ?? 10,
@@ -80,6 +80,6 @@ export async function searchChunks(supabase: SupabaseClient, params: HybridSearc
     // Omitted keys fall back to the SQL defaults.
     ...Object.fromEntries(Object.entries(tuning).filter(([, value]) => value !== undefined)),
   })
-  if (error) throw new SearchError(`hybrid_search failed: ${error.message}`)
+  if (error) throw new SearchError(`hybrid_search_bge_m3 failed: ${error.message}`)
   return ((data ?? []) as HybridSearchRow[]).map(toSearchHit)
 }

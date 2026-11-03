@@ -6,7 +6,8 @@ function, plus the daily usage quotas. Rationale is in
 [../docs/adr/0002-retrieval-schema.md](../docs/adr/0002-retrieval-schema.md); the
 current `hybrid_search` (v2) parameters are in
 [ADR-0006](../docs/adr/0006-hybrid-search.md), which supersedes ADR-0002's RRF
-defaults.
+defaults. The app now searches `hybrid_search_bge_m3`, the same function over the
+1024-dim `embedding_bge_m3` column ([ADR-0013](../docs/adr/0013-leaving-gemini.md)).
 
 ## Migrations
 
@@ -21,6 +22,7 @@ Applied in filename (timestamp) order:
 | `migrations/20261019120000_hybrid_search_v2.sql` | Phase 6 `hybrid_search` v2: OR'ed keyword terms, tuned defaults (keyword weight 0.5, k 60, 40 candidates per arm), exact-scan semantic arm, deterministic ties ([ADR-0006](../docs/adr/0006-hybrid-search.md)) |
 | `migrations/20261020120000_usage_quota.sql` | Phase 11 `usage_counters` table + `consume_quotas(...)` RPC: daily per-client and global caps, all-or-nothing increments; `service_role` only ([ADR-0010](../docs/adr/0010-abuse-protection.md)). Without it chat and search answer 503 |
 | `migrations/20261021120000_burst_quota.sql` | Phase 14 `burst_counters` table; `consume_quotas(...)` gains `p_windows` (seconds per counter: 86400 = the UTC day, 1..3600 = a clock-aligned window) for the per-minute limits shared by all serverless instances. A 3-argument call still counts per day ([ADR-0011](../docs/adr/0011-deployment-topology.md)). Apply it before deploying the Phase 14 code, or chat and search answer 503 |
+| `migrations/20261104120000_bge_m3_column.sql` | `chunks.embedding_bge_m3 vector(1024)` and `hybrid_search_bge_m3(...)`: `hybrid_search` v2 with only the column and vector size changed, no HNSW index, `service_role` only. Additive: `embedding` and `hybrid_search` stay for a 7-day soak ([ADR-0013](../docs/adr/0013-leaving-gemini.md)) |
 
 ## How to apply
 
@@ -32,6 +34,9 @@ on 2026-10-16 with the Supabase MCP server's `apply_migration` (the first three
 in Phase 2, `documents_bucket` in Phase 3), so they are in its migration
 history and the CLI sees them as already applied. The later ones may not be;
 check with `supabase migration list` after linking.
+`20261104120000_bge_m3_column.sql` is live but was pasted into the SQL Editor, so
+the hosted migration list doesn't show it, and `supabase db push` would run it
+again and fail because the column exists.
 
 **Later (CLI):** once you `supabase link` this repo to the hosted project,
 `supabase db push` applies the not-yet-run migrations in timestamp order.
@@ -55,8 +60,11 @@ RLS, no RPC execute, keep_alive readable), prints the fused ranking, and
 closed, old days pruned, server-only) and also rolls back, as does
 [`tests/burst_quota.sql`](./tests/burst_quota.sql) for the per-minute windows
 (clock-aligned, all or nothing with the daily counters, old windows pruned,
-the 3-argument call, server-only). Run them on an empty
-database:
+the 3-argument call, server-only).
+[`tests/hybrid_search_bge_m3.sql`](./tests/hybrid_search_bge_m3.sql) checks that
+the new function searches the 1024-dim column, ignores the old one and is
+server-only, and rolls back too; it refuses a non-empty `chunks`, so it doesn't run
+on the hosted project. Run them on an empty database:
 
 - **Hosted:** paste `hybrid_search.sql` into the SQL Editor and run. Expect three `NOTICE …
   passed` lines and labels `1, 2, 3, 4` with scores
@@ -64,13 +72,15 @@ database:
   0.5; v1 printed `0.038839, 0.038476, 0.019231, 0.018519`).
 - **CI:** the `db` job in [`ci.yml`](../.github/workflows/ci.yml) applies the
   migrations to `supabase/postgres` (the image Supabase hosts) and runs it on
-  every push, then runs `usage_quota.sql` and `burst_quota.sql`.
+  every push, then runs `hybrid_search_bge_m3.sql`, `usage_quota.sql` and
+  `burst_quota.sql`.
 - **Locally (OrbStack/Docker):**
 
   ```bash
   docker run -d --name tb-pg -e POSTGRES_PASSWORD=postgres supabase/postgres:17.11.0.004
   for f in supabase/migrations/*.sql; do docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 -q < "$f"; done
   docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 < supabase/tests/hybrid_search.sql
+  docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 < supabase/tests/hybrid_search_bge_m3.sql
   docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 < supabase/tests/usage_quota.sql
   docker exec -i tb-pg psql -U postgres -h localhost -v ON_ERROR_STOP=1 < supabase/tests/burst_quota.sql
   ```
@@ -91,8 +101,9 @@ harmless and kept, and `tests/hybrid_search.sql` still asserts it.
 
 ## Design notes
 
-- **768-dim embeddings, L2-normalized at insert** (`shared/utils/vector.ts`,
-  [TECH_NOTES §2](../docs/TECH_NOTES.md)) — fits the 500 MB free budget.
+- **1024-dim bge-m3 embeddings, L2-normalized at insert** (`shared/utils/vector.ts`,
+  [TECH_NOTES §21](../docs/TECH_NOTES.md)). The old 768-dim Gemini column stays
+  until the soak ends. Both fit the 500 MB free budget.
 - **HNSW cosine** (`vector_cosine_ops`, `<=>`) is the applied default; an
   inner-product variant is documented inline in the init migration.
 - **RRF defaults (v2, Phase 6):** `k` = 60, keyword weight 0.5, semantic
@@ -102,3 +113,4 @@ harmless and kept, and `tests/hybrid_search.sql` still asserts it.
   v1 used k 50, weights 1/1, and `least(match_count, 30) * 2` per arm.
 - **The semantic arm is an exact scan.** The SQL function's generic plan never
   picks the HNSW index; exact is exhaustive and fine at this size (ADR-0006).
+  `embedding_bge_m3` has no HNSW index for that reason.
