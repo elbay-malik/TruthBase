@@ -52,8 +52,8 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
    | `LANGFUSE_BASE_URL` | optional | EU `https://cloud.langfuse.com` |
    | `LANGFUSE_TRACING_ENVIRONMENT` | optional | e.g. `preview` for the Preview environment |
    | `NUXT_RERANK_MODEL`, `NUXT_EXPAND_MODEL` | optional | default `groq-20b` |
-   | `NUXT_QUOTA_CHAT_PER_MINUTE`, `NUXT_QUOTA_CHAT_PER_CLIENT`, `NUXT_QUOTA_CHAT_GLOBAL` | optional | default 10 / 30 / 80 |
-   | `NUXT_QUOTA_SEARCH_PER_MINUTE`, `NUXT_QUOTA_SEARCH_PER_CLIENT`, `NUXT_QUOTA_SEARCH_GLOBAL` | optional | default 30 / 100 / 300 |
+   | `NUXT_QUOTA_CHAT_PER_MINUTE`, `NUXT_QUOTA_CHAT_PER_CLIENT`, `NUXT_QUOTA_CHAT_GLOBAL` | optional | default 10 / 10 / 80 |
+   | `NUXT_QUOTA_SEARCH_PER_MINUTE`, `NUXT_QUOTA_SEARCH_PER_CLIENT`, `NUXT_QUOTA_SEARCH_GLOBAL` | optional | default 30 / 30 / 300 |
    | `CRON_SECRET` | yes, Production only | any random 64-hex string. Vercel sends it to the daily keep-alive cron (`/api/cron/keep-alive`), which is 503 without it. Crons run on Production only, so Preview doesn't need it |
    | `NUXT_INGEST_TOKEN` | **do not set** | ingestion stays on the CLI |
    | `ENABLE_EXPERIMENTAL_COREPACK` | only if needed | `1`, if the build log shows a pnpm other than 11.28.5 |
@@ -128,6 +128,7 @@ These are the Vercel Hobby plan limits ([Hobby plan](https://vercel.com/docs/pla
 - **Monthly allotments:** 1,000,000 invocations, 4 Active CPU-hours, 360 GB-hours of provisioned memory, 100 GB Fast Data Transfer, 10 GB Fast Origin Transfer and 1,000,000 CDN requests. Past a limit, the project waits for the 30-day window instead of being billed.
 - **Per function:** 2 GB of memory and 1 vCPU, 300 s maximum duration (ours is 150 s), 4.5 MB request and response bodies, and one region.
 - **Logs and deployments:** runtime logs are kept for 1 hour, and the plan allows 100 deployments a day.
+- **Firewall:** one rate-limit rule per project, set in the dashboard (Firewall → Configure → New Rule), not in this repository. This project's rule: `Limit corpus PDF downloads`, if Request Path starts with `/pdfs/`, fixed window, 600 s, 60 requests, keyed by IP, Default (429) action. A visitor who opens a PDF on a slow connection makes about 5 requests, so 60 covers normal reading (ADR-0010).
 
 ## 6. Rotating a secret
 
