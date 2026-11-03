@@ -154,6 +154,8 @@ jobs:
 
       - name: hybrid_search acceptance check
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/hybrid_search.sql
+      - name: Check hybrid_search_bge_m3
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/hybrid_search_bge_m3.sql
 
       - name: usage quota acceptance check
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/usage_quota.sql
