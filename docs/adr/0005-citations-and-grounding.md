@@ -1,6 +1,6 @@
 # ADR-0005: Citation format and grounding/refusal policy
 
-- **Status:** Accepted. Amended 2026-10-18 by the post-Phase-5 audit: delimited sources, a wider refusal and marker grammar, automatic fallback to Gemini, and re-measured evals.
+- **Status:** Accepted. Amended 2026-10-18 by the post-Phase-5 audit: delimited sources, a wider refusal and marker grammar, automatic fallback to Gemini, and re-measured evals. The fallback moved to Cloudflare on 2026-11-03, and the embeddings on 2026-11-04 (notes at the end).
 - **Date:** 2026-10-17
 
 ## Context
@@ -112,3 +112,9 @@ Gemini's terms allow only Paid Services for users in the EEA, Switzerland or the
 - **Raw channels can leak.** 1 of the 50 answers (g-023) came back as `analysis: ...<|end|><|start|>assistantfinal: ...<|return|>`. `server/rag/harmony.ts` removes the analysis and tokens from the stream before it reaches the browser. If no final channel arrives, the answer becomes the refusal. Reasoning parts stay out of the UI stream (`sendReasoning: false`). Bold text, in 9 of 50 answers against 3 on Groq, was already handled by `stripEmphasis`.
 - **Any API error now switches provider,** not only 429 and 5xx. Groq documents `reasoning_format` as unsupported on gpt-oss while the app sends it, so a sudden 400 is a real risk. `isFallbackError` keeps its narrower meaning for the "busy" message.
 - **Evals stay off the fallback.** Its Neurons are the live demo's. `eval:answers` and `eval:llm` run on Groq alone; `--model cloudflare` opts in.
+
+## Note (2026-11-04): the terms problem is closed
+
+The 2026-11-03 note left the terms problem open while every question still went to Gemini for its embedding. Retrieval has now moved off it: questions are embedded by `@cf/baai/bge-m3` on Cloudflare Workers AI ([ADR-0013](./0013-leaving-gemini.md)). At the default settings nothing goes to Gemini. `NUXT_GEMINI_API_KEY` now only serves the explicit `gemini` model choices, and it is removed after a 7-day soak.
+
+Cloudflare's free 10,000 Neurons a day now also pay for the embedding of every question, so the 147 answers a day above is the figure if answers had them to themselves.

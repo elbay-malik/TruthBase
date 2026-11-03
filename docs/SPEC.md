@@ -30,7 +30,7 @@ It is a portfolio project. It shows senior-level retrieval engineering (hybrid s
 2. Ask a question → a streamed answer with inline citation chips `[1]`, each tied to a chunk ID.
 3. Citation click → the PDF viewer scrolls to the page and highlights the passage. This works at any zoom level and from the keyboard.
 4. Grounded refusal when no retrieved chunk supports an answer.
-5. Ingestion: upload → parse with positions → chunk → embed (768-dim) → store.
+5. Ingestion: upload → parse with positions → chunk → embed (1024-dim bge-m3 since [ADR-0013](./adr/0013-leaving-gemini.md); 768-dim Gemini before) → store.
 6. Retrieval: hybrid (dense + full-text, fused with RRF) → LLM rerank → optional multi-query expansion.
 7. Evals on the golden set: an offline retrieval gate on every PR, plus a manual and weekly promptfoo LLM eval ([ADR-0008](./adr/0008-evals-and-ci-gate.md)). Tracing with Langfuse.
 8. Abuse protection: per-IP rate limits, output-token caps and a clean 429 response.
@@ -72,7 +72,7 @@ These decisions get recorded as they are made, using the [ADR template](./adr/te
 | ADR | Decision | Status |
 |---|---|---|
 | 0001 | Overall stack selection | ✅ Accepted |
-| 0002 | Retrieval schema, 768-dim embeddings, RRF in SQL | ✅ Accepted |
+| 0002 | Retrieval schema, 768-dim embeddings (1024 since ADR-0013), RRF in SQL | ✅ Accepted |
 | 0003 | **Chunking strategy and sizes**: unit (page-bounded vs cross-page), target tokens, overlap, sentence boundaries | ✅ Accepted |
 | 0004 | **PDF extraction and highlight coordinate model**: unpdf text items → per-line rects, PDF-space storage, text-match fallback | ✅ Accepted (amended) |
 | 0005 | **Citation format and grounding/refusal policy**: inline chunk-ID markers, prompt contract, refusal threshold | ✅ Accepted (amended) |
@@ -83,6 +83,7 @@ These decisions get recorded as they are made, using the [ADR template](./adr/te
 | 0010 | **Abuse protection and demo mode**: rate-limit store, caps, BYO-docs gating | ✅ Accepted (BYO docs: Phase 11b) |
 | 0011 | **Deployment topology**: Vercel Hobby (one Node 24 function in `dub1`, ingestion via CLI) vs Workers Paid / free Workers + Node host | ✅ Accepted (live since 2026-10-21) |
 | 0012 | **Hermetic E2E**: browser-level API fixtures and a Supabase stub vs a live backend | ✅ Accepted |
+| 0013 | **Leaving Gemini**: bge-m3 on Cloudflare Workers AI, a new column and function, 20 reranker candidates | ✅ Accepted |
 
 ## Risks
 

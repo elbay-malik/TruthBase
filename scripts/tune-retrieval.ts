@@ -1,6 +1,6 @@
 // Phase 6: hybrid retrieval tuning against the golden set (docs/adr/0006).
 //
-// Runs SQL variants of `hybrid_search` against a LOCAL copy of the corpus, so
+// Runs SQL variants of `hybrid_search_bge_m3` against a LOCAL copy of the corpus, so
 // keyword-query forms, rank functions, pool sizes and RRF k / weights can be
 // compared without touching the hosted schema. Both arms run exactly as the
 // function does (the semantic arm is an exact cosine scan, see the v2
@@ -29,7 +29,7 @@ const { values } = parseArgs({
   options: {
     sync: { type: 'boolean', default: false },
     json: { type: 'string' },
-    /** Only evaluate the installed `hybrid_search` function with its defaults (regression check). */
+    /** Only evaluate the installed `hybrid_search_bge_m3` function with its defaults (regression check). */
     function: { type: 'boolean', default: false },
     db: { type: 'string', default: process.env.TUNE_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:54329/postgres' },
   },
@@ -48,7 +48,7 @@ if (values.sync) {
   if (error) throw new Error(error.message)
   const chunks: Record<string, unknown>[] = []
   for (let from = 0; ; from += 500) {
-    const page = await supabase.from('chunks').select('id, document_id, page_number, content, embedding, highlight, created_at')
+    const page = await supabase.from('chunks').select('id, document_id, page_number, content, embedding:embedding_bge_m3, highlight, created_at')
       .order('id').range(from, from + 499)
     if (page.error) throw new Error(page.error.message)
     chunks.push(...page.data)
@@ -59,7 +59,7 @@ if (values.sync) {
     await tx`insert into documents ${tx(documents)}`
     // embedding arrives as pgvector text ('[0.1,…]'); fts is a generated column.
     await tx`
-      insert into chunks (id, document_id, page_number, content, embedding, highlight, created_at)
+      insert into chunks (id, document_id, page_number, content, embedding_bge_m3, highlight, created_at)
       select id, document_id, page_number, content, embedding::extensions.vector, highlight, created_at
       from jsonb_to_recordset(${tx.json(chunks as never)}::jsonb)
         as x(id uuid, document_id uuid, page_number int, content text, embedding text, highlight jsonb, created_at timestamptz)`
@@ -72,7 +72,7 @@ if (values.sync) {
 // ── golden set + cached query embeddings ───────────────────────────────────
 const golden: GoldenRecord[] = JSON.parse(await readFile(join(ROOT, 'docs/golden/golden.json'), 'utf8'))
 const answerable = golden.filter(r => r.answer !== null && r.evidence.length > 0)
-const vectors = await (await queryEmbeddings(process.env.NUXT_GEMINI_API_KEY ?? ''))(answerable.map(r => r.question))
+const vectors = await (await queryEmbeddings({ cloudflareAccountId: process.env.NUXT_CLOUDFLARE_ACCOUNT_ID, cloudflareApiToken: process.env.NUXT_CLOUDFLARE_API_TOKEN }))(answerable.map(r => r.question))
 const queryEmbedding = Object.fromEntries(answerable.map((r, i) => [r.question, vectors[i]!]))
 
 const docs = await sql<{ id: string, filename: string }[]>`select id, filename from documents`
@@ -121,12 +121,12 @@ limit $2`
 function semanticSql(): string {
   return `
 select id from chunks
-where embedding is not null and ($3::uuid is null or document_id = $3::uuid)
-order by embedding <=> $1::extensions.vector, id
+where embedding_bge_m3 is not null and ($3::uuid is null or document_id = $3::uuid)
+order by embedding_bge_m3 <=> $1::extensions.vector, id
 limit $2`
 }
 
-/** RRF exactly as hybrid_search computes it, plus a tie-breaker (semantic rank, then id). */
+/** RRF exactly as hybrid_search_bge_m3 computes it, plus a tie-breaker (semantic rank, then id). */
 function fuse(v: Variant, keyword: string[], semantic: string[]): string[] {
   const rows = new Map<string, { score: number, sem: number }>()
   keyword.forEach((id, i) => rows.set(id, { score: v.fullTextWeight / (v.rrfK + i + 1), sem: Infinity }))
@@ -155,10 +155,10 @@ function coverageRank(ids: string[], evidence: Evidence[]): number | null {
   return worst
 }
 
-/** The installed hybrid_search() with its SQL defaults, as the app calls it. */
+/** The installed hybrid_search_bge_m3() with its SQL defaults, as the app calls it. */
 async function runFunction(filtered: boolean) {
   return run(BASE, filtered, async (question, embedding, filter) =>
-    (await sql`select id from hybrid_search(${question}, ${embedding}::extensions.vector, 10, filter_document_id => ${filter}::uuid)`).map(row => row.id as string))
+    (await sql`select id from hybrid_search_bge_m3(${question}, ${embedding}::extensions.vector, 10, filter_document_id => ${filter}::uuid)`).map(row => row.id as string))
 }
 
 type Search = (question: string, embedding: string, filter: string | null) => Promise<string[]>

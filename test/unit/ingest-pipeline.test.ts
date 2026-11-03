@@ -29,6 +29,8 @@ describe('ingestPdf (offline: fake embedder and store)', () => {
     expect(result.pageCount).toBe(32)
     expect(result.chunkCount).toBe(stored.length)
     expect(embed).toHaveBeenCalledTimes(Math.ceil(stored.length / 40))
+    // Each chunk is embedded under its document's title; the stored text stays bare.
+    expect(embed.mock.calls[0]![0][0]).toBe(`The NIST Cybersecurity Framework (CSF) 2.0\n\n${stored[0]!.content}`)
     expect(new Set(progress.map(p => p.stage))).toEqual(new Set(['parse', 'chunk', 'embed', 'store']))
     expect(progress.at(-1)).toEqual({ stage: 'store', done: stored.length, total: stored.length })
 

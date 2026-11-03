@@ -11,7 +11,7 @@ let client: SupabaseClient | undefined
 /**
  * Per-request cap on database (PostgREST/RPC) calls, so a stalled connection
  * ends in an error (and the quota check fails open) instead of hanging the
- * route. Generous: hybrid_search on a cold free-tier database takes a few
+ * route. Generous: hybrid_search_bge_m3 on a cold free-tier database takes a few
  * seconds, and PostgREST's own statement timeout (~8 s) normally answers
  * first. Storage is left uncapped: a 20 MB PDF upload can take longer.
  */

@@ -1,6 +1,6 @@
 # ADR-0001: Overall stack selection
 
-- **Status:** Accepted. Amended: generation by [ADR-0005](./0005-citations-and-grounding.md) and [TECH_NOTES §9](../TECH_NOTES.md) (Groq `openai/gpt-oss-120b`, Cloudflare Workers AI fallback); the viewer uses the `pdfjs-dist` legacy build directly, without a Vue wrapper ([ADR-0004](./0004-extraction-and-highlights.md)).
+- **Status:** Accepted. Amended: generation by [ADR-0005](./0005-citations-and-grounding.md) and [TECH_NOTES §9](../TECH_NOTES.md) (Groq `openai/gpt-oss-120b`, Cloudflare Workers AI fallback); the viewer uses the `pdfjs-dist` legacy build directly, without a Vue wrapper ([ADR-0004](./0004-extraction-and-highlights.md)); embeddings by [ADR-0013](./0013-leaving-gemini.md) (see the note at the end).
 - **Date:** 2026-07-08
 
 ## Context
@@ -46,3 +46,7 @@ The most defensible free/near-free architecture that still demonstrates senior-l
 - 768-dim embeddings trade some retrieval quality for fitting the 500MB budget; re-embedding later is cheap, so this is reversible.
 - The highlight data model must be captured **at ingestion** (Phase 3) — retrofitting positions later would mean re-parsing everything.
 - Deployment topology stays open until Phase 14, hinging on whether 5 EUR/month is acceptable vs. a free split deployment. *(Resolved in [ADR-0011](./0011-deployment-topology.md): Vercel Hobby, free.)*
+
+## Note (2026-11-04): embeddings moved to Cloudflare
+
+Embeddings are now `@cf/baai/bge-m3` on Cloudflare Workers AI (1024 dims), not `gemini-embedding-001` at 768 ([ADR-0013](./0013-leaving-gemini.md)). The table above and the 768-dim consequence describe the original decision. The free-tier approach is unchanged. `@ai-sdk/google` stays only for the explicit `gemini` model choices, until the 7-day soak ends.

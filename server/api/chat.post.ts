@@ -2,7 +2,7 @@ import { propagateAttributes, startActiveObservation, type LangfuseAgent } from 
 import { createUIMessageStream, createUIMessageStreamResponse, streamText, toUIMessageStream, type ToolSet } from 'ai'
 import { chatRequestSchema } from '#shared/schemas'
 import { NO_ANSWER, type ChatMessage } from '#shared/types/chat'
-import { geminiEmbedder, INTERACTIVE_EMBED_LIMITS } from '../ingest/embed'
+import { cloudflareEmbedder, embeddingsConfigured, INTERACTIVE_EMBED_LIMITS } from '../ingest/embed'
 import { chatModel, configuredTaskModel, isFallbackError } from '../rag/model'
 import { ANSWER_MAX_TOKENS, buildPrompt, GROUNDING_INSTRUCTIONS } from '../rag/prompt'
 import { configuredReranker } from '../rag/rerank'
@@ -12,9 +12,9 @@ import { retrieveSources } from '../rag/retrieve'
 //   data-sources  numbered sources [1..k] with chunk id, document, page and
 //                 stored highlight rects (citation chips; Phase 5 highlights)
 //   text          grounded answer citing [n], or exactly NO_ANSWER
-// Retrieval: Gemini query embedding → hybrid RRF search, plus multi-query
+// Retrieval: bge-m3 query embedding → hybrid RRF search, plus multi-query
 // rewrites of an ambiguous question fused with RRF (ADR-0009) → LLM rerank of
-// the fused top 15 (ADR-0007) → top 8; each LLM step is skipped on failure. Generation:
+// the fused top 20 (ADR-0007) → top 8; each LLM step is skipped on failure. Generation:
 // Groq gpt-oss-120b with Cloudflare fallback (server/rag/model.ts), temperature 0.
 // A client disconnect (Stop, closed tab) aborts the embedding and LLM calls.
 // Generation that stalls (no chunk for 15 s, or 45 s in all) or hits the
@@ -39,11 +39,10 @@ export default defineEventHandler(async (event) => {
   assertSameSiteJson(event)
   const { question, documentId } = await readValidatedBody(event, chatRequestSchema.parse)
   const config = useRuntimeConfig(event)
-  if (!config.geminiApiKey) {
-    throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Query embeddings are not configured (set NUXT_GEMINI_API_KEY).' })
-  }
-  if (!config.groqApiKey && !(config.cloudflareAccountId && config.cloudflareApiToken)) {
-    throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Answers are not configured (set NUXT_GROQ_API_KEY or the NUXT_CLOUDFLARE_* values).' })
+  // Cloudflare embeds every question and is also the answer fallback, so with
+  // these two values answers always have a model, with or without Groq.
+  if (!embeddingsConfigured(config)) {
+    throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Query embeddings are not configured (set the NUXT_CLOUDFLARE_* values).' })
   }
   const { model, id: modelId, providerOptions } = chatModel(config)
   const supabase = serverSupabase()
@@ -79,7 +78,7 @@ export default defineEventHandler(async (event) => {
       execute: async ({ writer }) => {
         const { sources, rewrites, reranked } = await retrieveSources(
           supabase,
-          geminiEmbedder(config.geminiApiKey, 'RETRIEVAL_QUERY', abort.signal, INTERACTIVE_EMBED_LIMITS),
+          cloudflareEmbedder(config, abort.signal, INTERACTIVE_EMBED_LIMITS),
           question,
           { documentId, expander, reranker, abortSignal: abort.signal },
         )

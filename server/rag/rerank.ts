@@ -17,11 +17,12 @@ import type { SearchHit } from './search'
 // generated from that.
 
 /**
- * Fused candidates handed to the reranker (the RPC returns at most 30). The
- * fused top 15 holds the evidence for as many golden records as the top 20
- * (87%), and each call costs ~25% fewer of the reranker's 200K tokens/day.
+ * Fused candidates handed to the reranker (the RPC returns at most 30). bge-m3
+ * ranks some evidence lower than Gemini did: the top 20 holds it for 40 of 45
+ * golden records against 38 in the top 15. Each call costs about 4.2K of the
+ * reranker's daily tokens against 3.1K, so about 40 fully enhanced chats a day.
  */
-export const RERANK_CANDIDATES = 15
+export const RERANK_CANDIDATES = 20
 
 /**
  * Sources the reranker chooses; the rest follow in fused order. Listwise

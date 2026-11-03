@@ -2,7 +2,7 @@
 //
 // For every answerable golden record: rewrite the question (one cached
 // task-model call), retrieve the question and each rewrite from the hosted
-// `hybrid_search`, and fuse the lists with weighted RRF. Compares, on the
+// `hybrid_search_bge_m3`, and fuse the lists with weighted RRF. Compares, on the
 // RERANK_CANDIDATES the reranker would see:
 //   single     the question alone (Phase 7's candidates)
 //   multi w    question at weight 1, each rewrite at weight w
@@ -50,7 +50,7 @@ if (!tm) throw new Error(`--model ${choice} is not configured (missing API key) 
 const golden = await answerableRecords(values.only)
 const { idByFilename } = await documentMaps(supabase)
 const titles = (await documentCatalog(supabase)).map(catalogLine)
-const embed = await queryEmbeddings(env('NUXT_GEMINI_API_KEY'))
+const embed = await queryEmbeddings({ cloudflareAccountId: process.env.NUXT_CLOUDFLARE_ACCOUNT_ID, cloudflareApiToken: process.env.NUXT_CLOUDFLARE_API_TOKEN })
 const cachedExpansion = await taskCache('expand', tm, Number(values.tpm))
 const { coverageRank, ndcgAt } = metrics(idByFilename)
 

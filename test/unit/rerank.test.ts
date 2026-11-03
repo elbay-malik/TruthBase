@@ -115,7 +115,7 @@ describe('rerank', () => {
 })
 
 describe('retrieveSources with a reranker', () => {
-  // hybrid_search returns match_count rows h1..hN in fused order.
+  // hybrid_search_bge_m3 returns match_count rows h1..hN in fused order.
   const supabase = {
     rpc: async (_fn: string, args: { match_count: number }) => ({
       data: Array.from({ length: args.match_count }, (_, i) => ({ id: `h${i + 1}`, document_id: 'd1', page_number: 1, content: `h${i + 1}`, highlight: null, created_at: '', score: 1 })),
@@ -144,7 +144,7 @@ describe('retrieveSources with a reranker', () => {
     const result = await retrieveSources(supabase, embed, 'q', { topK: 30, reranker: rm })
     expect(shown).toEqual([RERANK_CANDIDATES])
     const ids = result.sources.map(s => s.chunkId)
-    expect(ids.slice(0, 4)).toEqual(['h15', 'h14', 'h13', 'h12'])
-    expect(ids.slice(4)).toEqual(Array.from({ length: 30 }, (_, i) => `h${i + 1}`).filter(id => !['h15', 'h14', 'h13', 'h12'].includes(id)))
+    expect(ids.slice(0, 4)).toEqual(['h20', 'h19', 'h18', 'h17'])
+    expect(ids.slice(4)).toEqual(Array.from({ length: 30 }, (_, i) => `h${i + 1}`).filter(id => !['h20', 'h19', 'h18', 'h17'].includes(id)))
   })
 })

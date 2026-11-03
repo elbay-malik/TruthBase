@@ -3,11 +3,9 @@
 /**
  * L2-normalize a vector to unit length.
  *
- * Gemini `gemini-embedding-001` only returns normalized vectors at the full
- * 3072 dims; Matryoshka-truncated outputs (e.g. 768) are NOT normalized, and
- * the AI SDK does not normalize them (docs/TECH_NOTES.md §2). Normalize before
- * storing so cosine/inner-product distances behave. A zero vector is returned
- * unchanged (no division by zero).
+ * The AI SDK does not normalize embeddings, so do it before storing or
+ * searching, whatever the provider returns, so cosine and inner-product
+ * distances behave. A zero vector is returned unchanged (no division by zero).
  */
 export function l2Normalize(vector: number[]): number[] {
   let sumSquares = 0

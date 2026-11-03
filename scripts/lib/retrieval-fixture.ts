@@ -1,6 +1,6 @@
 // The retrieval fixture: the indexed corpus (documents, chunks, chunk
 // embeddings) and the golden questions' query embeddings, committed as
-// test/fixtures/retrieval-corpus.json.gz so CI can run hybrid_search on the
+// test/fixtures/retrieval-corpus.json.gz so CI can run hybrid_search_bge_m3 on the
 // real corpus without API keys (ADR-0008).
 //
 // Embeddings are stored as base64 little-endian float32, the precision
@@ -20,7 +20,7 @@ export interface Fixture {
   embeddingModel: string
   documents: { id: string, filename: string, page_count: number | null }[]
   chunks: { id: string, document_id: string, page_number: number | null, content: string, embedding: string }[]
-  /** Golden question text → RETRIEVAL_QUERY embedding. */
+  /** Golden question text → query embedding. */
   queries: Record<string, string>
 }
 
@@ -52,7 +52,7 @@ export async function installFixture(sql: Sql, fixture: Fixture): Promise<void> 
     const rows = fixture.chunks.map(c => ({ ...c, embedding: vectorLiteral(decodeVector(c.embedding)) }))
     for (let i = 0; i < rows.length; i += 200) {
       await tx`
-        insert into chunks (id, document_id, page_number, content, embedding)
+        insert into chunks (id, document_id, page_number, content, embedding_bge_m3)
         select id, document_id, page_number, content, embedding::extensions.vector
         from jsonb_to_recordset(${tx.json(rows.slice(i, i + 200) as never)}::jsonb)
           as x(id uuid, document_id uuid, page_number int, content text, embedding text)`

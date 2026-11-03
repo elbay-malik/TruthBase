@@ -2,6 +2,7 @@
 
 - **Status:** Accepted (2026-10-21). Chosen on gpt-oss-120b evidence below; the shipped default rewriter (gpt-oss-20b) and the full pipeline with reranking and generation were measured afterwards and hold up (see "The shipped rewriter, measured").
 - **Date:** 2026-10-19
+- **Note (2026-11-04):** These runs used Gemini embeddings and were not re-run on bge-m3 ([ADR-0013](./0013-leaving-gemini.md)). Today the fused top 15 holds the evidence for 84% of answerable questions, not 87%; g-030 is now found, and g-026 and g-028 are new misses at question-only top 15. With 20 candidates the daily budget is about 40 fully enhanced chats, not ~60, and fused order after that is 34/45 in the top 8.
 
 ## Context
 

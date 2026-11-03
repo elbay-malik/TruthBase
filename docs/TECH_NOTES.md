@@ -32,6 +32,8 @@ Verified 2026-07-08 against npm and official docs (Nuxt, Nuxt UI, AI SDK, pnpm, 
 
 ## 2. Gemini embeddings: truncated vectors are NOT normalized (affects Phases 2, 3, 6)
 
+*Historical since 2026-11-04: embeddings are bge-m3 (§21). The app still L2-normalizes every vector.*
+
 Per Google's model docs, only the full 3072-dim `gemini-embedding-001` output is L2-normalized. When truncating via `providerOptions.google.outputDimensionality: 768`, **normalize the vectors ourselves before storing/cosine-comparing** — the SDK does not do it. Also set `taskType`: `RETRIEVAL_DOCUMENT` for chunks, `RETRIEVAL_QUERY` for queries.
 
 ```ts
@@ -195,7 +197,7 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
   - `eval:llm` sets `PROMPTFOO_PASS_RATE_THRESHOLD=0`: promptfoo exits 0 whether assertions fail or rows error, and `eval:llm:summary` is the one gate (it fails errored rows). Only a crash or a spent quota (exit 2) stops `&&` before the summary.
   - `eval:llm:summary --update-baseline` ignores the existing `llm-baseline.json`, so the 0.05 tolerance doesn't apply; it writes only an error-free run of the full golden set that meets the SPEC targets.
   - The retrieval gate's nDCG@5 ideal is every relevant chunk in the database searched (under `--install`, the fixture corpus): all-documents nDCG@5 0.638 → 0.633, filtered unchanged at 0.627; recall and MRR unchanged. The gate also fails on a changed record count, baseline records missing from the run, or a NaN or empty scope, so removing golden records needs `--update-baseline` in the same PR.
-  - Query embeddings are cached in `.cache/query-embeddings/<model>-RETRIEVAL_QUERY-<dims>.json`. The old `.cache/golden-query-embeddings.json` is a read-only fallback for `gemini-embedding-001` at 768 dims.
+  - Query embeddings were cached in `.cache/query-embeddings/<model>-RETRIEVAL_QUERY-<dims>.json`, with `.cache/golden-query-embeddings.json` as a read-only fallback for `gemini-embedding-001` at 768 dims. Since 2026-11-04 the file is `.cache/query-embeddings/bge-m3-1024.json`, with no fallback (§21).
   - Pacing is per model id across all caches in a process. promptfoo's answer cache stores answers under their model ids, and promptfoo runs on Groq alone.
   - `GOLDEN_ONLY` ignores empty ids and fails on unknown ones.
 - **Keep-alive** is a daily Vercel cron since 2026-10-25 (ADR-0011 §7), so GitHub's 60-day inactivity rule for scheduled workflows no longer applies to it.
@@ -234,3 +236,15 @@ A multi-agent adversarial review of Phases 0–5 confirmed 72 findings (several 
 - **Cancellation:** `supportsCancellation: true` goes into `.vc-config.json`. `@vercel/build-utils`' `Lambda` accepts the key, but Vercel documents it only in `vercel.json`, which a Build Output API deployment can't use for `functions`. Check on the first preview whether Stop reaches `res.on('close')`.
 - **Local function smoke:** `pnpm check:vercel` imports `__fallback.func/index.mjs` (a plain `(req, res)` listener) behind `node:http`, injects `x-vercel-forwarded-for`, and runs the CI smoke assertions. It can't reproduce the CDN (compression, static header routes) or the platform's `waitUntil` and cancellation; DEPLOYMENT.md §3 checks those on a real deployment.
 
+## 21. bge-m3 on Cloudflare (2026-11-04)
+
+Why, the measurements and the alternatives are in [ADR-0013](./adr/0013-leaving-gemini.md). What changes for anyone reading the code:
+
+- **Model:** `@cf/baai/bge-m3`, 1024 dims, through `@ai-sdk/openai-compatible` at `https://api.cloudflare.com/client/v4/accounts/<id>/ai/v1` (`server/ingest/embed.ts`). Vectors are still L2-normalized before they are stored or searched.
+- **No task types.** bge-m3 has no document and query modes, so `RETRIEVAL_DOCUMENT` and `RETRIEVAL_QUERY` are gone. The difference is in the text: documents are embedded as `title\n\ncontent` (`server/ingest/title.ts`), and questions are embedded bare. The title is not stored in `chunks.content`.
+- **Column and function:** `chunks.embedding_bge_m3` and `hybrid_search_bge_m3`, which is `hybrid_search` v2 with only the column and vector size changed. `chunks.embedding` and `hybrid_search` stay for a 7-day soak, then go with `NUXT_GEMINI_API_KEY` and `@ai-sdk/google`.
+- **Cloudflare is required:** chat, search and ingest answer 503 without `NUXT_CLOUDFLARE_ACCOUNT_ID` and `NUXT_CLOUDFLARE_API_TOKEN`. On the free plan a request over the 10,000 Neurons a day fails rather than bills.
+- **`RERANK_CANDIDATES` is 20,** was 15: about 4.2K reranker tokens per chat against 3.1K.
+- **`/api/search` errors:** 503 "busy" on provider limits (`isFallbackError`), 502 otherwise. The cause goes to the log only.
+- **Eval cache:** query embeddings are in `.cache/query-embeddings/bge-m3-1024.json`. `pnpm eval:retrieval` compares against the new baseline; Gemini's is kept in `docs/evals/retrieval-baseline-gemini.json`.
+- **Older sections:** §2, the `google.embedding` line in §7 and the Gemini numbers elsewhere in these notes describe the project before this date.

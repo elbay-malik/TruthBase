@@ -170,8 +170,8 @@ export default defineNuxtConfig({
     // Server-only secrets — overridden at runtime by NUXT_* env vars
     // (see .env.example). Never move these under `public`.
     groqApiKey: '', // NUXT_GROQ_API_KEY
-    geminiApiKey: '', // NUXT_GEMINI_API_KEY
-    cloudflareAccountId: '', // NUXT_CLOUDFLARE_ACCOUNT_ID — answer fallback
+    geminiApiKey: '', // NUXT_GEMINI_API_KEY — only for the `gemini` model choices
+    cloudflareAccountId: '', // NUXT_CLOUDFLARE_ACCOUNT_ID — embeddings and answer fallback
     cloudflareApiToken: '', // NUXT_CLOUDFLARE_API_TOKEN — Workers AI scope only
     rerankModel: 'groq-20b', // NUXT_RERANK_MODEL — groq-20b | groq-120b | groq-qwen | gemini | off (ADR-0007)
     expandModel: 'groq-20b', // NUXT_EXPAND_MODEL — same choices; multi-query rewriting (ADR-0009)

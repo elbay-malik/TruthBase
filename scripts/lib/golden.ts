@@ -5,7 +5,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { EMBEDDING_DIMENSIONS, EMBEDDING_MODEL, geminiEmbedder } from '../../server/ingest/embed'
+import { cloudflareEmbedder, EMBEDDING_DIMENSIONS, type EmbeddingKeys } from '../../server/ingest/embed'
 import type { SearchHit } from '../../server/rag/search'
 
 export const ROOT = resolve(import.meta.dirname, '../..')
@@ -29,28 +29,21 @@ export async function documentMaps(supabase: SupabaseClient) {
   }
 }
 
-const QUERY_TASK = 'RETRIEVAL_QUERY'
-/** One file per model, task type and dimension, so a model change never reuses old vectors. */
-const EMBEDDING_KEY = `${EMBEDDING_MODEL}-${QUERY_TASK}-${EMBEDDING_DIMENSIONS}`
-const EMBEDDING_FILE = join(ROOT, `.cache/query-embeddings/${EMBEDDING_KEY}.json`)
-/** The earlier text-only cache; every vector in it is gemini-embedding-001, RETRIEVAL_QUERY, 768-dim. */
-const LEGACY_EMBEDDING_FILE = join(ROOT, '.cache/golden-query-embeddings.json')
+/** One file per model and dimension, so a model change never reuses old vectors. */
+const EMBEDDING_FILE = join(ROOT, `.cache/query-embeddings/bge-m3-${EMBEDDING_DIMENSIONS}.json`)
 
 /**
- * RETRIEVAL_QUERY embeddings by text, cached in .cache/ (shared with
+ * Query embeddings by text, cached in .cache/ (shared with
  * scripts/tune-retrieval.ts). Missing texts are embedded in one batch.
  */
-export async function queryEmbeddings(geminiApiKey: string) {
+export async function queryEmbeddings(keys: EmbeddingKeys) {
   const read = (file: string) => readFile(file, 'utf8').then(JSON.parse as (s: string) => Record<string, number[]>, () => undefined)
-  const stored = await read(EMBEDDING_FILE)
-    ?? (EMBEDDING_KEY === 'gemini-embedding-001-RETRIEVAL_QUERY-768' ? await read(LEGACY_EMBEDDING_FILE) : undefined)
-    ?? {}
+  const stored = await read(EMBEDDING_FILE) ?? {}
   const cache = Object.fromEntries(Object.entries(stored).filter(([, v]) => v.length === EMBEDDING_DIMENSIONS))
-  const embed = geminiEmbedder(geminiApiKey, QUERY_TASK)
   return async (texts: string[]): Promise<number[][]> => {
     const missing = [...new Set(texts.filter(t => !cache[t]))]
     if (missing.length) {
-      const vectors = await embed(missing)
+      const vectors = await cloudflareEmbedder(keys)(missing)
       missing.forEach((t, i) => (cache[t] = vectors[i]!))
       await mkdir(dirname(EMBEDDING_FILE), { recursive: true })
       await writeFile(EMBEDDING_FILE, JSON.stringify(cache))

@@ -31,7 +31,7 @@ test('the privacy page is linked from the ask box and names the processors', asy
   await page.getByRole('link', { name: 'Privacy' }).click()
   const privacy = await opened
   await expect(privacy.getByRole('heading', { name: 'Privacy', level: 1 })).toBeVisible()
-  for (const name of ['Groq', 'Cloudflare Workers AI', 'Google Gemini', 'Langfuse', 'Supabase', 'Vercel']) {
+  for (const name of ['Groq', 'Cloudflare Workers AI', 'Langfuse', 'Supabase', 'Vercel']) {
     await expect(privacy.getByRole('main').getByText(name, { exact: true })).toBeVisible()
   }
 })

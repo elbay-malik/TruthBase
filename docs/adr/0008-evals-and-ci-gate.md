@@ -2,6 +2,7 @@
 
 - **Status:** Proposed. The retrieval gate runs in CI. The first full LLM eval ran on 2026-10-23 (`docs/evals/phase-9-llm.json`), and the judge scores faithfulness and citation precision above SPEC's 0.90. But the gate fails on 4 false refusals (target ≤ 1), so there is no `llm-baseline.json`, and a hand check found the judge lenient (see Consequences).
 - **Date:** 2026-10-20
+- **Note (2026-11-04):** Embeddings moved to bge-m3 ([ADR-0013](./0013-leaving-gemini.md)). The gate now runs `hybrid_search_bge_m3` on a 2.7 MB fixture with recall@8 76%, MRR 0.548, nDCG@5 0.640 and filtered recall@8 78% (`docs/evals/retrieval-baseline.json`). The figures below are from Gemini embeddings.
 
 ## Context
 

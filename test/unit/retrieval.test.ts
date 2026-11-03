@@ -35,13 +35,13 @@ describe('searchChunks', () => {
   it('leaves unset tuning parameters to the SQL defaults', async () => {
     const { rpc, supabase } = client({ data: [], error: null })
     await searchChunks(supabase, { queryText: 'q', queryEmbedding: [1], matchCount: 8 })
-    expect(rpc).toHaveBeenCalledWith('hybrid_search', { query_text: 'q', query_embedding: [1], match_count: 8, filter_document_id: null })
+    expect(rpc).toHaveBeenCalledWith('hybrid_search_bge_m3', { query_text: 'q', query_embedding: [1], match_count: 8, filter_document_id: null })
   })
 
   it('passes explicit tuning parameters through, including zero weights', async () => {
     const { rpc, supabase } = client({ data: [], error: null })
     await searchChunks(supabase, { queryText: 'q', queryEmbedding: [1], fullTextWeight: 0, semanticWeight: 1, rrfK: 10, candidateCount: 20, documentId: 'd' })
-    expect(rpc).toHaveBeenCalledWith('hybrid_search', {
+    expect(rpc).toHaveBeenCalledWith('hybrid_search_bge_m3', {
       query_text: 'q', query_embedding: [1], match_count: 10, filter_document_id: 'd',
       full_text_weight: 0, semantic_weight: 1, rrf_k: 10, candidate_count: 20,
     })

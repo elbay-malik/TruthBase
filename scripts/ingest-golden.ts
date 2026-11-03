@@ -10,13 +10,13 @@
 //                                    # chunk ids stay; docs/DEPLOYMENT.md §0)
 //
 // Needs NUXT_SUPABASE_URL, NUXT_SUPABASE_SERVICE_KEY and (except for
-// --highlights-only) NUXT_GEMINI_API_KEY.
+// --highlights-only) the NUXT_CLOUDFLARE_* values.
 
 import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
-import { geminiEmbedder } from '../server/ingest/embed'
+import { cloudflareEmbedder } from '../server/ingest/embed'
 import { extractPages } from '../server/ingest/extract'
 import { chunkHighlight } from '../server/ingest/highlight'
 import { ingestPdf } from '../server/ingest/pipeline'
@@ -48,7 +48,7 @@ process.on('SIGINT', () => {
   console.log('\ncancelling (Ctrl+C again to exit now)…')
   abort.abort()
 })
-const embed = geminiEmbedder(env('NUXT_GEMINI_API_KEY'), 'RETRIEVAL_DOCUMENT', abort.signal)
+const embed = cloudflareEmbedder({ cloudflareAccountId: env('NUXT_CLOUDFLARE_ACCOUNT_ID'), cloudflareApiToken: env('NUXT_CLOUDFLARE_API_TOKEN') }, abort.signal)
 
 for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sort()) {
   const { data: existing, error } = await supabase.from('documents').select('id, storage_path').eq('filename', filename)

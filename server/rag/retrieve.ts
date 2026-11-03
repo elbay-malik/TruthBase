@@ -8,7 +8,7 @@ import type { TaskModel } from './model'
 import { rerank, RERANK_CANDIDATES } from './rerank'
 import { searchChunks, type SearchHit } from './search'
 
-// Retrieval: embed the question (RETRIEVAL_QUERY) and run hybrid RRF search.
+// Retrieval: embed the bare question and run hybrid RRF search.
 // With an expander (Phase 8, ADR-0009), an LLM meanwhile rewrites an ambiguous
 // or multi-part question into extra queries, each searched too, and the lists
 // are fused with RRF; a failed rewrite search leaves the question's own hits.

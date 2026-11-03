@@ -17,7 +17,7 @@ export const chatRequestSchema = z.object({
 export const searchRequestSchema = z.object({
   query: z.string().trim().min(1).max(MAX_QUESTION_LENGTH),
   documentId: z.uuid().optional(),
-  // hybrid_search returns at most 30 rows (its RRF candidate pool).
+  // hybrid_search_bge_m3 returns at most 30 rows (its RRF candidate pool).
   topK: z.number().int().positive().max(30).default(10),
 })
 

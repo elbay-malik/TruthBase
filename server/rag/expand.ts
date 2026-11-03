@@ -139,7 +139,7 @@ export async function expand(
   }
 }
 
-/** RRF k for fusing the per-query lists (as in hybrid_search, ADR-0006). */
+/** RRF k for fusing the per-query lists (as in hybrid_search_bge_m3, ADR-0006). */
 export const MULTI_QUERY_RRF_K = 60
 
 /**

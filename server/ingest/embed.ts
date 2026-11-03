@@ -1,18 +1,21 @@
-import { createGoogle } from '@ai-sdk/google'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { embedMany } from 'ai'
 import { l2Normalize } from '../../shared/utils/vector'
 
-// Phase 3, step 4: chunk text → 768-dim, L2-normalized Gemini embeddings.
-// Must match the `chunks.embedding vector(768)` column (ADR-0002) and the
-// query-side embedding added in Phase 4 (same model, RETRIEVAL_QUERY task).
+// Text → 1024-dim, L2-normalized bge-m3 embeddings on Cloudflare Workers AI.
+// Must match `chunks.embedding_bge_m3 vector(1024)`. bge-m3 has no separate
+// document and query modes, so ingestion and search use the same call.
 
-export const EMBEDDING_MODEL = 'gemini-embedding-001'
-export const EMBEDDING_DIMENSIONS = 768
+export const EMBEDDING_MODEL = '@cf/baai/bge-m3'
+export const EMBEDDING_DIMENSIONS = 1024
 
 /** Embeds a batch of texts; returns one unit-length vector per text, in order. */
 export type Embedder = (texts: string[]) => Promise<number[][]>
 
-export type EmbeddingTask = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'
+export interface EmbeddingKeys {
+  cloudflareAccountId?: string
+  cloudflareApiToken?: string
+}
 
 export interface EmbedLimits {
   /** SDK retries with exponential backoff (2 s, 4 s, …); default 5, about a minute in all. */
@@ -28,25 +31,34 @@ export interface EmbedLimits {
  */
 export const INTERACTIVE_EMBED_LIMITS: EmbedLimits = { maxRetries: 1, timeoutMs: 8_000 }
 
+export const embeddingsConfigured = (keys: EmbeddingKeys) => Boolean(keys.cloudflareAccountId && keys.cloudflareApiToken)
+
 /** @param abortSignal Cancels in-flight requests (client disconnected). */
-export function geminiEmbedder(apiKey: string, taskType: EmbeddingTask, abortSignal?: AbortSignal, limits: EmbedLimits = {}): Embedder {
-  const google = createGoogle({ apiKey })
-  const model = google.embedding(EMBEDDING_MODEL)
+export function cloudflareEmbedder(keys: EmbeddingKeys, abortSignal?: AbortSignal, limits: EmbedLimits = {}): Embedder {
+  if (!embeddingsConfigured(keys)) throw new Error('Embeddings are not configured (set the NUXT_CLOUDFLARE_* values).')
+  const model = createOpenAICompatible({
+    name: 'cloudflare',
+    baseURL: `https://api.cloudflare.com/client/v4/accounts/${keys.cloudflareAccountId}/ai/v1`,
+    apiKey: keys.cloudflareApiToken,
+  }).embeddingModel(EMBEDDING_MODEL)
 
   return async (texts) => {
-    const signals = [abortSignal, limits.timeoutMs === undefined ? undefined : AbortSignal.timeout(limits.timeoutMs)].filter(s => s !== undefined)
+    const timeout = limits.timeoutMs === undefined ? undefined : AbortSignal.timeout(limits.timeoutMs)
+    const signals = [abortSignal, timeout].filter(s => s !== undefined)
     const { embeddings } = await embedMany({
       model,
       values: texts,
-      maxRetries: limits.maxRetries ?? 5, // free-tier 429s back off and retry inside the SDK
+      maxRetries: limits.maxRetries ?? 5,
       abortSignal: signals.length ? AbortSignal.any(signals) : undefined,
-      providerOptions: { google: { outputDimensionality: EMBEDDING_DIMENSIONS, taskType } },
+    }).catch((error: unknown) => {
+      // The budget can run out during a retry's wait, which the SDK reports as a
+      // plain AbortError. Callers tell a timeout from a disconnect by its name.
+      throw timeout?.aborted && !abortSignal?.aborted ? timeout.reason : error
     })
     return embeddings.map((embedding) => {
       if (embedding.length !== EMBEDDING_DIMENSIONS) {
         throw new Error(`expected ${EMBEDDING_DIMENSIONS}-dim embeddings, got ${embedding.length}`)
       }
-      // Truncated Gemini vectors are not unit-length (docs/TECH_NOTES.md §2).
       return l2Normalize(embedding)
     })
   }
