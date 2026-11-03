@@ -311,7 +311,7 @@ Sources: [ADR-0007](./docs/adr/0007-reranking.md), [ADR-0009](./docs/adr/0009-qu
 
 ## Acknowledgements
 
-Built with the help of [Claude Code](https://claude.com/claude-code) (Anthropic), which assisted with the code, tests and documentation throughout the project's history.
+Claude, Anthropic's AI model, was also used for building DevSprint. Claude worked on some commits in this repository.
 
 ## License
 
