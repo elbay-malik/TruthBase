@@ -1,0 +1,7 @@
+version: 2
+updates:
+  # Workflows pin actions to commit SHAs, so updates need a PR to review.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
