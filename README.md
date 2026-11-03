@@ -207,7 +207,7 @@ Each ADR records context, the decision, measurements and rejected alternatives. 
   - `build-vercel`: builds the Vercel preset and boots the function (`pnpm check:vercel`).
   - `e2e`: the Playwright suite above.
   - `db`: migrations on the Supabase Postgres image, SQL acceptance checks for `hybrid_search` and both quota layers, and the **retrieval gate** against `retrieval-baseline.json` (any drop fails).
-- **Scheduled:** the promptfoo LLM eval (`llm-eval.yml`, Sundays and on demand; first full run 2026-10-23, [phase-9-llm.json](./docs/evals/phase-9-llm.json)). The Supabase keep-alive is a daily Vercel cron (`/api/cron/keep-alive`, [ADR-0011](./docs/adr/0011-deployment-topology.md)).
+- **Scheduled:** the promptfoo LLM eval (`llm-eval.yml`, Sundays and on demand; first full run 2026-10-23, [phase-9-llm.json](./docs/evals/phase-9-llm.json)). The Supabase keep-alive (`/api/cron/keep-alive`, [ADR-0011](./docs/adr/0011-deployment-topology.md)) and the Langfuse trace clean-up (`/api/cron/prune-traces`) are daily Vercel crons.
 
 ### Lighthouse and Core Web Vitals
 

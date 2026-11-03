@@ -112,7 +112,11 @@ export default defineNuxtConfig({
         // The Supabase keep-alive (server/api/cron/keep-alive.get.ts). Hobby
         // allows daily jobs only, run within the hour (06:00–06:59 UTC): well
         // inside the 7-day pause window. Vercel calls it on production only.
-        crons: [{ path: '/api/cron/keep-alive', schedule: '0 6 * * *' }],
+        // Also daily: the Langfuse clean-up (server/utils/trace-retention.ts).
+        crons: [
+          { path: '/api/cron/keep-alive', schedule: '0 6 * * *' },
+          { path: '/api/cron/prune-traces', schedule: '0 7 * * *' },
+        ],
         routes: [
           // @ts-expect-error Nitro types route headers as cache-control only; the Build Output API takes any header
           { src: '/(.*)', headers: { 'x-content-type-options': 'nosniff' }, continue: true },

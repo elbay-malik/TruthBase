@@ -55,7 +55,7 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
    | `NUXT_RERANK_MODEL`, `NUXT_EXPAND_MODEL` | optional | default `groq-20b` |
    | `NUXT_QUOTA_CHAT_PER_MINUTE`, `NUXT_QUOTA_CHAT_PER_CLIENT`, `NUXT_QUOTA_CHAT_GLOBAL` | optional | default 10 / 10 / 80 |
    | `NUXT_QUOTA_SEARCH_PER_MINUTE`, `NUXT_QUOTA_SEARCH_PER_CLIENT`, `NUXT_QUOTA_SEARCH_GLOBAL` | optional | default 30 / 30 / 300 |
-   | `CRON_SECRET` | yes, Production only | any random 64-hex string. Vercel sends it to the daily keep-alive cron (`/api/cron/keep-alive`), which is 503 without it. Crons run on Production only, so Preview doesn't need it |
+   | `CRON_SECRET` | yes, Production only | any random 64-hex string. Vercel sends it to the daily crons (`/api/cron/keep-alive`, `/api/cron/prune-traces`), which are 503 without it. Crons run on Production only, so Preview doesn't need it |
    | `NUXT_INGEST_TOKEN` | **do not set** | ingestion stays on the CLI |
    | `ENABLE_EXPERIMENTAL_COREPACK` | only if needed | `1`, if the build log shows a pnpm other than 11.28.5 |
 
@@ -68,6 +68,7 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
 ## 2. Optional extras
 
 - **Keep-alive runs:** the daily cron is listed under the project's Settings → Cron Jobs, with its logs and a **Run** button. Vercel doesn't retry a failed run. A failed ping (401 without the right `CRON_SECRET`, 503 when it is unset, 502 when the read fails) shows in the logs, so check them after any deploy that touched env vars. Env vars reach new deployments only: after setting or rotating `CRON_SECRET`, redeploy, then press **Run** once.
+- **Trace clean-up runs:** `/api/cron/prune-traces` deletes Langfuse traces older than 27 days (`server/utils/trace-retention.ts`), a promise on the privacy page. Check it soon after any failure: Langfuse Hobby hides anything past 30 days from its API, so after three failed runs in a row the oldest traces can't be found, and only Langfuse support could remove them. The route returns how many ids it sent; Langfuse removes them within about 15 minutes.
 - **Vercel WAF rate limit:** Hobby has one rate-limit rule per project. Burst limits are already enforced in Postgres for every instance. If bots hammer the site, a rule such as "path starts with `/api/` → 60 requests / 60 s per IP → 429" stops them before they cost a function invocation. The corpus PDFs at `/pdfs/` count against Fast Data Transfer instead; a rule for that path bounds repeated downloads.
 
 ## 3. Smoke checks (every production deploy, and the first preview)
