@@ -2,7 +2,7 @@
 
 **Verifiable RAG over PDFs: answers cite their sources inline, and clicking a citation scrolls the PDF to the exact page and highlights the exact supporting passage.** Built on Nuxt 4 and Supabase (pgvector and Postgres full-text search), measured against a 50-question golden set.
 
-**Live demo: [truthbase-brown.vercel.app](https://truthbase-brown.vercel.app)**. No login. Four public PDFs (NIST CSF 2.0, NIST AI RMF 1.0, the RAPTOR and Self-RAG papers). Runs on free tiers for 0 EUR/month.
+**Live demo: [truthbase.elbaymalik.com](https://truthbase.elbaymalik.com)**. No login. Four public PDFs (NIST CSF 2.0, NIST AI RMF 1.0, the RAPTOR and Self-RAG papers). Runs on free tiers for 0 EUR/month.
 
 [![Demo: ask a question, click a citation, and the PDF scrolls to the highlighted passage](./docs/media/demo.gif)](./docs/media/demo.mp4)
 
