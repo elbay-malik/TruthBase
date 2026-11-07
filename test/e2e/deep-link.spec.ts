@@ -29,13 +29,15 @@ test('a PDF whose download stalls loads by range requests', async ({ page, api }
   expect(api.pdfStatuses).toContain(206)
 })
 
-test('a shared claim may contain < and >', async ({ page, api }) => {
+test('a stray claim parameter is ignored and the passage still opens', async ({ page, api }) => {
   const span = SPANS.find(s => s.id === 'g-020#1')!
   const url = `/?chunk=${chunkIdOf(span)}&claim=${encodeURIComponent('Tier 2 < Tier 3')}`
-  // nuxt-security's XSS validator used to answer 400 to the page itself.
+  // Older links may carry extra query text; the page still loads.
   expect((await page.request.get(url)).status()).toBe(200)
   await open(page, url)
   await expect(viewer(page).getByText(`Shared passage · ${pageName(span.document, span.page).text}`)).toBeVisible()
+  await expect(page.getByText('Tier 2 < Tier 3')).toHaveCount(0)
+  expect(new URL(page.url()).searchParams.has('claim')).toBe(false)
   expect(api.questions).toEqual([])
 })
 

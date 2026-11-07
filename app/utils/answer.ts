@@ -100,16 +100,3 @@ export function answerBlocks(segments: AnswerSegment[]): AnswerBlock[] {
 export function sharedChunkId(value: unknown): string | undefined {
   return typeof value === 'string' && /^[\w-]+$/.test(value) ? value : undefined
 }
-
-/** Longest claim a shared link carries, in characters. */
-export const MAX_CLAIM = 300
-
-/**
- * A claim as a shared link carries it: whitespace collapsed, bidi controls
- * and zero-width characters removed (a link is anyone's text, and an unclosed
- * U+202E would reorder what follows), cut to MAX_CLAIM code points with "…".
- */
-export function cleanClaim(text: string): string {
-  const chars = [...text.replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '').replace(/\s+/g, ' ').trim()]
-  return chars.length > MAX_CLAIM ? `${chars.slice(0, MAX_CLAIM - 1).join('').trimEnd()}…` : chars.join('')
-}

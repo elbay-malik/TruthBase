@@ -206,9 +206,9 @@ export default defineNuxtConfig({
   routeRules: {
     // Public assets get a Cache-Control only through publicAssets.maxAge.
     '/favicon.ico': { headers: { 'cache-control': 'public, max-age=86400' } },
-    // A shared passage link carries its claim as text (&claim=), which the
-    // XSS validator would 400 for "Tier 2 < Tier 3". The page reads the
-    // claim on the client and renders it as text only.
+    // Older passage links may carry extra query text with < or >, which the
+    // XSS validator would 400. The page reads only ?chunk= and ?zoom= and
+    // ignores any other parameter, so the page itself stays reachable.
     '/': { security: { xssValidator: false } },
     // Questions are data, never rendered as HTML; the XSS validator would 400
     // on harmless text like "Tier 2 < Tier 3".

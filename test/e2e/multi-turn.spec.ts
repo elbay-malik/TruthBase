@@ -81,12 +81,11 @@ test('an open citation is in the URL, and Copy link copies it', async ({ page, a
   await viewer(page).getByRole('button', { name: 'Copy link to this passage' }).click()
   await expect(viewer(page).getByRole('button', { name: 'Link copied' })).toBeVisible()
   await expect(viewer(page).locator('[aria-live="polite"]')).toHaveText('Link to this passage copied.')
-  // The link carries the passage and the answer sentence it backs; the address bar only the passage.
+  // The link carries the passage only, as the address bar does.
   const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()))
   expect(copied.origin + copied.pathname).toBe(new URL('/', baseURL).href)
+  expect([...copied.searchParams.keys()]).toEqual(['chunk'])
   expect(copied.searchParams.get('chunk')).toBe(second.chunkId)
-  expect(copied.searchParams.get('claim')?.length).toBeGreaterThan(0)
-  expect(copied.searchParams.get('claim')).not.toMatch(/\[\d/)
 
   if (isPhone(page)) {
     // Closing the sheet takes the passage out of the URL.

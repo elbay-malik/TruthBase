@@ -105,7 +105,7 @@ Verified in headless Chromium 149 with `pdfjs-dist@6.4.299`, the same version un
 - **`gemini-2.5-flash-lite` is closed to new API users** (the API answers "no longer available to new users … use models/gemini-3.5-flash-lite"), even though it still shows in `models.list`. The Gemini fallback is therefore `gemini-3.5-flash-lite` (`server/rag/model.ts`). Verify a model with a real call, not just the listing.
 - AI SDK v7 server pattern as used in `server/api/chat.post.ts`: `createUIMessageStream({ execute: ({ writer }) => { writer.write({ type: 'data-sources', data }); writer.merge(toUIMessageStream({ stream: streamText(...).stream })) } })` → `createUIMessageStreamResponse({ stream })`. `streamText` takes `instructions` (not `system`) and `maxOutputTokens`.
 - Custom data parts need the message type's data map to be a **type alias**, not an interface, so it satisfies `UIMessage`'s `Record<string, unknown>` constraint (`shared/types/chat.ts`). Narrow parts with a type guard; `Array.find` doesn't narrow unions.
-- nuxt-security's `xssValidator` rejects bodies containing `<`/`>`; it's disabled on `/api/chat`, because questions are treated as data and never rendered as HTML. It also checks a page's query string, so it's off on `/` too: a shared passage link carries its claim as `&claim=`, which the page reads on the client and renders as text.
+- nuxt-security's `xssValidator` rejects bodies containing `<`/`>`; it's disabled on `/api/chat`, because questions are treated as data and never rendered as HTML. It also checks a page's query string, so it's off on `/` too: a passage link carries only `?chunk=` (and optionally `&zoom=`), and the page ignores any other parameter, so an older link with extra query text still loads.
 
 ## 10. Viewer (Phase 5)
 
