@@ -419,8 +419,8 @@ describe('index page', () => {
     await page.find('button[data-cite]').trigger('click')
     await nextTick()
     expect(new URL(window.location.href).searchParams.get('chunk')).toBe('c1')
-    // Copy link carries the claim the passage backs; the address bar only the passage.
-    expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c1&claim=Verified.`)
+    // Copy link and the address bar carry the passage only.
+    expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c1`)
     expect(new URL(window.location.href).searchParams.has('claim')).toBe(false)
 
     page.find('textarea').setValue('A draft')
@@ -478,15 +478,12 @@ describe('index page', () => {
       .toEqual(['Why is GOVERN placed at the center of the CSF Functions wheel?'])
   })
 
-  it('shows a shared passage with the claim it was sent with, as the sender\'s words', async () => {
+  it('shows a shared passage and ignores any other query parameter', async () => {
     const page = await mountPage('/?chunk=c9&claim=Backups%20are%20verified.')
     await settle()
     const shared = page.find('section[aria-labelledby="shared-passage"]')
     expect(shared.text()).toContain('NIST CSF 2.0 · p. iii (PDF 4)')
-    expect(shared.text()).toContain('“Backups are verified.”')
-    expect(shared.text()).toContain('TruthBase didn’t write or check it')
-    // Copy link passes the passage on, not the sender's claim, which the next
-    // reader would credit to whoever forwarded the link.
+    expect(page.text()).not.toContain('Backups are verified.')
     expect(viewer(page).props('passageLink')).toBe(`${window.location.origin}/?chunk=c9`)
     expect(new URL(window.location.href).searchParams.has('claim')).toBe(false)
   })

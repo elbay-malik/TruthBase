@@ -3,7 +3,7 @@ import type { ChatMessage, SourceRef } from '#shared/types/chat'
 import { claimSentence, isRefusal, looksLikeRefusalPrefix, splitCitations, stripEmphasis } from '#shared/utils/citations'
 import type { AnswerSegment } from '#shared/utils/citations'
 import { MAX_QUESTION_LENGTH } from '#shared/limits'
-import { answerBlocks, cleanClaim, dropPartialMarker, sharedChunkId, tidySegments } from '~/utils/answer'
+import { answerBlocks, dropPartialMarker, sharedChunkId, tidySegments } from '~/utils/answer'
 import { documentInfo, pageName, passageText, sourceName } from '~/utils/corpus'
 import { loadDocument } from '~/utils/pdf-documents'
 import { loadPdfjs } from '~/utils/pdf-highlight'
@@ -634,24 +634,10 @@ const sharedChunk = computed(() => {
   if (!isDesktop.value && !viewerOpen.value) return undefined
   return viewerTarget.value.chunkId
 })
-/**
- * The claim a shared link carries (&claim=): the answer sentence the passage
- * backs, so the receiver sees what it is evidence for. Anyone can write one
- * into a URL, so the page shows it as the sender's text, never as TruthBase's.
- */
-const linkClaim = ref<{ chunkId: string, text: string }>()
-const sharedClaim = computed(() => {
-  if (targetKind.value === 'citation') return viewerClaim.value
-  if (targetKind.value === 'link' && linkClaim.value?.chunkId === viewerTarget.value?.chunkId) return linkClaim.value?.text
-  return undefined
-})
 const passageLink = computed(() => {
   if (!sharedChunk.value || !import.meta.client) return undefined
   const url = new URL('/', window.location.origin)
   url.searchParams.set('chunk', sharedChunk.value)
-  // Only an answer's own sentence. A claim that came with a link is the
-  // sender's, and passing it on would credit it to whoever forwards the link.
-  if (targetKind.value === 'citation' && sharedClaim.value) url.searchParams.set('claim', cleanClaim(sharedClaim.value))
   return url.href
 })
 
@@ -663,7 +649,8 @@ watch(sharedChunk, (id) => {
   const url = new URL(window.location.href)
   if (id) url.searchParams.set('chunk', id)
   else url.searchParams.delete('chunk')
-  // The address bar carries the passage only; Copy link adds an answer's claim.
+  // The address bar carries the passage only; a leftover claim parameter from
+  // an older link is dropped.
   url.searchParams.delete('claim')
   if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
 })
@@ -676,9 +663,6 @@ onMounted(async () => {
   if (!chunk) return
   try {
     const source = await $fetch(`/api/chunks/${chunk}`)
-    const claim = route.query.claim
-    const text = typeof claim === 'string' ? cleanClaim(claim) : ''
-    if (text) linkClaim.value = { chunkId: source.chunkId, text }
     targetKind.value = 'link'
     viewerDocumentId.value = source.documentId
     viewerTarget.value = source
@@ -718,8 +702,7 @@ onMounted(async () => {
           />
         </header>
 
-        <!-- A shared passage: what the link opened, and the claim it was sent
-             with, marked as the sender's words. -->
+        <!-- A shared passage: what the link opened. -->
         <section
           v-if="targetKind === 'link' && viewerTarget && messages.length === 0"
           class="flex flex-col gap-1.5 border-s-2 border-default ps-3"
@@ -734,16 +717,6 @@ onMounted(async () => {
           <p class="text-sm text-toned tabular-nums">
             {{ shortName(viewerTarget) }} · {{ pageText(viewerTarget) }}
           </p>
-          <!-- The sender's words, not a document's: sans (Two Voices), and the
-               attribution comes first, so no one reads it as TruthBase's. -->
-          <template v-if="sharedClaim">
-            <p class="text-xs text-muted">
-              Sent with the link. TruthBase didn’t write or check it:
-            </p>
-            <p class="text-sm break-words text-default">
-              “<bdi>{{ sharedClaim }}</bdi>”
-            </p>
-          </template>
         </section>
 
         <p
@@ -1260,8 +1233,7 @@ onMounted(async () => {
               :documents="documents"
               :initial-scale="viewerZoom"
               layout="sheet"
-              :claim="targetKind === 'link' ? sharedClaim : viewerClaim"
-              :claim-from="targetKind === 'link' ? 'link' : 'answer'"
+              :claim="viewerClaim"
               :citation-number="viewerCitationNumber"
               @update:zoom="viewerZoom = $event"
               @select-document="selectDocument"

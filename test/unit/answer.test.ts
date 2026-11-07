@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerBlocks, cleanClaim, dropPartialMarker, MAX_CLAIM, sharedChunkId, tidySegments } from '../../app/utils/answer'
+import { answerBlocks, dropPartialMarker, sharedChunkId, tidySegments } from '../../app/utils/answer'
 import type { AnswerSegment } from '../../shared/utils/citations'
 
 const t = (text: string): AnswerSegment => ({ type: 'text', text })
@@ -82,18 +82,5 @@ describe('sharedChunkId', () => {
 
   it('lower-cases the id, the only spelling the API accepts', () => {
     expect(sharedChunkId('0F8E2C1A-4B7D-4E3A-9C2B-5D6E7F8A9B0C')).toBe('0f8e2c1a-4b7d-4e3a-9c2b-5d6e7f8a9b0c')
-  })
-})
-
-describe('cleanClaim', () => {
-  it('drops bidi controls and zero-width characters, and collapses whitespace', () => {
-    expect(cleanClaim(' Backups \u202Eare\u200B verified.\n')).toBe('Backups are verified.')
-  })
-
-  it('cuts at MAX_CLAIM code points with an ellipsis, never inside a surrogate pair', () => {
-    const cut = cleanClaim('😀'.repeat(MAX_CLAIM + 5))
-    expect([...cut]).toHaveLength(MAX_CLAIM)
-    expect(cut.endsWith('😀…')).toBe(true)
-    expect(cleanClaim('short')).toBe('short')
   })
 })
