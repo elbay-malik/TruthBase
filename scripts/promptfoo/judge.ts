@@ -42,7 +42,7 @@ export interface JudgeSource { index: number, filename: string, pageNumber: numb
 
 export function buildJudgePrompt(question: string, answer: string, sources: JudgeSource[]): string {
   const blocks = sources.map(s => `<source id="${s.index}" file="${neutralise(s.filename)}" page="${s.pageNumber ?? '?'}">\n${neutraliseRefs(neutralise(s.content))}\n</source>`)
-  return `Sources:\n\n${blocks.join('\n\n')}\n\nQuestion: ${question}\n\nAnswer:\n${neutralise(answer)}`
+  return `Sources:\n\n${blocks.join('\n\n')}\n\nQuestion: ${neutralise(question)}\n\nAnswer:\n${neutralise(answer)}`
 }
 
 /** Scores from a judgment; supporting citations not among a claim's citations don't count. */

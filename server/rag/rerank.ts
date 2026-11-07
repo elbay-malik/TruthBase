@@ -56,7 +56,8 @@ export function buildRerankPrompt(question: string, hits: SearchHit[], filenameB
     const file = neutralise(filenameById.get(hit.documentId) ?? 'unknown document').replace(/"/g, '\'')
     return `<source id="${i + 1}" file="${file}" page="${hit.pageNumber ?? '?'}">\n${neutralise(hit.content)}\n</source>`
   })
-  return `Question: ${question}\n\nPassages:\n\n${blocks.join('\n\n')}\n\nQuestion: ${question}\n\nReturn all ${hits.length} passage numbers (1 to ${hits.length}), each exactly once, most useful first.`
+  const q = neutralise(question)
+  return `Question: ${q}\n\nPassages:\n\n${blocks.join('\n\n')}\n\nQuestion: ${q}\n\nReturn all ${hits.length} passage numbers (1 to ${hits.length}), each exactly once, most useful first.`
 }
 
 /**
