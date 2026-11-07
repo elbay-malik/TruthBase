@@ -35,13 +35,23 @@ const supabase = {
   },
 }
 
+const createError = (input: { statusCode: number, message: string }) => Object.assign(new Error(input.message), input)
 vi.stubGlobal('defineEventHandler', (handler: unknown) => handler)
-vi.stubGlobal('getValidatedRouterParams', async (event: { params: unknown }, parse: (value: unknown) => unknown) => parse(event.params))
-vi.stubGlobal('serverSupabase', () => supabase)
+// As h3 does: a validator that throws becomes a 400.
+vi.stubGlobal('getValidatedRouterParams', async (event: { params: unknown }, parse: (value: unknown) => unknown) => {
+  try {
+    return parse(event.params)
+  }
+  catch {
+    throw createError({ statusCode: 400, message: 'Validation Error' })
+  }
+})
+const serverSupabase = vi.fn(() => supabase)
+vi.stubGlobal('serverSupabase', serverSupabase)
 vi.stubGlobal('setResponseHeader', (event: { headers: Record<string, string> }, name: string, value: string) => {
   event.headers[name] = value
 })
-vi.stubGlobal('createError', (input: { statusCode: number, message: string }) => Object.assign(new Error(input.message), input))
+vi.stubGlobal('createError', createError)
 vi.stubGlobal('staticPdfUrl', staticPdfUrl)
 afterAll(() => {
   vi.unstubAllGlobals()
@@ -73,5 +83,14 @@ describe('GET /api/documents/:id/file', () => {
 
   it('answers 404 for an unknown document', async () => {
     await expect(get('00000000-0000-4000-a000-0000000000ff')).rejects.toMatchObject({ statusCode: 404 })
+  })
+
+  it('accepts only the lower-case spelling of an id, before the database', async () => {
+    serverSupabase.mockClear()
+    for (const id of [UPLOAD_ID.replace('a000', 'A000'), CORPUS_ID.toUpperCase(), 'nope']) {
+      await expect(get(id), id).rejects.toMatchObject({ statusCode: 400 })
+    }
+    expect(serverSupabase).not.toHaveBeenCalled()
+    expect(signed).toEqual([`${UPLOAD_ID}.pdf`])
   })
 })

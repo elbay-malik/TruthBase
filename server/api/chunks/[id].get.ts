@@ -6,8 +6,10 @@ import type { SourceRef } from '#shared/types/chat'
 // data; explicit columns only (never the embedding or tsvector).
 // Cached for a day, in the function and on Vercel's CDN (s-maxage): every miss
 // is Supabase egress, and chunks change only through operator ingestion. Keyed
-// by id alone, so a query string cannot add entries, and a thrown error is not
-// cached, so unknown ids cannot fill the cache either.
+// by id alone, so a query string cannot add entries. The id must be the
+// canonical lower-case uuid (documentParamsSchema), so one chunk has one key;
+// any other spelling is a 400 before the database. A thrown error is not
+// cached, so rejected and unknown ids cannot fill the cache either.
 export default defineCachedEventHandler(async (event): Promise<SourceRef> => {
   const { id } = await getValidatedRouterParams(event, documentParamsSchema.parse)
   const { data, error } = await serverSupabase()
