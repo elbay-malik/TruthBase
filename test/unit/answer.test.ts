@@ -79,6 +79,10 @@ describe('sharedChunkId', () => {
       expect(sharedChunkId(value), JSON.stringify(value)).toBeUndefined()
     }
   })
+
+  it('lower-cases the id, the only spelling the API accepts', () => {
+    expect(sharedChunkId('0F8E2C1A-4B7D-4E3A-9C2B-5D6E7F8A9B0C')).toBe('0f8e2c1a-4b7d-4e3a-9c2b-5d6e7f8a9b0c')
+  })
 })
 
 describe('cleanClaim', () => {

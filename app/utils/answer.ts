@@ -95,10 +95,11 @@ export function answerBlocks(segments: AnswerSegment[]): AnswerBlock[] {
 /**
  * The chunk id a shared link carries (?chunk=), when it is one: letters,
  * digits, "_" and "-". It goes into an API path, where "../health" would
- * fetch another route.
+ * fetch another route. Lower-cased, since the API accepts only the canonical
+ * lower-case uuid and a hand-typed link may not use it.
  */
 export function sharedChunkId(value: unknown): string | undefined {
-  return typeof value === 'string' && /^[\w-]+$/.test(value) ? value : undefined
+  return typeof value === 'string' && /^[\w-]+$/.test(value) ? value.toLowerCase() : undefined
 }
 
 /** Longest claim a shared link carries, in characters. */

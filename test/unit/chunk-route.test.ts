@@ -15,10 +15,20 @@ vi.stubGlobal('defineCachedEventHandler', (handler: unknown, opts: Options) => {
   options = opts
   return handler
 })
-vi.stubGlobal('getValidatedRouterParams', async (event: { params: unknown }, parse: (value: unknown) => unknown) => parse(event.params))
+const createError = (input: { statusCode: number, message: string }) => Object.assign(new Error(input.message), input)
+// As h3 does: a validator that throws becomes a 400.
+vi.stubGlobal('getValidatedRouterParams', async (event: { params: unknown }, parse: (value: unknown) => unknown) => {
+  try {
+    return parse(event.params)
+  }
+  catch {
+    throw createError({ statusCode: 400, message: 'Validation Error' })
+  }
+})
 vi.stubGlobal('getRouterParam', (event: { params: { id?: string } }) => event.params.id)
-vi.stubGlobal('serverSupabase', () => ({ from: () => query }))
-vi.stubGlobal('createError', (input: { statusCode: number, message: string }) => Object.assign(new Error(input.message), input))
+const serverSupabase = vi.fn(() => ({ from: () => query }))
+vi.stubGlobal('serverSupabase', serverSupabase)
+vi.stubGlobal('createError', createError)
 afterAll(() => {
   vi.unstubAllGlobals()
 })
@@ -50,6 +60,16 @@ describe('GET /api/chunks/:id', () => {
   })
 
   it('rejects a malformed id before the database', async () => {
-    await expect(handler({ params: { id: 'nope' } })).rejects.toThrow()
+    serverSupabase.mockClear()
+    await expect(handler({ params: { id: 'nope' } })).rejects.toMatchObject({ statusCode: 400 })
+    expect(serverSupabase).not.toHaveBeenCalled()
+  })
+
+  it('accepts only the lower-case spelling of an id, so each chunk has one cache key', async () => {
+    serverSupabase.mockClear()
+    for (const id of [ID.toUpperCase(), ID.replace('fabb', 'FAbb')]) {
+      await expect(handler({ params: { id } }), id).rejects.toMatchObject({ statusCode: 400 })
+    }
+    expect(serverSupabase).not.toHaveBeenCalled()
   })
 })

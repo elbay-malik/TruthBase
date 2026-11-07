@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatRequestSchema, searchRequestSchema } from '../../shared/schemas'
+import { chatRequestSchema, documentParamsSchema, searchRequestSchema } from '../../shared/schemas'
 
 describe('searchRequestSchema', () => {
   it('applies the default topK', () => {
@@ -33,5 +33,19 @@ describe('chatRequestSchema', () => {
   it('only accepts a uuid documentId', () => {
     expect(chatRequestSchema.safeParse({ question: 'q', documentId: 'nope' }).success).toBe(false)
     expect(chatRequestSchema.safeParse({ question: 'q', documentId: '0b2a3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d' }).success).toBe(true)
+  })
+})
+
+describe('documentParamsSchema', () => {
+  const id = '0b2a3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d'
+
+  it('accepts the canonical lower-case uuid', () => {
+    expect(documentParamsSchema.parse({ id })).toEqual({ id })
+  })
+
+  it('rejects any other spelling of the same uuid, and non-uuids', () => {
+    for (const value of [id.toUpperCase(), id.replace('a', 'A'), `{${id}}`, id.replaceAll('-', ''), 'nope', '']) {
+      expect(documentParamsSchema.safeParse({ id: value }).success, value).toBe(false)
+    }
   })
 })

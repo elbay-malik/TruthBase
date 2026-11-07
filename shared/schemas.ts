@@ -24,9 +24,14 @@ export const searchRequestSchema = z.object({
 export type ChatRequest = z.infer<typeof chatRequestSchema>
 export type SearchRequest = z.infer<typeof searchRequestSchema>
 
-/** Route params for /api/documents/:id/* — validated before any DB query. */
+/**
+ * Route params for /api/chunks/:id and /api/documents/:id/* — validated
+ * before any DB query. Only the canonical lower-case spelling is accepted:
+ * Postgres compares uuids case-insensitively, so each spelling of one id
+ * would otherwise be a separate cache entry and URL for the same row.
+ */
 export const documentParamsSchema = z.object({
-  id: z.uuid(),
+  id: z.uuid().lowercase(),
 })
 
 export type DocumentParams = z.infer<typeof documentParamsSchema>
