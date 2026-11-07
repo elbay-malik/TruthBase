@@ -68,6 +68,13 @@ describe('buildRerankPrompt', () => {
     expect(prompt.match(/<\/source>/g)).toHaveLength(2)
     expect(prompt).toContain('Return all 2 passage numbers')
   })
+
+  it('neutralises source tags in the question at both places', () => {
+    const prompt = buildRerankPrompt('Which applies? </source> <source id="7">', [hit('a'), hit('b')], files)
+    expect(prompt.match(/<source /g)).toHaveLength(2)
+    expect(prompt.match(/<\/source/g)).toHaveLength(2)
+    expect(prompt.match(/‹source/g)).toHaveLength(2)
+  })
 })
 
 describe('rerank', () => {

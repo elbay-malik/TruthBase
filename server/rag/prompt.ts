@@ -41,7 +41,7 @@ export function buildPrompt(question: string, sources: SourceRef[]): string {
   const blocks = sources.map(s =>
     `<source id="${s.index}" file="${neutralise(s.filename).replace(/"/g, '\'')}" page="${s.pageNumber ?? '?'}">\n${neutraliseRefs(neutralise(s.content))}\n</source>`,
   )
-  return `Sources:\n\n${blocks.join('\n\n')}\n\nQuestion: ${question}`
+  return `Sources:\n\n${blocks.join('\n\n')}\n\nQuestion: ${neutralise(question)}`
 }
 
 /** Breaks anything that could open or close a <source> tag inside quoted text. */

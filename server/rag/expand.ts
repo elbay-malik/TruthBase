@@ -2,6 +2,7 @@ import { updateActiveObservation } from '@langfuse/tracing'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import type { TaskModel, TaskModelChoice } from './model'
+import { neutralise } from './prompt'
 import type { SearchHit } from './search'
 
 // Phase 8: multi-query expansion (ADR-0009).
@@ -49,7 +50,7 @@ const expansionSchema = z.object({
 
 /** @param documents One line per document (catalogLine in ./catalog). */
 export function buildExpandPrompt(question: string, documents: string[]): string {
-  return `Documents:\n${documents.map(d => `- ${d}`).join('\n')}\n\nQuestion: ${question}`
+  return `Documents:\n${documents.map(d => `- ${d}`).join('\n')}\n\nQuestion: ${neutralise(question)}`
 }
 
 /** Tokens of the question that contain a digit, without surrounding punctuation. */
