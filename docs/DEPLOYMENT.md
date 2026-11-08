@@ -50,6 +50,8 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
       | `NUXT_SUPABASE_URL` | yes | |
    | `NUXT_SUPABASE_SERVICE_KEY` | yes | server-only; also keys the IP HMAC |
    | `NUXT_TRUSTED_IP_HEADER` | recommended | `x-vercel-forwarded-for` (also the default on Vercel) |
+   | `NUXT_TURNSTILE_SECRET_KEY`, `NUXT_PUBLIC_TURNSTILE_SITE_KEY` | yes, Production | Cloudflare Turnstile on `/api/chat`, from a widget whose hostnames cover the production domains. Set both or neither. On any Vercel deployment chat answers 503 without the secret, so on Preview chat is off unless you set Cloudflare's test keys with `NUXT_TURNSTILE_HOSTNAMES=example.com` (`.env.example`). The test keys always pass, so use them only on previews behind Vercel Authentication |
+   | `NUXT_TURNSTILE_HOSTNAMES` | optional | default `truthbase.elbaymalik.com,truthbase-brown.vercel.app`, the page hostnames a token may come from |
    | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | optional | tracing off without them |
    | `LANGFUSE_BASE_URL` | optional | EU `https://cloud.langfuse.com` |
    | `LANGFUSE_TRACING_ENVIRONMENT` | optional | e.g. `preview` for the Preview environment |
