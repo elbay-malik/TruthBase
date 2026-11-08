@@ -1,6 +1,7 @@
 import { propagateAttributes, startActiveObservation, type LangfuseAgent } from '@langfuse/tracing'
 import { createUIMessageStream, createUIMessageStreamResponse, streamText, toUIMessageStream, type ToolSet } from 'ai'
 import { chatRequestSchema } from '#shared/schemas'
+import { TURNSTILE_CHAT_ACTION } from '#shared/turnstile'
 import { NO_ANSWER, type ChatMessage } from '#shared/types/chat'
 import { cloudflareEmbedder, embeddingsConfigured, INTERACTIVE_EMBED_LIMITS } from '../ingest/embed'
 import { chatModel, configuredTaskModel, isFallbackError } from '../rag/model'
@@ -8,7 +9,8 @@ import { ANSWER_MAX_TOKENS, buildPrompt, GROUNDING_INSTRUCTIONS } from '../rag/p
 import { configuredReranker } from '../rag/rerank'
 import { retrieveSources } from '../rag/retrieve'
 
-// POST /api/chat { question, documentId? } → UI message stream (AI SDK v7):
+// POST /api/chat { question, documentId? } → UI message stream (AI SDK v7),
+// with a Turnstile token in the x-turnstile-token header (server/utils/turnstile.ts):
 //   data-sources  numbered sources [1..k] with chunk id, document, page and
 //                 stored highlight rects (citation chips; Phase 5 highlights)
 //   text          grounded answer citing [n], or exactly NO_ANSWER
@@ -37,6 +39,8 @@ export default defineEventHandler(async (event) => {
     if (!event.node.res.writableFinished) abort.abort()
   })
   assertSameSiteJson(event)
+  // One fresh Turnstile token per question, redeemed before the quota counts it.
+  await assertTurnstile(event, TURNSTILE_CHAT_ACTION)
   const { question, documentId } = await readValidatedBody(event, chatRequestSchema.parse)
   const config = useRuntimeConfig(event)
   // Cloudflare embeds every question and is also the answer fallback, so with

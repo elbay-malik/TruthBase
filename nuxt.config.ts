@@ -200,7 +200,14 @@ export default defineNuxtConfig({
       searchPerClient: 30, // NUXT_QUOTA_SEARCH_PER_CLIENT
       searchGlobal: 300, // NUXT_QUOTA_SEARCH_GLOBAL
     },
-    public: {},
+    // Cloudflare Turnstile on /api/chat (server/utils/turnstile.ts). No secret:
+    // no check, except on Vercel deployments, where chat then answers 503.
+    turnstileSecretKey: '', // NUXT_TURNSTILE_SECRET_KEY
+    // The page hostnames a token may come from (Siteverify's `hostname`).
+    turnstileHostnames: 'truthbase.elbaymalik.com,truthbase-brown.vercel.app', // NUXT_TURNSTILE_HOSTNAMES
+    public: {
+      turnstileSiteKey: '', // NUXT_PUBLIC_TURNSTILE_SITE_KEY
+    },
   },
 
   routeRules: {

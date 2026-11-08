@@ -249,6 +249,65 @@ describe('index page', () => {
     expect(page.findAll('article')).toHaveLength(1) // the question; no empty answer turn
   })
 
+  it('titles a failed browser check and shows its message', async () => {
+    mockChat(json(403, { statusCode: 403, message: 'The browser check did not pass. Reload the page and try again.' }))
+    let page = await mountPage()
+    await askQuestion(page)
+    expect(page.text()).toContain('Browser check failed')
+    expect(page.text()).toContain('The browser check did not pass. Reload the page and try again.')
+
+    vi.unstubAllGlobals()
+    mockChat(json(503, { statusCode: 503, message: 'The browser check is unavailable right now. Please try again in a minute.' }))
+    page = await mountPage()
+    await askQuestion(page)
+    expect(page.text()).toContain('Browser check unavailable')
+    expect(page.text()).toContain('The browser check is unavailable right now.')
+
+    // Another 403 (the same-site check) is not a browser check.
+    vi.unstubAllGlobals()
+    mockChat(json(403, { statusCode: 403, message: 'Requests from other sites are not accepted.' }))
+    page = await mountPage()
+    await askQuestion(page)
+    expect(page.text()).not.toContain('Browser check')
+  })
+
+  it('with a site key: loads Turnstile on the first interaction and sends its token with the question', async () => {
+    const publicConfig = useRuntimeConfig().public as { turnstileSiteKey: string }
+    publicConfig.turnstileSiteKey = 'site-key'
+    let callback: ((token: string) => void) | undefined
+    const turnstile = {
+      render: vi.fn((_element: HTMLElement, options: { callback: (token: string) => void }) => {
+        callback = options.callback
+        return 'w1'
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    }
+    window.turnstile = turnstile as unknown as Window['turnstile']
+    try {
+      const headers: (string | null)[] = []
+      mockChat((init) => {
+        headers.push(new Headers(init?.headers).get('x-turnstile-token'))
+        return stream(sse([source(1, 2)], 'Yes [1].'))()
+      })
+      const page = await mountPage()
+      await settle()
+      expect(turnstile.render).not.toHaveBeenCalled()
+
+      window.dispatchEvent(new Event('pointerdown'))
+      await settle()
+      expect(turnstile.render).toHaveBeenCalledOnce()
+      callback!('token-1')
+      await askQuestion(page)
+      expect(headers).toEqual(['token-1'])
+      expect(turnstile.reset).toHaveBeenCalledWith('w1')
+    }
+    finally {
+      publicConfig.turnstileSiteKey = ''
+      delete window.turnstile
+    }
+  })
+
   it('points the question box at the error for a too-long question', async () => {
     mockChat(json(400, { statusCode: 400, message: 'Bad Request' }))
     const page = await mountPage()

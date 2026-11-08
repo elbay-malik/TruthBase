@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // What happens to a visitor's question (GDPR Art. 13). Keep in step with
-// server/api/chat.post.ts, server/utils/quota.ts and server/plugins/tracing.ts.
+// server/api/chat.post.ts, server/utils/quota.ts, server/utils/turnstile.ts and
+// server/plugins/tracing.ts.
 useSeoMeta({
   title: 'Privacy · TruthBase',
   description: 'What happens to the questions you ask TruthBase.',
@@ -47,6 +48,7 @@ useSeoMeta({
     </p>
     <ul class="mt-2 list-disc space-y-2 pl-5">
       <li><strong>Supabase</strong> (database in Ireland) counts requests against the daily limits. Each count is stored under a keyed hash of your IP address, never the address itself, and is removed after about three days.</li>
+      <li><strong>Cloudflare Turnstile</strong> (USA) checks that questions come from a person's browser, not a script. It loads from Cloudflare when you first click or type on the page, and receives your IP address and technical data about your browser. Usually you see nothing; sometimes it asks for one click. Cloudflare states that it uses this data only to run and improve the check.</li>
       <li><strong>Vercel</strong> (USA, functions run in Dublin) hosts the site and keeps request logs for about an hour.</li>
     </ul>
 

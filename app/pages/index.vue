@@ -7,6 +7,7 @@ import { answerBlocks, dropPartialMarker, sharedChunkId, tidySegments } from '~/
 import { documentInfo, pageName, passageText, sourceName } from '~/utils/corpus'
 import { loadDocument } from '~/utils/pdf-documents'
 import { loadPdfjs } from '~/utils/pdf-highlight'
+import { TURNSTILE_FAILED_ERROR } from '~/composables/useTurnstile'
 
 // Chat + PDF viewer (docs/WIREFRAMES.md §1–7). A citation chip (or source
 // card) opens the cited chunk in the viewer: scrolled to the page, passage
@@ -68,9 +69,14 @@ const askedIn = shallowReactive(new Map<string, string>())
 const notice = ref('')
 /** How the last answer ended early, if it did: cut off by the network, or by Stop. */
 const ending = ref<'interrupted' | 'stopped'>()
+/** Where the Turnstile widget renders; it stays empty unless Cloudflare asks for a click. */
+const turnstileBox = ref<HTMLElement>()
+const turnstile = useTurnstile(turnstileBox)
 const { messages, sendMessage, regenerate, status, stop, error, clearError, warm: warmChat } = useLazyChat<ChatMessage>(ai => ({
   transport: new ai.DefaultChatTransport({
     api: '/api/chat',
+    // Adds a fresh Turnstile token to each request (app/composables/useTurnstile.ts).
+    fetch: turnstile.fetch,
     // Single-turn by design: send only the latest question (server/api/chat.post.ts).
     prepareSendMessagesRequest: ({ messages }) => {
       const last = messages.at(-1)
@@ -89,6 +95,15 @@ const { messages, sendMessage, regenerate, status, stop, error, clearError, warm
 
 // Off the first paint, but ready by the time a question is typed.
 onNuxtReady(warmChat)
+// Turnstile loads on the first interaction, not with the page: a visit that
+// asks nothing doesn't contact Cloudflare.
+if (turnstile.enabled) {
+  const cleanups = ['pointerdown', 'keydown', 'touchstart'].map(type =>
+    useEventListener(window, type, () => {
+      cleanups.forEach(cleanup => cleanup())
+      void turnstile.prepare()?.catch(() => {})
+    }, { passive: true, capture: true }))
+}
 
 const busy = computed(() => status.value === 'submitted' || status.value === 'streaming')
 
@@ -270,10 +285,16 @@ watch(now, () => {
   if (!input.value) input.value = lastQuestion.value
 })
 
-type ErrorKind = 'rate' | 'length' | 'provider' | 'network' | 'other'
+type ErrorKind = 'rate' | 'length' | 'verify' | 'verify-down' | 'provider' | 'network' | 'other'
 const errorKind = computed((): ErrorKind => {
   const raw = error.value?.message ?? ''
-  const code = errorBody(raw)?.statusCode
+  const body = errorBody(raw)
+  const code = body?.statusCode
+  // The Turnstile check (server/utils/turnstile.ts, app/composables/useTurnstile.ts):
+  // failed (403, or in the browser), or unavailable on the server's side (503).
+  const browserCheck = /^the browser check/i.test(body?.message ?? raw)
+  if (browserCheck && code === 503) return 'verify-down'
+  if (browserCheck && (code === 403 || !body)) return 'verify'
   if (code === 429 || /\b429\b|too many requests/i.test(raw)) return 'rate'
   if (code === 400 || /\b400\b|bad request/i.test(raw)) return 'length'
   if ((code && code >= 500) || /\b50[234]\b|service unavailable|answer service/i.test(raw)) return 'provider'
@@ -291,6 +312,8 @@ const errorMessage = computed(() => {
       return quota?.startsWith('Too many') ? quota : 'Too many questions in a short time. Wait a minute, then try again.'
     }
     case 'length': return `Questions must be 1–${MAX_QUESTION_LENGTH} characters.`
+    case 'verify':
+    case 'verify-down': return errorBody(raw)?.message ?? (raw.length < 200 ? raw : TURNSTILE_FAILED_ERROR)
     case 'network': return 'The connection dropped. Check your network, then try again.'
   }
   // Messages written by the chat route's onError are already meant for readers.
@@ -303,6 +326,8 @@ const errorTitle = computed(() => {
   switch (errorKind.value) {
     case 'rate': return 'Per-minute limit reached'
     case 'length': return 'Question not accepted'
+    case 'verify': return 'Browser check failed'
+    case 'verify-down': return 'Browser check unavailable'
     case 'provider': return 'Answer service unavailable'
     case 'network': return 'Connection lost'
     default: return 'Answer failed'
@@ -1160,6 +1185,10 @@ onMounted(async () => {
             {{ busy ? 'Stop' : 'Ask' }}
           </UButton>
         </form>
+        <div
+          ref="turnstileBox"
+          class="flex justify-center"
+        />
         <p class="mt-2 text-center text-xs text-muted">
           Answers come only from these documents. Questions go to AI providers and are logged, so don't enter personal data.
           <NuxtLink

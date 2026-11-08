@@ -11,6 +11,6 @@
   },
   // Nitro's auto-imports, for server utils a unit test imports (quota.ts).
   "include": ["scripts/**/*.ts", "test/unit/**/*.ts", "test/e2e/**/*.ts", "playwright.config.ts", ".nuxt/types/nitro-imports.d.ts"],
-  // Imports a route, whose runtime config is only typed in the server project.
-  "exclude": ["test/unit/search-route.test.ts"]
+  // Import routes, whose runtime config is only typed in the server project.
+  "exclude": ["test/unit/search-route.test.ts", "test/unit/chat-route.test.ts"]
 }
