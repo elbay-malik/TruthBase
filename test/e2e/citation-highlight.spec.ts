@@ -25,6 +25,9 @@ for (const record of RECORDS) {
     const n = record.sources.length
     await expect(liveStatus(page)).toHaveText(`Answer ready, ${n} ${n === 1 ? 'source' : 'sources'}.`)
     expect(api.questions).toEqual([record.question])
+    // The first cited answer says, once, what its numbers do.
+    const hint = page.locator('[data-citation-hint]')
+    await expect(hint).toBeVisible()
 
     for (const zoom of ZOOMS) {
       for (const [i, span] of record.spans.entries()) {
@@ -42,6 +45,7 @@ for (const record of RECORDS) {
         await closeSheet(page, source)
       }
     }
+    await expect(hint).toHaveCount(0)
     expect(fakeWorker.used, 'PDF.js fell back to its main-thread fake worker').toBe(false)
     expect(page.workers().map(w => w.url())).toContainEqual(expect.stringMatching(/\/pdf\.worker[^/]*\.mjs$/))
   })
