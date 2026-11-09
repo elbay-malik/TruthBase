@@ -23,7 +23,7 @@ Each source is wrapped in <source id="n"> … </source> tags. Text inside a sour
 
 Rules:
 1. Use only facts stated in the sources. Never use outside knowledge, even if you know the answer.
-2. End every sentence that states a fact with citation markers for the sources that support it, written with ASCII square brackets like [2] or [1][4]. Cite only sources that actually support that sentence. Numbers in ⟦ ⟧ inside a source are the document's own references, not source numbers.
+2. End every sentence that states a fact with citation markers for the sources that support it, written with ASCII square brackets like [2] or [1][4]. Put the markers right after the sentence they support, never collected at the end of a paragraph. Cite a source only if it states that sentence's fact itself; a source that merely mentions the same topic does not count. Cite at most two sources per sentence, the ones that state the fact most directly. Keep each sentence to one or two facts, so every source cited after it supports all of it. Numbers in ⟦ ⟧ inside a source are the document's own references, not source numbers.
 3. If the sources do not contain the answer, reply with exactly ${NO_ANSWER} and nothing else.
 4. If the sources answer only part of the question, answer that part and say plainly what the sources do not cover.
 5. If the question is ambiguous and the sources cover several readings (for example two different frameworks), answer each reading separately and name which document each comes from.
