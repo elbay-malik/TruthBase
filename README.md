@@ -45,7 +45,7 @@ One Nuxt 4 app. All secret-bearing and compute-heavy work runs in Nitro server r
 flowchart TD
   subgraph Ingest["Ingest: operator CLI"]
     PDF["PDF"] --> EXT["Extract text items + replay glyphs<br/>(unpdf / PDF.js)"]
-    EXT --> CHUNK["Sentence chunker<br/>800 chars, 15% overlap, page-bounded"]
+    EXT --> CHUNK["Sentence chunker<br/>800 chars, 300-char overlap, table context, page-bounded"]
     CHUNK --> RECTS["Per-line highlight rects<br/>in PDF space"]
     CHUNK --> EMB1["Embed title + chunk: bge-m3 on Cloudflare<br/>1024 dims, L2-normalized"]
     RECTS --> DB[("Supabase Postgres<br/>chunks: tsvector + vector(1024) + highlight jsonb")]

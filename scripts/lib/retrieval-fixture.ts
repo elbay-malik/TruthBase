@@ -19,7 +19,8 @@ export interface Fixture {
   exportedAt: string
   embeddingModel: string
   documents: { id: string, filename: string, page_count: number | null }[]
-  chunks: { id: string, document_id: string, page_number: number | null, content: string, embedding: string }[]
+  /** `context` is missing in fixtures exported before the chunk_context migrations: read as ''. */
+  chunks: { id: string, document_id: string, page_number: number | null, content: string, context?: string, embedding: string }[]
   /** Golden question text → query embedding. */
   queries: Record<string, string>
 }
@@ -49,13 +50,13 @@ export async function installFixture(sql: Sql, fixture: Fixture): Promise<void> 
   await sql.begin(async (tx) => {
     await tx`delete from documents` // chunks cascade
     await tx`insert into documents ${tx(fixture.documents, 'id', 'filename', 'page_count')}`
-    const rows = fixture.chunks.map(c => ({ ...c, embedding: vectorLiteral(decodeVector(c.embedding)) }))
+    const rows = fixture.chunks.map(c => ({ ...c, context: c.context ?? '', embedding: vectorLiteral(decodeVector(c.embedding)) }))
     for (let i = 0; i < rows.length; i += 200) {
       await tx`
-        insert into chunks (id, document_id, page_number, content, embedding_bge_m3)
-        select id, document_id, page_number, content, embedding::extensions.vector
+        insert into chunks (id, document_id, page_number, content, context, embedding_bge_m3)
+        select id, document_id, page_number, content, context, embedding::extensions.vector
         from jsonb_to_recordset(${tx.json(rows.slice(i, i + 200) as never)}::jsonb)
-          as x(id uuid, document_id uuid, page_number int, content text, embedding text)`
+          as x(id uuid, document_id uuid, page_number int, content text, context text, embedding text)`
     }
   })
 }

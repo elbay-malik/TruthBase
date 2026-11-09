@@ -13,6 +13,12 @@ export interface SourceRef {
   pageNumber: number | null
   /** Chunk text, for previews and to verify a citation. */
   content: string
+  /**
+   * The opening of the table or long sentence the chunk continues, given to
+   * the answer model as context; never cited or highlighted. Empty or absent
+   * for most chunks.
+   */
+  context?: string
   /** Stored PDF-space rects (per line, plus big-operator glyphs): what Phase 5 draws on click. */
   highlight: ChunkHighlight | null
 }

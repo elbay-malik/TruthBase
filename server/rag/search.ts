@@ -33,6 +33,8 @@ export interface HybridSearchRow {
   document_id: string
   page_number: number | null
   content: string
+  /** Missing until the 20261109120000 migration is applied. */
+  context?: string | null
   highlight: ChunkHighlight | null
   created_at: string
   score: number
@@ -44,6 +46,8 @@ export interface SearchHit {
   documentId: string
   pageNumber: number | null
   content: string
+  /** The opening of the table or long sentence this chunk continues, or '' (server/ingest/chunk.ts). */
+  context: string
   /** Null until ingestion (Phase 3) has captured positions for the chunk. */
   highlight: ChunkHighlight | null
   createdAt: string
@@ -57,6 +61,7 @@ export function toSearchHit(row: HybridSearchRow): SearchHit {
     documentId: row.document_id,
     pageNumber: row.page_number,
     content: row.content,
+    context: row.context ?? '',
     highlight: row.highlight,
     createdAt: row.created_at,
     score: row.score,

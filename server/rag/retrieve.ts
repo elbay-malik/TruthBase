@@ -141,6 +141,7 @@ export function toSources(hits: SearchHit[], filenameById: Map<string, string>):
     filename: filenameById.get(hit.documentId) ?? 'unknown document',
     pageNumber: hit.pageNumber,
     content: hit.content,
+    context: hit.context,
     highlight: hit.highlight,
   }))
 }

@@ -17,6 +17,8 @@ export interface DocumentInsert {
 export interface ChunkInsert {
   pageNumber: number
   content: string
+  /** The opening of the over-long run this chunk continues, or '' (chunk.ts `context`). */
+  context: string
   embedding: number[]
   highlight: ChunkHighlight
 }
@@ -69,6 +71,7 @@ export async function storeDocument(
         document_id: document.id,
         page_number: chunk.pageNumber,
         content: chunk.content,
+        context: chunk.context,
         embedding_bge_m3: chunk.embedding, // JSON array → pgvector input; don't stringify
         highlight: chunk.highlight,
       }))

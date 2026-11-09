@@ -16,6 +16,10 @@ import { NO_ANSWER, type SourceRef } from '../../shared/types/chat'
 // copied one can't become a citation chip for an unrelated source. Every
 // bracketed number is, so a quoted index or interval ("[0, 1]") may show up
 // in an answer as "⟦0, 1⟧".
+//
+// A chunk cut from a table or a very long sentence carries the run's opening
+// (its `context`, e.g. a header row) as a quoted line before its content,
+// neutralised the same way.
 
 export const GROUNDING_INSTRUCTIONS = `You answer questions about a set of PDF documents using ONLY the numbered sources provided with each question.
 
@@ -39,9 +43,17 @@ export const ANSWER_MAX_TOKENS = 700
 /** The user turn: numbered, delimited sources followed by the question. */
 export function buildPrompt(question: string, sources: SourceRef[]): string {
   const blocks = sources.map(s =>
-    `<source id="${s.index}" file="${neutralise(s.filename).replace(/"/g, '\'')}" page="${s.pageNumber ?? '?'}">\n${neutraliseRefs(neutralise(s.content))}\n</source>`,
+    `<source id="${s.index}" file="${neutralise(s.filename).replace(/"/g, '\'')}" page="${s.pageNumber ?? '?'}">\n${contextLine(s.context)}${neutraliseRefs(neutralise(s.content))}\n</source>`,
   )
   return `Sources:\n\n${blocks.join('\n\n')}\n\nQuestion: ${neutralise(question)}`
+}
+
+/**
+ * The line naming the run a chunk continues, or '' when it has no context.
+ * `quote` neutralises the context as the caller neutralises the content.
+ */
+export function contextLine(context: string | undefined, quote = (text: string) => neutraliseRefs(neutralise(text))): string {
+  return context ? `(continues a table or passage that opens: "${quote(context)}")\n` : ''
 }
 
 /** Breaks anything that could open or close a <source> tag inside quoted text. */

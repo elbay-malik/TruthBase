@@ -2,7 +2,7 @@ import { updateActiveObservation } from '@langfuse/tracing'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { configuredTaskModel, type TaskModel, type TaskModelChoice } from './model'
-import { neutralise } from './prompt'
+import { contextLine, neutralise } from './prompt'
 import type { SearchHit } from './search'
 
 // Phase 7: listwise LLM reranking of the fused hybrid candidates (ADR-0007).
@@ -54,7 +54,7 @@ const rankingSchema = z.object({
 export function buildRerankPrompt(question: string, hits: SearchHit[], filenameById: Map<string, string>): string {
   const blocks = hits.map((hit, i) => {
     const file = neutralise(filenameById.get(hit.documentId) ?? 'unknown document').replace(/"/g, '\'')
-    return `<source id="${i + 1}" file="${file}" page="${hit.pageNumber ?? '?'}">\n${neutralise(hit.content)}\n</source>`
+    return `<source id="${i + 1}" file="${file}" page="${hit.pageNumber ?? '?'}">\n${contextLine(hit.context, neutralise)}${neutralise(hit.content)}\n</source>`
   })
   const q = neutralise(question)
   return `Question: ${q}\n\nPassages:\n\n${blocks.join('\n\n')}\n\nQuestion: ${q}\n\nReturn all ${hits.length} passage numbers (1 to ${hits.length}), each exactly once, most useful first.`

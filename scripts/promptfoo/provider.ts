@@ -15,7 +15,7 @@ import { generateText } from 'ai'
 import { cloudflareEmbedder } from '../../server/ingest/embed'
 import { DEFAULT_EXPAND_MODEL } from '../../server/rag/expand'
 import { chatModel, configuredTaskModel, type TaskModel } from '../../server/rag/model'
-import { buildPrompt, GROUNDING_INSTRUCTIONS, isRefusal, parseCitations } from '../../server/rag/prompt'
+import { buildPrompt, contextLine, GROUNDING_INSTRUCTIONS, isRefusal, parseCitations } from '../../server/rag/prompt'
 import { DEFAULT_RERANK_MODEL } from '../../server/rag/rerank'
 import { retrieveSources } from '../../server/rag/retrieve'
 import { NO_ANSWER } from '../../shared/types/chat'
@@ -92,9 +92,10 @@ export default class TruthBaseProvider {
       metadata: {
         refused: isRefusal(text, sources.length),
         cited: parseCitations(text, sources.length),
-        sources: sources.map(s => ({ index: s.index, filename: s.filename, pageNumber: s.pageNumber, content: s.content })),
+        // The judge grades against what the answer model saw, context included.
+        sources: sources.map(s => ({ index: s.index, filename: s.filename, pageNumber: s.pageNumber, content: s.content, ...(s.context ? { context: s.context } : {}) })),
         // For model-graded assertions: one numbered passage per source.
-        contexts: sources.map(s => `[${s.index}] ${s.filename} p.${s.pageNumber ?? '?'}: ${s.content}`),
+        contexts: sources.map(s => `[${s.index}] ${s.filename} p.${s.pageNumber ?? '?'}: ${contextLine(s.context, text => text)}${s.content}`),
         expander: p.expander?.id ?? 'off',
         reranker: p.reranker?.id ?? 'off',
         rewrites,

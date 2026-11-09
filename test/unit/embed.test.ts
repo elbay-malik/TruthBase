@@ -69,6 +69,11 @@ describe('embeddingText', () => {
     expect(embeddingText(filename, 'body')).toBe(`${title}\n\nbody`)
   })
 
+  it('puts a continuation chunk\'s context between the title and the content', () => {
+    expect(embeddingText('self-rag.pdf', 'body', 'PopQA TQA')).toBe('Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection\n\nPopQA TQA\n\nbody')
+    expect(embeddingText('self-rag.pdf', 'body', '')).toBe(embeddingText('self-rag.pdf', 'body'))
+  })
+
   it('falls back to the filename for any other PDF', () => {
     expect(documentTitle('annual-report.PDF')).toBe('annual-report')
   })

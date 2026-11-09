@@ -31,6 +31,12 @@ describe('ingestPdf (offline: fake embedder and store)', () => {
     expect(embed).toHaveBeenCalledTimes(Math.ceil(stored.length / 40))
     // Each chunk is embedded under its document's title; the stored text stays bare.
     expect(embed.mock.calls[0]![0][0]).toBe(`The NIST Cybersecurity Framework (CSF) 2.0\n\n${stored[0]!.content}`)
+    // A chunk cut from an over-long run is embedded after the run's opening.
+    const texts = embed.mock.calls.flatMap(call => call[0])
+    const continued = stored.findIndex(c => c.context !== '')
+    expect(continued).toBeGreaterThanOrEqual(0)
+    expect(texts[continued]).toBe(`The NIST Cybersecurity Framework (CSF) 2.0\n\n${stored[continued]!.context}\n\n${stored[continued]!.content}`)
+    expect(stored.filter(c => c.context === '').length).toBeGreaterThan(stored.length / 2)
     expect(new Set(progress.map(p => p.stage))).toEqual(new Set(['parse', 'chunk', 'embed', 'store']))
     expect(progress.at(-1)).toEqual({ stage: 'store', done: stored.length, total: stored.length })
 
@@ -94,6 +100,7 @@ describe('storeDocument', () => {
   /** Minimal supabase-js stand-in that records calls; `onChunkInsert` can abort. */
   function fakeSupabase(onChunkInsert: () => void, errors: { upload?: string, chunks?: string, delete?: string } = {}) {
     const calls: string[] = []
+    const rows: Record<string, unknown[]> = {}
     const result = (message?: string) => ({ error: message ? { message } : null })
     const client = {
       storage: { from: () => ({
@@ -101,28 +108,38 @@ describe('storeDocument', () => {
         remove: async () => (calls.push('remove'), result()),
       }) },
       from: (table: string) => ({
-        insert: async () => {
+        insert: async (payload: unknown) => {
           calls.push(`insert ${table}`)
+          rows[table] = [...rows[table] ?? [], ...[payload].flat()]
           if (table === 'chunks') onChunkInsert()
           return result(table === 'chunks' ? errors.chunks : undefined)
         },
         delete: () => ({ eq: async () => (calls.push(`delete ${table}`), result(errors.delete)) }),
       }),
     }
-    return { client: client as unknown as SupabaseClient, calls }
+    return { client: client as unknown as SupabaseClient, calls, rows }
   }
 
   it('rolls back the row and the upload when aborted between chunk batches', async () => {
     const abort = new AbortController()
     const { client, calls } = fakeSupabase(() => abort.abort())
-    const chunk: ChunkInsert = { pageNumber: 1, content: 'x', embedding: [1], highlight: {} as ChunkInsert['highlight'] }
+    const chunk: ChunkInsert = { pageNumber: 1, content: 'x', context: '', embedding: [1], highlight: {} as ChunkInsert['highlight'] }
     await expect(storeDocument(client, { id: 'd', filename: 'f.pdf', pageCount: 1 }, new Uint8Array(1), Array.from({ length: 150 }, () => chunk), undefined, abort.signal))
       .rejects.toThrow()
     expect(calls).toEqual(['upload', 'insert documents', 'insert chunks', 'delete documents', 'remove'])
   })
 
-  const chunk: ChunkInsert = { pageNumber: 1, content: 'x', embedding: [1], highlight: {} as ChunkInsert['highlight'] }
+  const chunk: ChunkInsert = { pageNumber: 1, content: 'x', context: '', embedding: [1], highlight: {} as ChunkInsert['highlight'] }
   const document = { id: 'd', filename: 'f.pdf', pageCount: 1 }
+
+  it('inserts each chunk with its context column', async () => {
+    const { client, rows } = fakeSupabase(() => {})
+    await storeDocument(client, document, new Uint8Array(1), [chunk, { ...chunk, context: 'Table 1 opens here' }])
+    expect(rows.chunks).toEqual([
+      { document_id: 'd', page_number: 1, content: 'x', context: '', embedding_bge_m3: [1], highlight: {} },
+      { document_id: 'd', page_number: 1, content: 'x', context: 'Table 1 opens here', embedding_bge_m3: [1], highlight: {} },
+    ])
+  })
 
   it('removes the object when the upload reports an error (it may still have been written)', async () => {
     const { client, calls } = fakeSupabase(() => {}, { upload: 'gateway timeout' })
