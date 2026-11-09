@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { describe, expect, it, vi } from 'vitest'
+import { toSources } from '../../server/rag/retrieve'
 import { searchChunks, SearchError, toSearchHit } from '../../server/rag/search'
 
 describe('toSearchHit', () => {
@@ -19,10 +20,26 @@ describe('toSearchHit', () => {
       documentId: 'd1',
       pageNumber: 28,
       content: 'RC.RP-03: The integrity of backups …',
+      context: '',
       highlight: null,
       createdAt: '2026-10-16T19:00:00Z',
       score: 1 / 51 + 1 / 52,
     })
+  })
+})
+
+describe('toSearchHit context', () => {
+  const row = { id: 'c1', document_id: 'd1', page_number: 8, content: '30.0 48.0', highlight: null, created_at: '', score: 1 }
+  it('keeps the context of a continuation chunk', () => {
+    expect(toSearchHit({ ...row, context: 'PopQA TQA Pub' }).context).toBe('PopQA TQA Pub')
+  })
+  it('reads a missing or null context (function not yet migrated) as empty', () => {
+    expect(toSearchHit(row).context).toBe('')
+    expect(toSearchHit({ ...row, context: null }).context).toBe('')
+  })
+  it('is copied into the numbered sources', () => {
+    const sources = toSources([toSearchHit({ ...row, context: 'PopQA TQA Pub' }), toSearchHit({ ...row, id: 'c2' })], new Map([['d1', 'self-rag.pdf']]))
+    expect(sources.map(s => [s.index, s.filename, s.context])).toEqual([[1, 'self-rag.pdf', 'PopQA TQA Pub'], [2, 'self-rag.pdf', '']])
   })
 })
 

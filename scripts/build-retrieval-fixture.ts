@@ -23,7 +23,7 @@ if (documents.error) throw new Error(documents.error.message)
 
 const chunks: Fixture['chunks'] = []
 for (let from = 0; ; from += 500) {
-  const page = await supabase.from('chunks').select('id, document_id, page_number, content, embedding:embedding_bge_m3').order('id').range(from, from + 499)
+  const page = await supabase.from('chunks').select('id, document_id, page_number, content, context, embedding:embedding_bge_m3').order('id').range(from, from + 499)
   if (page.error) throw new Error(page.error.message)
   // embedding arrives as pgvector text ('[0.1,…]').
   chunks.push(...page.data.map(c => ({ ...c, embedding: encodeVector(JSON.parse(c.embedding as string)) })))

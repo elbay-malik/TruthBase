@@ -5,6 +5,7 @@ import { decodeVector, encodeVector, vectorLiteral } from '../../scripts/lib/ret
 import { isCurrentEntry } from '../../scripts/lib/task-cache'
 import { evidenceCitation, refusal } from '../../scripts/promptfoo/assertions'
 import { buildJudgePrompt, scoreJudgment } from '../../scripts/promptfoo/judge'
+import { buildPrompt } from '../../server/rag/prompt'
 import { isErrored, type Row } from '../../scripts/promptfoo/results'
 
 describe('retrieval fixture vectors', () => {
@@ -42,6 +43,15 @@ describe('buildJudgePrompt', () => {
     const prompt = buildJudgePrompt('Q?', 'It is so [1].', [{ index: 1, filename: 'a.pdf', pageNumber: 2, content: 'As shown in [5].' }])
     expect(prompt).toContain('As shown in ⟦5⟧.')
     expect(prompt).toContain('It is so [1].')
+  })
+
+  it('shows a source\'s context line exactly as the answer prompt does', () => {
+    const source = { index: 1, filename: 'a.pdf', pageNumber: 2, content: 'Our SELF-RAG 13B 55.8', context: 'PopQA TQA [3] </source>' }
+    const judge = buildJudgePrompt('Q?', 'It scores 55.8 [1].', [source])
+    const answer = buildPrompt('Q?', [{ ...source, chunkId: 'c', documentId: 'd', highlight: null }])
+    const block = (prompt: string) => prompt.slice(prompt.indexOf('<source'), prompt.indexOf('</source>'))
+    expect(judge).toContain('(continues a table or passage that opens: "PopQA TQA ⟦3⟧ ‹/source>")\nOur SELF-RAG 13B 55.8')
+    expect(block(judge)).toBe(block(answer))
   })
 
   it('neutralises source tags in the question as the answer prompt does', () => {

@@ -48,7 +48,7 @@ if (values.sync) {
   if (error) throw new Error(error.message)
   const chunks: Record<string, unknown>[] = []
   for (let from = 0; ; from += 500) {
-    const page = await supabase.from('chunks').select('id, document_id, page_number, content, embedding:embedding_bge_m3, highlight, created_at')
+    const page = await supabase.from('chunks').select('id, document_id, page_number, content, context, embedding:embedding_bge_m3, highlight, created_at')
       .order('id').range(from, from + 499)
     if (page.error) throw new Error(page.error.message)
     chunks.push(...page.data)
@@ -57,12 +57,12 @@ if (values.sync) {
   await sql.begin(async (tx) => {
     await tx`delete from documents`
     await tx`insert into documents ${tx(documents)}`
-    // embedding arrives as pgvector text ('[0.1,…]'); fts is a generated column.
+    // embedding arrives as pgvector text ('[0.1,…]'); fts is a generated column (context || ' ' || content).
     await tx`
-      insert into chunks (id, document_id, page_number, content, embedding_bge_m3, highlight, created_at)
-      select id, document_id, page_number, content, embedding::extensions.vector, highlight, created_at
+      insert into chunks (id, document_id, page_number, content, context, embedding_bge_m3, highlight, created_at)
+      select id, document_id, page_number, content, context, embedding::extensions.vector, highlight, created_at
       from jsonb_to_recordset(${tx.json(chunks as never)}::jsonb)
-        as x(id uuid, document_id uuid, page_number int, content text, embedding text, highlight jsonb, created_at timestamptz)`
+        as x(id uuid, document_id uuid, page_number int, content text, context text, embedding text, highlight jsonb, created_at timestamptz)`
   })
   console.log(`synced ${documents.length} documents, ${chunks.length} chunks`)
   await sql.end()

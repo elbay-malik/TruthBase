@@ -24,6 +24,18 @@ function expectWellFormed(text: string, chunks: ChunkSpan[], maxLength: number) 
   expect(coveredUpTo).toBe(text.length)
 }
 
+/** Invariants of a continuation chunk's context: a word-bounded run opening before the chunk. */
+function expectContextWellFormed(text: string, chunks: ChunkSpan[], contextChars: number) {
+  for (const c of chunks) {
+    if (!c.context) continue
+    expect(c.context.start).toBeLessThan(c.context.end)
+    expect(c.context.end).toBeLessThanOrEqual(c.start)
+    expect(c.context.end - c.context.start).toBeLessThanOrEqual(contextChars)
+    expect(text[c.context.start]).not.toBe(' ')
+    expect(text[c.context.end - 1]).not.toBe(' ')
+  }
+}
+
 describe('chunkPage', () => {
   const opts = { maxChars: 60, overlapChars: 20, minChars: 10 }
 
@@ -119,6 +131,66 @@ describe('chunkPage', () => {
     expect(chunkPage(bracketed, one).map(c => bracketed.slice(c.start, c.end))).toEqual(['(See note one.)', 'Next one.'])
   })
 
+  it('gives the chunks cut from an over-long run its opening as context', () => {
+    // One 'sentence' of 26 words (a table has no sentence ends) after a normal one.
+    const run = Array.from({ length: 26 }, (_, i) => `w${String(i).padStart(2, '0')}`).join(' ') // 103 chars
+    const text = `Intro sentence. ${run}`
+    const chunks = chunkPage(text, { maxChars: 40, overlapChars: 0, minChars: 0, contextChars: 18 })
+    expectWellFormed(text, chunks, 40)
+    expectContextWellFormed(text, chunks, 18)
+    const runStart = text.indexOf('w00')
+    expect(chunks.map(c => text.slice(c.start, c.end))).toEqual([
+      'Intro sentence.',
+      'w00 w01 w02 w03 w04 w05 w06 w07 w08 w09',
+      'w10 w11 w12 w13 w14 w15 w16 w17 w18 w19',
+      'w20 w21 w22 w23 w24 w25',
+    ])
+    expect(chunks[0]!.context).toBeUndefined() // a normal sentence
+    expect(chunks[1]!.context).toBeUndefined() // the run's own start
+    // 18 chars would end inside "w04": cut back to the word boundary.
+    for (const c of chunks.slice(2)) {
+      expect(c.context).toEqual({ start: runStart, end: runStart + 15 })
+      expect(text.slice(c.context!.start, c.context!.end)).toBe('w00 w01 w02 w03')
+    }
+  })
+
+  it('caps the context at the chunk start, and hard-cuts a first word longer than contextChars', () => {
+    const near = `${'a'.repeat(20)} ${'b'.repeat(20)} ${'c'.repeat(20)}`
+    const chunks = chunkPage(near, { maxChars: 25, overlapChars: 0, minChars: 0, contextChars: 100 })
+    expect(chunks[1]!.context).toEqual({ start: 0, end: 20 }) // up to the space before chunk 2
+    expect(chunks[2]!.context).toEqual({ start: 0, end: 41 })
+    const long = `${'x'.repeat(30)} ${'y'.repeat(20)} ${'z'.repeat(20)}`
+    const cut = chunkPage(long, { maxChars: 25, overlapChars: 0, minChars: 0, contextChars: 10 })
+    for (const c of cut.slice(1)) expect(c.context).toEqual({ start: 0, end: 10 })
+  })
+
+  // U+1D465 (math italic x) is a surrogate pair; a hard cut through it would
+  // leave a lone high surrogate, which Postgres rejects in the insert body.
+  it('never splits a surrogate pair at a hard cut of the context or the content', () => {
+    const astral = '\u{1D465}'
+    const wellFormed = (text: string, c: ChunkSpan) =>
+      text.slice(c.start, c.end).isWellFormed() && (!c.context || text.slice(c.context.start, c.context.end).isWellFormed())
+
+    const opening = `${'a'.repeat(239)}${astral}${'b'.repeat(300)} ${'word '.repeat(200).trim()}`
+    const chunks = chunkPage(opening)
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks[1]!.context).toEqual({ start: 0, end: 239 })
+    expect(chunks.every(c => wellFormed(opening, c))).toBe(true)
+
+    const content = `${'a'.repeat(799)}${astral}${'b'.repeat(400)}`
+    const cut = chunkPage(content)
+    expect(cut[0]).toEqual({ start: 0, end: 799 })
+    expect(cut.every(c => wellFormed(content, c))).toBe(true)
+    expectWellFormed(content, cut, DEFAULT_CHUNK_OPTIONS.maxChars + DEFAULT_CHUNK_OPTIONS.minChars)
+  })
+
+  it('leaves pages of normal sentences without context', () => {
+    const text = Array.from({ length: 40 }, (_, i) => `Sentence number ${i} ends here.`).join(' ')
+    const chunks = chunkPage(text)
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks.filter(c => c.context)).toEqual([])
+  })
+
   it('packs abbreviation and decimal false sentence ends back into one chunk', () => {
     const text = 'See e.g. Table 2.1 by Smith et al. for details.'
     expect(chunkPage(text, opts)).toEqual([{ start: 0, end: text.length }])
@@ -144,9 +216,10 @@ describe('chunkPage', () => {
     for (let run = 0; run < 300; run++) {
       const text = Array.from({ length: int(1, 30) }, sentence).reduce((acc, s) => acc + (acc && random() < 0.8 ? ' ' : '') + s, '')
       const maxChars = int(20, 300)
-      const options = { maxChars, overlapChars: int(0, maxChars), minChars: int(0, Math.floor(maxChars / 3)) }
+      const options = { maxChars, overlapChars: int(0, maxChars), minChars: int(0, Math.floor(maxChars / 3)), contextChars: int(1, 300) }
       const chunks = chunkPage(text, options)
       expectWellFormed(text, chunks, maxChars + options.minChars)
+      expectContextWellFormed(text, chunks, options.contextChars)
       for (const c of chunks.slice(0, -1)) expect(c.end - c.start).toBeLessThanOrEqual(maxChars)
     }
   })
@@ -180,5 +253,29 @@ describe('chunkPage on the golden PDFs (default options)', () => {
       return !chunkPage(page.text).some(c => c.start <= at && at + e.text.length <= c.end)
     })
     expect(split.map(e => `${e.document} p.${e.page}: ${e.text.slice(0, 50)}`)).toEqual([])
+  })
+
+  it('gives every context a word-bounded run opening on every page', () => {
+    for (const layouts of pages.values()) {
+      for (const page of layouts) expectContextWellFormed(page.text, chunkPage(page.text), DEFAULT_CHUNK_OPTIONS.contextChars)
+    }
+  })
+
+  // g-032: a Table 2 row continues a run that the header row opens.
+  it('keeps the self-rag.pdf Table 2 header with its continuation rows', () => {
+    const page = pages.get('self-rag.pdf')![7]!
+    const chunk = chunkPage(page.text).find(c => page.text.slice(c.start, c.end).includes('Our SELF-RAG 13B 55.8'))!
+    expect(chunk.context).toBeDefined()
+    expect(page.text.slice(chunk.context!.start, chunk.context!.end)).toContain('PopQA')
+  })
+
+  // g-035: the training-hardware sentence and the one after it share a chunk.
+  it('overlaps the self-rag.pdf page 19 training details into one chunk', () => {
+    const page = pages.get('self-rag.pdf')![18]!
+    const both = chunkPage(page.text).some((c) => {
+      const content = page.text.slice(c.start, c.end)
+      return content.includes('We use 4 Nvidia A100 with 80GB memory to train our models.') && content.includes('We use Deepspeed stage 3')
+    })
+    expect(both).toBe(true)
   })
 })

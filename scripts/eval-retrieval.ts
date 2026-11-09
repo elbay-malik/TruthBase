@@ -63,10 +63,10 @@ const corpus = (await sql<{ id: string, document_id: string, page_number: number
 async function search(record: GoldenRecord, filter: string | null): Promise<SearchHit[]> {
   const encoded = fixture.queries[record.question]
   if (!encoded) throw new Error(`${record.id}: no query embedding in the fixture (run pnpm fixtures:retrieval)`)
-  const rows = await sql<{ id: string, document_id: string, page_number: number | null, content: string, score: number }[]>`
-    select id, document_id, page_number, content, score
+  const rows = await sql<{ id: string, document_id: string, page_number: number | null, content: string, context: string, score: number }[]>`
+    select id, document_id, page_number, content, context, score
     from hybrid_search_bge_m3(${record.question}, ${vectorLiteral(decodeVector(encoded))}::extensions.vector, 15, filter_document_id => ${filter}::uuid)`
-  return rows.map(r => ({ id: r.id, documentId: r.document_id, pageNumber: r.page_number, content: r.content, score: r.score }) as SearchHit)
+  return rows.map(r => ({ id: r.id, documentId: r.document_id, pageNumber: r.page_number, content: r.content, context: r.context, score: r.score }) as SearchHit)
 }
 
 const rows: { id: string, tags: string[], filtered: boolean, scored: Scored }[] = []

@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { HighlightRect } from '../../shared/types'
 import { itemRanges } from '../../shared/utils/page-text'
-import { chunkPage, type ChunkSpan } from '../../server/ingest/chunk'
+import { chunkPage as chunkWith, DEFAULT_CHUNK_OPTIONS, type ChunkSpan } from '../../server/ingest/chunk'
 import { extractPages, type PageLayout } from '../../server/ingest/extract'
 import { chunkHighlight } from '../../server/ingest/highlight'
 
@@ -15,7 +15,13 @@ import { chunkHighlight } from '../../server/ingest/highlight'
 
 const ROOT = resolve(__dirname, '../..')
 
-interface Fixture { id: string, document: string, page: number, start: number, end: number }
+// The rect lists below name chunks by start offset, so they are pinned to the
+// chunking they were recorded with (overlap 120); the geometry they guard does
+// not depend on where a chunk starts.
+const RECORDED_CHUNKING = { ...DEFAULT_CHUNK_OPTIONS, overlapChars: 120 }
+const chunkPage = (text: string) => chunkWith(text, RECORDED_CHUNKING)
+
+interface Fixture { id: string, document: string, page: number, start: number, end: number, chunk: { start: number, end: number } }
 interface Edge { id: string, startX: number, endX: number, startBaseline: number, endBaseline: number }
 
 describe('highlight edges vs MuPDF glyph positions', () => {
@@ -34,6 +40,18 @@ describe('highlight edges vs MuPDF glyph positions', () => {
 
   it('has a MuPDF reference for every golden span', () => {
     expect(fixtures.filter(f => !edges.has(f.id)).map(f => f.id)).toEqual([])
+  })
+
+  // highlight-spans.json and e2e/chunks.json describe what ingestion stores, so
+  // they follow the default chunking, unlike the pinned guards in this file.
+  it('records the chunk that default chunking stores for every golden span', async () => {
+    const text: Record<string, string> = JSON.parse(await readFile(resolve(ROOT, 'test/fixtures/e2e/chunks.json'), 'utf8'))
+    const stale = fixtures.filter((f) => {
+      const page = pages.get(f.document)![f.page - 1]!
+      const stored = chunkWith(page.text, DEFAULT_CHUNK_OPTIONS).some(c => c.start === f.chunk.start && c.end === f.chunk.end)
+      return !stored || text[f.id] !== page.text.slice(f.chunk.start, f.chunk.end)
+    })
+    expect(stale.map(f => f.id), 'run pnpm fixtures:highlights && pnpm fixtures:e2e').toEqual([])
   })
 
   it('starts and ends every span highlight on the exact glyph edge (±0.05 pt)', () => {

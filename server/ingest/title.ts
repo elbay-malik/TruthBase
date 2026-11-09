@@ -16,7 +16,11 @@ export function documentTitle(filename: string): string {
   return CORPUS_TITLES[filename] ?? filename.replace(/\.pdf$/i, '')
 }
 
-/** The text embedded for a chunk. */
-export function embeddingText(filename: string, content: string): string {
-  return `${documentTitle(filename)}\n\n${content}`
+/**
+ * The text embedded for a chunk: the title, then the opening of the run it
+ * continues (chunk.ts `context`) if any, then the chunk. Without context the
+ * string is unchanged, so the stored vectors of such chunks stay reproducible.
+ */
+export function embeddingText(filename: string, content: string, context = ''): string {
+  return `${documentTitle(filename)}\n\n${context ? `${context}\n\n` : ''}${content}`
 }
