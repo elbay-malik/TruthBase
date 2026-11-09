@@ -16,7 +16,7 @@ The highlight, retrieval and answer numbers below are on [`docs/golden/golden.js
 |---|---|---|---|
 | **Highlight placement** | **180/180** checks pass (60 golden spans × zoom 50/100/200%); placement error ≤ 0.03 px | Real viewer in headless Chromium on a local dev server against the hosted corpus (`pnpm check:viewer`, 2026-10-25) | [ROADMAP Phase 5](./ROADMAP.md) |
 | **Highlight edges vs an independent PDF engine** | within ±0.05 pt of MuPDF on every golden span (spike max: 0.001 pt) | Vitest, `ingest-glyphs.test.ts` | [ADR-0004](./docs/adr/0004-extraction-and-highlights.md) |
-| **Hybrid retrieval recall@8, question only** | **76%** (34/45), recall@15 84% (38/45); on Gemini 87% at both | Hybrid v2 on bge-m3, 564 chunks, no LLM steps, gated in CI | [ADR-0013](./docs/adr/0013-leaving-gemini.md), [retrieval-baseline.json](./docs/evals/retrieval-baseline.json), [retrieval-baseline-gemini.json](./docs/evals/retrieval-baseline-gemini.json) |
+| **Hybrid retrieval recall@8, question only** | **82%** (37/45), recall@15 91% (41/45); 76% and 84% before the 2026-11-09 chunking change | Hybrid v2 on bge-m3, 687 chunks (overlap 300, table context), no LLM steps, gated in CI | [ADR-0013](./docs/adr/0013-leaving-gemini.md), [retrieval-baseline.json](./docs/evals/retrieval-baseline.json), [retrieval-baseline-gemini.json](./docs/evals/retrieval-baseline-gemini.json) |
 | **Full pipeline, final top 8** | **39/45** (87%), the same as Gemini; chat MRR **0.769** vs 0.746 | bge-m3 at 20 candidates vs Gemini at 15, with rewrites and reranking | [ADR-0013](./docs/adr/0013-leaving-gemini.md), [bge-m3-cutover.json](./docs/evals/bge-m3-cutover.json) |
 | **Reranking, question only: MRR / nDCG@5** | **0.758 / 0.853** (MRR 0.548 in fused order); on Gemini at 15 candidates 0.735 / 0.811 | gpt-oss-20b, top 4 + fused tail, 20 candidates as shipped | [ADR-0007](./docs/adr/0007-reranking.md), [bge-m3-cutover.json](./docs/evals/bge-m3-cutover.json) |
 | **Multi-query on ambiguous questions** | recall@5 75% → **100%**; overall recall@5 76% → 80%, recall@8 unchanged (87%) | Gemini embeddings, not re-run on bge-m3 (2026-10-21): fused top 15 before reranking, self-gated rewriter on gpt-oss-20b | [ADR-0009](./docs/adr/0009-query-rewriting.md), [phase-8-groq-20b-gated.json](./docs/evals/phase-8-groq-20b-gated.json) |
@@ -90,11 +90,12 @@ Metric definitions are in [SPEC](./docs/SPEC.md#acceptance-metrics), methodology
 
 ### Current numbers: bge-m3 (2026-11-03)
 
-**Retrieval without LLM steps.** `pnpm eval:retrieval`, question only, 45 answerable questions, 564 chunks on a fixture database ([retrieval-baseline.json](./docs/evals/retrieval-baseline.json); Gemini kept in [retrieval-baseline-gemini.json](./docs/evals/retrieval-baseline-gemini.json)). This is what the CI gate compares against, and what `/api/search` sees, since that route has no rewrites or reranker.
+**Retrieval without LLM steps.** `pnpm eval:retrieval`, question only, 45 answerable questions, 687 chunks on a fixture database ([retrieval-baseline.json](./docs/evals/retrieval-baseline.json); Gemini kept in [retrieval-baseline-gemini.json](./docs/evals/retrieval-baseline-gemini.json)). This is what the CI gate compares against, and what `/api/search` sees, since that route has no rewrites or reranker.
 
 | Embedding | recall@5 | recall@8 | recall@10 | recall@15 | MRR | nDCG@5 |
 |---|---|---|---|---|---|---|
-| **bge-m3** | **73%** (33) | **76%** (34) | **76%** (34) | **84%** (38) | **0.548** | **0.640** |
+| **bge-m3** | **73%** (33) | **82%** (37) | **87%** (39) | **91%** (41) | **0.555** | **0.615** |
+| bge-m3, 564 chunks (before 2026-11-09) | 73% (33) | 76% (34) | 76% (34) | 84% (38) | 0.548 | 0.640 |
 | Gemini | 76% (34) | 87% (39) | 87% (39) | 87% (39) | 0.515 | 0.633 |
 
 bge-m3 finds fewer questions in the fused top 8 than Gemini did, and orders the ones it finds slightly better. The chat route makes up the difference with rewrites and a wider reranker pool:
