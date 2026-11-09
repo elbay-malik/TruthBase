@@ -579,9 +579,21 @@ function showInViewer(source: SourceRef, kind: 'citation' | 'link' | 'related', 
   if (focus) nextTick(() => viewer.value?.focus())
 }
 
+/**
+ * The first finished answer with citations says, once per page load, that its
+ * numbers open the passage. Gone after a citation is opened by hand or the
+ * next question; nothing is stored.
+ */
+const citationHintFor = ref<string>()
+const citationOpened = ref(false)
+const showsCitationHint = (message: ChatMessage) =>
+  citationHintFor.value === message.id && !citationOpened.value && messages.value.at(-1)?.id === message.id
+
 function openCitation(message: ChatMessage, index: number, from?: EventTarget | null, options?: { focus?: boolean }) {
   const source = sourcesOf(message)[index - 1]
   if (!source) return
+  // `from` is null only when an answer opens its first citation by itself.
+  if (from !== null) citationOpened.value = true
   active.value = { messageId: message.id, index }
   showInViewer(source, 'citation', from, options)
 }
@@ -607,6 +619,7 @@ watch(busy, (now, before) => {
   const last = messages.value.at(-1)
   const answer = last?.role === 'assistant' && !refused(last) ? last : undefined
   const first = answer && citedIndexes(answer).values().next().value
+  if (answer && first !== undefined && !error.value && !ending.value && !citationHintFor.value) citationHintFor.value = answer.id
   if (answer && first !== undefined && isDesktop.value && !error.value && !ending.value) {
     openCitation(answer, first, null, { focus: false })
     return
@@ -771,6 +784,9 @@ onMounted(async () => {
           </UButton>
           <p class="mt-2 text-sm text-muted">
             Click a citation to see the exact passage highlighted in the PDF.
+          </p>
+          <p class="text-sm text-muted">
+            Questions are limited per minute and per day, and a browser check may ask for one click.
           </p>
         </section>
 
@@ -996,6 +1012,13 @@ onMounted(async () => {
                       </button>
                     </li>
                   </ol>
+                  <p
+                    v-if="showsCitationHint(message)"
+                    class="text-sm text-muted"
+                    data-citation-hint
+                  >
+                    Click a number in the answer, or a source above, to open its passage highlighted in the PDF.
+                  </p>
                 </div>
               </template>
             </template>

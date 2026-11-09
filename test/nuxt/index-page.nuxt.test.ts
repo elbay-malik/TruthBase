@@ -420,6 +420,39 @@ describe('index page', () => {
     expect(viewer(page).props('target')).toBeUndefined()
   })
 
+  it('names the demo limits before the first question', async () => {
+    const page = await mountPage()
+    expect(page.find('section[aria-label="Example questions"]').text())
+      .toContain('Questions are limited per minute and per day, and a browser check may ask for one click.')
+  })
+
+  it('says once, under the first cited answer, that citations open the passage', async () => {
+    mockChat(stream(sse([source(1, 28)], 'Verified [1].')))
+    const page = await mountPage()
+    await askQuestion(page)
+    // The answer opened its first citation by itself: that doesn't count as a click.
+    expect(viewer(page).props('target')).toMatchObject({ chunkId: 'c1' })
+    expect(page.findAll('[data-citation-hint]')).toHaveLength(1)
+    await page.find('button[data-cite]').trigger('click')
+    expect(page.find('[data-citation-hint]').exists()).toBe(false)
+    await askQuestion(page, 'Who verifies them?')
+    expect(page.find('[data-citation-hint]').exists()).toBe(false)
+  })
+
+  it('drops the citation hint at the next question, and never shows it for a refusal', async () => {
+    let reply = sse([source(2, 30)], 'NO_ANSWER')
+    mockChat(() => stream(reply)())
+    const page = await mountPage()
+    await askQuestion(page, 'What penalties does the EU AI Act set?')
+    expect(page.find('[data-citation-hint]').exists()).toBe(false)
+    reply = sse([source(1, 28)], 'Verified [1].', { messageId: 'a2' })
+    await askQuestion(page)
+    expect(page.findAll('[data-citation-hint]')).toHaveLength(1)
+    reply = sse([source(1, 28)], 'Again [1].', { messageId: 'a3' })
+    await askQuestion(page, 'Who verifies them?')
+    expect(page.find('[data-citation-hint]').exists()).toBe(false)
+  })
+
   it('offers the examples not yet asked below an answer', async () => {
     mockChat(stream(sse([source(1, 28)], 'Six Functions [1].')))
     const page = await mountPage()
