@@ -22,14 +22,15 @@ useSeoMeta({
 /**
  * One example per document, each a golden question whose cited sources all
  * hold its evidence in the measured answer eval (docs/evals/phase-8-groq.json:
- * g-018, g-002, g-039, g-027), so the first check an evaluator makes holds up.
+ * g-018, g-002, g-039; Self-RAG's g-030 from the 2026-11-10 LLM eval, ADR-0005),
+ * so the first check an evaluator makes holds up.
  * With a document in scope, only its example is offered.
  */
 const EXAMPLES = [
   { question: 'Why is GOVERN placed at the center of the CSF Functions wheel?', filename: 'nist-csf-2.0.pdf' },
   { question: 'How does the AI RMF define risk?', filename: 'nist-ai-rmf-1.0.pdf' },
   { question: 'How does RAPTOR choose the number of clusters?', filename: 'raptor.pdf' },
-  { question: 'What are the four types of reflection tokens in Self-RAG?', filename: 'self-rag.pdf' },
+  { question: 'What default weights does Self-RAG assign to the critique tokens at inference?', filename: 'self-rag.pdf' },
 ]
 
 const { data: documents } = await useFetch('/api/documents', { default: () => [] })

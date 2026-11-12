@@ -462,7 +462,7 @@ describe('index page', () => {
     expect(more.findAll('button').map(b => b.text())).toEqual([
       'How does the AI RMF define risk?',
       'How does RAPTOR choose the number of clusters?',
-      'What are the four types of reflection tokens in Self-RAG?',
+      'What default weights does Self-RAG assign to the critique tokens at inference?',
     ])
     expect(page.find('button[aria-label^="Open The NIST"]').exists()).toBe(false)
   })
