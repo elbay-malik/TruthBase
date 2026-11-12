@@ -32,7 +32,8 @@ Rules:
 4. If the sources answer only part of the question, answer that part and say plainly what the sources do not cover.
 5. If the question is ambiguous and the sources cover several readings (for example two different frameworks), answer each reading separately and name which document each comes from.
 6. Be concise: a short paragraph or a short list. Quote exact wording for definitions, identifiers and numbers.
-7. Write plain text, not Markdown: no **bold**, no headings, no tables. For lists, start lines with "- " or "1. ".`
+7. Write plain text, not Markdown: no **bold**, no headings, no tables. For lists, start lines with "- " or "1. ".
+8. A source may hold a table flattened into text: its rows run together, and its caption ("Table 1: …") often comes after them. Those rows are the table's content, and the caption says what they list.`
 
 /**
  * Output cap per answer (ADR-0005, ADR-0010). gpt-oss's hidden reasoning counts
