@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-04
+- **Note (2026-11-09):** The chunking change of 2026-11-09 ([ADR-0003](./0003-chunking.md), 564 → 687 chunks) moved the question-only baseline to recall@5/8/10/15 33 / 37 / 39 / 41 of 45 (73% / 82% / 87% / 91%), MRR 0.555, nDCG@5 0.615 ([retrieval-baseline.json](../evals/retrieval-baseline.json)). The bge-m3 row in the first table below is the measurement at the switch, on 564 chunks; the full-pipeline go/no-go was not re-run.
 
 ## Context
 
@@ -24,7 +25,7 @@ The switch had to keep the demo's answers as good as they were, measured on the 
 
 | Embedding | recall@5 | recall@8 | recall@10 | recall@15 | MRR | nDCG@5 |
 |---|---|---|---|---|---|---|
-| bge-m3 | 33/45 (73%) | 34 (76%) | 34 (76%) | 38 (84%) | 0.548 | 0.640 |
+| bge-m3, 564 chunks (at the switch) | 33/45 (73%) | 34 (76%) | 34 (76%) | 38 (84%) | 0.548 | 0.640 |
 | Gemini | 34/45 (76%) | 39 (87%) | 39 (87%) | 39 (87%) | 0.515 | 0.633 |
 
 **The full pipeline held.** The go/no-go ran rewrites, fusion, reranking, answers and the judge on the 50 golden records in a one-off harness, 2026-11-02 to 2026-11-03 ([bge-m3-cutover.json](../evals/bge-m3-cutover.json)). The Gemini arm's answer figures cover 47 of the 50 records.
@@ -52,8 +53,8 @@ The switch had to keep the demo's answers as good as they were, measured on the 
 
 ## Consequences
 
-- **`/api/search` is weaker than it was.** It has no rewrites or reranker, so it sees 34/45 in the top 8, where Gemini had 39/45.
-- **Fewer enhanced chats a day.** 20 candidates is about 4.2K reranker tokens per chat against 3.1K, so about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b. When the reranker's quota is spent, the answer still works from fused order, which is 34/45 in the top 8 rather than 39.
+- **`/api/search` is weaker than it was.** It has no rewrites or reranker, so it sees 37/45 in the top 8 (34/45 at the switch), where Gemini had 39/45.
+- **Fewer enhanced chats a day.** 20 candidates is about 4.2K reranker tokens per chat against 3.1K, so about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b. When the reranker's quota is spent, the answer still works from fused order, which is 37/45 in the top 8 rather than 39 (34/45 at the switch).
 - **Cloudflare is now a hard dependency.** Without its two values the routes answer 503, and past 10,000 Neurons in a day embedding requests fail. The same Neurons pay for the answer fallback.
 - **`/api/search` errors are clearer:** 503 "busy" on provider limits, 502 otherwise.
 - **The Gemini-era evals were not re-run.** The Phase 5 to 9 tables and `phase-*.json` stay as dated history. `pnpm eval:llm` measures the bge-m3 pipeline from here on.
