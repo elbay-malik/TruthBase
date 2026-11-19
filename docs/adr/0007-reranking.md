@@ -77,4 +77,4 @@ Measured with `pnpm eval:rerank` (`docs/evals/phase-7-*.json`): fused top 20 fro
 
 - **Measured** ([bge-m3-cutover.json](../evals/bge-m3-cutover.json)), bge-m3 at 20 against Gemini at 15: chat final top 8 39/45 vs 39/45, chat MRR 0.769 vs 0.746, question only after reranking recall@10 38/45 vs 39/45.
 - **Capacity.** About 4.2K reranker tokens per chat against 3.1K, so about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b, not the 73 reranked chats above.
-- **When the quota is spent,** the answer still works from fused order, which is 34/45 in the top 8 rather than 39.
+- **When the quota is spent,** the answer still works from fused order, which is 37/45 in the top 8 rather than 39 (34/45 before the 2026-11-09 chunking change).
