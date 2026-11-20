@@ -17,11 +17,8 @@ The highlight, retrieval and answer numbers below are on [`docs/golden/golden.js
 | **Highlight placement** | **180/180** checks pass (60 golden spans × zoom 50/100/200%); placement error ≤ 0.03 px | Real viewer in headless Chromium on a local dev server against the hosted corpus (`pnpm check:viewer`, 2026-10-25) | [ROADMAP Phase 5](./ROADMAP.md) |
 | **Highlight edges vs an independent PDF engine** | within ±0.05 pt of MuPDF on every golden span (spike max: 0.001 pt) | Vitest, `ingest-glyphs.test.ts` | [ADR-0004](./docs/adr/0004-extraction-and-highlights.md) |
 | **Hybrid retrieval recall@8, question only** | **82%** (37/45), recall@15 91% (41/45); 76% and 84% before the 2026-11-09 chunking change | Hybrid v2 on bge-m3, 687 chunks (overlap 300, table context), no LLM steps, gated in CI | [ADR-0013](./docs/adr/0013-leaving-gemini.md), [retrieval-baseline.json](./docs/evals/retrieval-baseline.json), [retrieval-baseline-gemini.json](./docs/evals/retrieval-baseline-gemini.json) |
-| **Full pipeline, final top 8** | **39/45** (87%), the same as Gemini; chat MRR **0.769** vs 0.746 | bge-m3 at 20 candidates vs Gemini at 15, with rewrites and reranking | [ADR-0013](./docs/adr/0013-leaving-gemini.md), [bge-m3-cutover.json](./docs/evals/bge-m3-cutover.json) |
-| **Reranking, question only: MRR / nDCG@5** | **0.758 / 0.853** (fused order: MRR 0.548 at the switch, 0.555 since 2026-11-09); on Gemini at 15 candidates 0.735 / 0.811 | gpt-oss-20b, top 4 + fused tail, 20 candidates as shipped | [ADR-0007](./docs/adr/0007-reranking.md), [bge-m3-cutover.json](./docs/evals/bge-m3-cutover.json) |
+| **Reranking and answers on bge-m3** | Not published: the switch to bge-m3 was checked once, in a one-off harness that is not in this repo, so those results can't be repeated from here | – | [ADR-0008](./docs/adr/0008-evals-and-ci-gate.md) |
 | **Multi-query on ambiguous questions** | recall@5 75% → **100%**; overall recall@5 76% → 80%, recall@8 unchanged (87%) | Gemini embeddings, not re-run on bge-m3 (2026-10-21): fused top 15 before reranking, self-gated rewriter on gpt-oss-20b | [ADR-0009](./docs/adr/0009-query-rewriting.md), [phase-8-groq-20b-gated.json](./docs/evals/phase-8-groq-20b-gated.json) |
-| **Answers, end to end** | 5/5 unanswerable refused; blind grading of the 45 answerable: 38 correct, 3 partial, 0 wrong, 4 no answer, the same as Gemini; 3 false refusals (SPEC target ≤ 1, not met) | The shipped pipeline on bge-m3: rewrite + rerank on gpt-oss-20b, 20 candidates, answers on gpt-oss-120b | [bge-m3-cutover.json](./docs/evals/bge-m3-cutover.json) |
-| **Faithfulness / judged citation precision** | **100% / 95.0%** by an LLM judge (88 of 88 claims, 132 of 139 citations; SPEC targets 0.90); on Gemini 95.7% / 92.4%. A hand check of the first promptfoo run (2026-10-23) found that run's judge lenient, so read these as a comparison of the two embeddings. The 3 false refusals still miss their target, so there is no LLM baseline yet | One-off harness, 2026-11-02 to 2026-11-03, 50 golden records (the Gemini arm's answer figures cover 47) | [bge-m3-cutover.json](./docs/evals/bge-m3-cutover.json), [phase-9-llm.json](./docs/evals/phase-9-llm.json), [ADR-0008](./docs/adr/0008-evals-and-ci-gate.md) |
 | **Accessibility** | Lighthouse 100 (mobile and desktop); axe-core 0 violations in 15 UI states (desktop and phone, light and dark) | Local production build (localhost), Lighthouse 13.5.0 with simulated throttling, median of 3, 2026-10-21 | [Quality](#quality) |
 | **Performance** | Lighthouse 98 mobile / 100 desktop on `/`; mobile LCP 2.40 s, CLS 0 | same | [Quality](#quality) |
 | **E2E** | 94 passed, 3 skipped (tests that only apply to desktop or only to phone) of 97, 0 flaky | Hermetic Playwright on the production build; CI run on PR #10 and two consecutive local CI-mode runs (2026-10-21) | [ADR-0012](./docs/adr/0012-hermetic-e2e.md) |
@@ -88,7 +85,7 @@ flowchart TD
 
 Metric definitions are in [SPEC](./docs/SPEC.md#acceptance-metrics), methodology and gates in [ADR-0008](./docs/adr/0008-evals-and-ci-gate.md) and [docs/evals](./docs/evals/README.md). Recall@k counts a question only when **all** its evidence spans are in the top k. Every table states what it was measured on; numbers are rounded to whole percent or three decimals from the linked file.
 
-### Current numbers: bge-m3 (2026-11-03)
+### Current numbers: bge-m3
 
 **Retrieval without LLM steps.** `pnpm eval:retrieval`, question only, 45 answerable questions, 687 chunks on a fixture database ([retrieval-baseline.json](./docs/evals/retrieval-baseline.json); Gemini kept in [retrieval-baseline-gemini.json](./docs/evals/retrieval-baseline-gemini.json)). This is what the CI gate compares against, and what `/api/search` sees, since that route has no rewrites or reranker.
 
@@ -98,23 +95,11 @@ Metric definitions are in [SPEC](./docs/SPEC.md#acceptance-metrics), methodology
 | bge-m3, 564 chunks (before 2026-11-09) | 73% (33) | 76% (34) | 76% (34) | 84% (38) | 0.548 | 0.640 |
 | Gemini | 76% (34) | 87% (39) | 87% (39) | 87% (39) | 0.515 | 0.633 |
 
-bge-m3 finds fewer questions in the fused top 8 than Gemini did, and orders the ones it finds slightly better. The chat route makes up the difference with rewrites and a wider reranker pool:
+bge-m3 finds fewer questions in the fused top 8 than Gemini did. The chat route adds rewrites and a wider reranker pool on top.
 
-**Full pipeline go/no-go.** Rewrites, fusion, reranking, answer and judge on the 50 golden records, in a one-off harness ([bge-m3-cutover.json](./docs/evals/bge-m3-cutover.json), 2026-11-02 to 2026-11-03). bge-m3 at 20 candidates against Gemini at 15. The Gemini arm's answer figures cover 47 of the 50 records.
+**The switch-over run.** The go/no-go for leaving Gemini ran the full pipeline once, 2026-11-02 to 2026-11-03, in a one-off harness that is not in this repo, so its results are not published here. `pnpm eval:llm` measures the same pipeline from here on, and its figures will be published once it has a run anyone can repeat.
 
-| Metric | bge-m3, 20 candidates | Gemini, 15 candidates |
-|---|---|---|
-| Chat, final top 8 | 39/45 | 39/45 |
-| Chat MRR | 0.769 | 0.746 |
-| Question only after reranking, recall@10 | 38/45 | 39/45 |
-| Faithfulness (LLM judge) | 100% | 95.7% |
-| Citation precision (LLM judge) | 95.0% | 92.4% |
-| Unanswerable refused | 5/5 | 5/5 |
-| False refusals | 3 (g-027, g-032, g-040) | 4 |
-
-The recall@10 row was the one failed gate. The owner accepted it: against Gemini, bge-m3 gains g-030 and loses g-026 and g-043 (rank 11); chat rewrites recover g-026. Going from 15 to 20 candidates fixes g-028. Blind correctness grading on the answerable records gave 38 correct, 3 partial, 0 wrong and 4 no answer, the same as Gemini. The fourth no answer is g-035, a hedge that says the source doesn't give the answer, rather than a refusal.
-
-**Cost of the wider pool.** 20 candidates is about 4.2K reranker tokens per chat against 3.1K, which leaves about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b. Past that, the answer still works from fused order, which is 37/45 in the top 8 rather than 39 (34/45 before the 2026-11-09 chunking change).
+**Cost of the wider pool.** 20 candidates is about 4.2K reranker tokens per chat against 3.1K, which leaves about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b. Past that, the answer still works from fused order, which is 37/45 in the top 8 (34/45 before the 2026-11-09 chunking change).
 
 ### Retrieval: hybrid search (Phase 6, Gemini embeddings)
 
@@ -227,7 +212,7 @@ Each ADR records context, the decision, measurements and rejected alternatives. 
 - **[ADR-0010](./docs/adr/0010-abuse-protection.md) Abuse protection (Accepted; BYO docs in Phase 11b).** Per-minute and daily caps per client plus a global daily budget, counted atomically in Postgres, clean 429 with `Retry-After`, client IP stored as an HMAC, fail open on an outage only (a misconfigured quota store closes the routes with a 503). Since 2026-11-08 every chat question also needs an invisible Cloudflare Turnstile token. *Rejected:* mandatory sign-in (kills the demo), CAPTCHA on every route (friction), a sliding-window limiter on KV, platform WAF rules as the only layer, counting tokens instead of requests.
 - **[ADR-0011](./docs/adr/0011-deployment-topology.md) Deployment (Accepted, live since 2026-10-21).** Vercel Hobby: one Node 24 function in `dub1` next to the database, static assets on the CDN, ingestion from the CLI, burst limits moved into Postgres, Langfuse spans flushed through `waitUntil`. *Rejected:* Cloudflare Workers Paid (card, `workerd` port), free Workers plus a Node host (10 ms CPU, two targets), Cloud Run (card, container), Render (1-minute cold starts), Hugging Face Spaces, an Oracle VM (ops).
 - **[ADR-0012](./docs/adr/0012-hermetic-e2e.md) Hermetic E2E (Accepted).** Playwright against the production build, `/api/*` answered from fixtures built by the real ingestion code, a local Supabase stub for Storage and PostgREST, plus one replayed real chat stream. *Rejected:* a live backend in CI (secrets, quota, flaky answers), a full local Supabase stack, mocking inside Nitro (test code in the bundle), component tests only.
-- **[ADR-0013](./docs/adr/0013-leaving-gemini.md) Leaving Gemini (Accepted).** Embeddings move to `@cf/baai/bge-m3` on Cloudflare Workers AI (1024 dims) in a new column and function, documents with their title in front, reranker pool 15 → 20. The final top 8 holds at 39/45; question-only search drops to 34/45 (37/45 since the 2026-11-09 chunking change). *Rejected:* paying for Gemini, staying on its unpaid tier (terms), bge-m3 without the title (lost 5-8 golden records), keeping 15 candidates, replacing the column in place.
+- **[ADR-0013](./docs/adr/0013-leaving-gemini.md) Leaving Gemini (Accepted).** Embeddings move to `@cf/baai/bge-m3` on Cloudflare Workers AI (1024 dims) in a new column and function, documents with their title in front, reranker pool 15 → 20. Question-only search drops to 34/45 (37/45 since the 2026-11-09 chunking change). *Rejected:* paying for Gemini, staying on its unpaid tier (terms), bge-m3 without the title (lost 5-8 golden records), keeping 15 candidates, replacing the column in place.
 
 ## Quality
 
@@ -315,7 +300,7 @@ Before the first deploy, apply `supabase/migrations` to the hosted project, inge
 
 | Service | Binding limit | How TruthBase stays inside it |
 |---|---|---|
-| Groq (per model) | 8K tokens/min, 1K requests/day, 200K tokens/day | Answers on gpt-oss-120b (~100/day); rewriting and reranking on gpt-oss-20b (about 40 fully enhanced chats/day, then fused order, 37/45 in the top 8 rather than 39). Daily caps: chat 10 per client, 80 for the whole demo; search 30 / 300. Per-minute: 10 chats, 30 searches per client |
+| Groq (per model) | 8K tokens/min, 1K requests/day, 200K tokens/day | Answers on gpt-oss-120b (~100/day); rewriting and reranking on gpt-oss-20b (about 40 fully enhanced chats/day, then fused order, 37/45 in the top 8). Daily caps: chat 10 per client, 80 for the whole demo; search 30 / 300. Per-minute: 10 chats, 30 searches per client |
 | Cloudflare Workers AI | Free plan: 10,000 Neurons/day; over quota requests fail rather than bill | bge-m3 embeddings for every question and the corpus, and the answer fallback on gpt-oss-120b, about 68 Neurons an answer (~147/day if answers had the Neurons to themselves). Required: chat, search and ingest answer 503 without it |
 | Supabase | 500 MB, pauses after 7 idle days | 564 chunks at 1024 dims (~2.3 MB of vectors), plus the old 768-dim column (~1.7 MB) until it is dropped; daily keep-alive cron on Vercel |
 | Vercel Hobby | non-commercial; 1M invocations, 4 Active CPU-hours, 100 GB transfer per month; 4.5 MB bodies; one region | Waiting on models doesn't count as Active CPU; ingestion stays off the function |
@@ -327,15 +312,14 @@ Sources: [ADR-0007](./docs/adr/0007-reranking.md), [ADR-0013](./docs/adr/0013-le
 
 **Pending measurement** (the reason Phase 9 is unticked in [ROADMAP](./ROADMAP.md)):
 
-- **An accepted LLM baseline** ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)). The first full promptfoo run (2026-10-23, on Gemini embeddings) measured faithfulness 95.2% and judged citation precision 92.5%, but it fails its gate on 4 false refusals. A hand check also found the qwen judge lenient: citation precision is about 88–90% once 5 answers are corrected. The judge needs claims and citations taken from the answer itself, plus a second hand check, before its numbers can gate. `pnpm eval:llm` measures the bge-m3 pipeline from here on; the cutover run used a one-off harness and also misses the refusal target, with 3.
+- **An accepted LLM baseline** ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)). The first full promptfoo run (2026-10-23, on Gemini embeddings) measured faithfulness 95.2% and judged citation precision 92.5%, but it fails its gate on 4 false refusals. A hand check also found the qwen judge lenient: citation precision is about 88–90% once 5 answers are corrected. The judge needs claims and citations taken from the answer itself, plus a second hand check, before its numbers can gate. `pnpm eval:llm` measures the bge-m3 pipeline from here on.
 
 **Known gaps:**
 
 - **Big operators in fonts without usable outlines are covered only by the em box.** TeX sums that hang below the em box (e.g. the two `Σ` in g-035) get their own glyph rects from the font outline; a Type3 or non-embedded font has no outline to read ([ADR-0004](./docs/adr/0004-extraction-and-highlights.md)).
-- **Six golden questions miss the final top 8** of the full pipeline (g-029, g-035, g-038, g-040, g-043, g-045; [bge-m3-cutover.json](./docs/evals/bge-m3-cutover.json)). g-043 is at rank 11 and g-045 at rank 18; the other four are not in the list at all. Gemini's chat top 8 also missed six.
 - **Question-only search is weaker than it was.** `/api/search` has no rewrites or reranker, so it sees 37/45 in the top 8, where Gemini had 39/45. A chat over the reranker's daily quota sees the same.
 - **Tables are flattened into running text** by extraction, which causes refusals even when the evidence is retrieved.
-- **False refusals are above the SPEC target** (≤ 1). There were 3 in the cutover run of the shipped pipeline (g-027, g-032, g-040), against 4 on Gemini. g-040 is among the six questions above. g-027 and g-032 have their evidence at rank 1 and are table content flattened by extraction ([ADR-0005](./docs/adr/0005-citations-and-grounding.md)).
+- **False refusals are above the SPEC target** (≤ 1): 4 in the first full promptfoo run (2026-10-23, on Gemini embeddings). Tables flattened by extraction are one cause: the evidence is retrieved, but the answer refuses ([ADR-0005](./docs/adr/0005-citations-and-grounding.md)).
 - **Prompt injection through document text** is reduced (delimited sources, a fused tail the reranker can't drop) but not prevented. It must be re-assessed before uploads open.
 - **Time to first token** can exceed the < 2 s p50 target when a question is rewritten.
 - Rotated pages, vertical text, RTL and Type3 fonts are absent from the golden set and unverified; scanned PDFs are rejected.
