@@ -48,7 +48,7 @@ export default defineNuxtConfig({
         { property: 'og:image', content: 'https://truthbase.elbaymalik.com/og.png' },
         { property: 'og:image:width', content: '1200' },
         { property: 'og:image:height', content: '630' },
-        { property: 'og:image:alt', content: 'TruthBase: a screenshot of the app' },
+        { property: 'og:image:alt', content: 'TruthBase: every answer cites its source, with the exact passage highlighted in the PDF.' },
         { name: 'twitter:card', content: 'summary_large_image' },
       ],
       link: [
