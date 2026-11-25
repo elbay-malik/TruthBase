@@ -1,6 +1,7 @@
 import { chunkPage, DEFAULT_CHUNK_OPTIONS, type ChunkOptions } from './chunk'
 import type { Embedder } from './embed'
 import { extractPages } from './extract'
+import { chunkNote } from './notes'
 import { embeddingText } from './title'
 import type { PdfAssetReader } from './pdf-assets'
 import { chunkHighlight } from './highlight'
@@ -101,7 +102,7 @@ export async function ingestPdf(pdf: Uint8Array, filename: string, deps: IngestD
   for (let i = 0; i < chunks.length; i += batchSize) {
     checkAborted('embed')
     const batch = chunks.slice(i, i + batchSize)
-    const vectors = await inStage('embed', () => deps.embed(batch.map(chunk => embeddingText(filename, chunk.content, chunk.context))))
+    const vectors = await inStage('embed', () => deps.embed(batch.map(chunk => embeddingText(filename, chunk.content, chunk.context, chunkNote(filename, chunk.pageNumber, chunk.content)))))
     if (vectors.length !== batch.length) throw new IngestError('embedding count mismatch', 'embed')
     embeddings.push(...vectors)
     report({ stage: 'embed', done: embeddings.length, total: chunks.length })

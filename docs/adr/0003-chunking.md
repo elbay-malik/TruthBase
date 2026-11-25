@@ -62,7 +62,7 @@ Measured with the offline retrieval gate on a local database (`hybrid_search_bge
 - **Recursive 512-token splitting** (the plan's default): highlights too coarse for passage-level citations. See the table above.
 - **Cross-page chunks:** would need multi-page highlights and break the one-page `ChunkRecord`. A sentence that wraps across a page break is split instead.
 - **Semantic chunking:** embedding-distance boundaries are ~14× slower and spend free-tier embedding quota at ingest.
-- **Late chunking / contextual retrieval:** contextual retrieval needs an LLM call per chunk. It's a stretch goal. Run context (above) is the rule-based part of it.
+- **Late chunking / contextual retrieval:** contextual retrieval needs an LLM call per chunk. Run context (above) is the rule-based part of it. Since 2026-11-25 the corpus chunks carry offline-written contextual notes in their embeddings ([ADR-0014](./0014-contextual-retrieval.md)).
 - **Neighbouring chunks in the answer prompt:** fixes the same failures at query time, but about triples the answer prompt for every question.
 - **Stripping running headers and footers:** they pollute some chunks (e.g. "NIST CSWP 29 … CSF 2.0", page numbers), but removing them would break the golden text contract. Revisit if recall@k suffers.
 

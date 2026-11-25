@@ -74,6 +74,11 @@ describe('embeddingText', () => {
     expect(embeddingText('self-rag.pdf', 'body', '')).toBe(embeddingText('self-rag.pdf', 'body'))
   })
 
+  it('puts the contextual note first, then the run context', () => {
+    expect(embeddingText('self-rag.pdf', 'body', '', 'Self-RAG paper, Table 1.')).toBe('Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection\n\nSelf-RAG paper, Table 1.\n\nbody')
+    expect(embeddingText('self-rag.pdf', 'body', 'PopQA TQA', 'Note.')).toBe('Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection\n\nNote. PopQA TQA\n\nbody')
+  })
+
   it('falls back to the filename for any other PDF', () => {
     expect(documentTitle('annual-report.PDF')).toBe('annual-report')
   })

@@ -35,6 +35,14 @@ How TruthBase goes live, and how to check and roll back a deploy. The reasons be
 
    It recomputes each stored chunk's highlight from the repo PDFs and its stored offsets. There is no re-embedding and no Storage read, and chunk ids (citation deep links) stay the same. It runs in two passes: first it recomputes and checks every chunk of every document, then it writes. If any chunk's page text changed, it stops with "re-ingest with --replace" before writing anything. The writes are one update per chunk, not a transaction, so a network or database error during the write pass can leave a partial refresh. Re-running the command is idempotent and finishes it. Until it runs, `pnpm check:viewer` against the hosted corpus fails the spans whose rects changed, because it compares against `test/fixtures/highlight-spans.json`. The 2026-10-25 big-operator change (ADR-0004) was refreshed this way the same day: 564 chunks in 4 documents, then `check:viewer` 180/180.
 
+   **After a change to the embedded string** (`server/ingest/{title,notes}.ts` or `corpus-notes.json`), the operator re-embeds the stored chunks in place:
+
+   ```bash
+   pnpm ingest:golden --reembed  # rewrites chunks.embedding_bge_m3 only
+   ```
+
+   It reads each corpus chunk's stored text and run context, adds its contextual note ([ADR-0014](./adr/0014-contextual-retrieval.md)) and embeds the result with bge-m3 (about 700 Cloudflare embeddings). Like `--highlights-only`, it computes every vector before writing any, stops if a chunk has no note, and keeps chunk ids. Then `pnpm fixtures:retrieval` and `pnpm eval:retrieval --install --update-baseline`, committed together. Run on 2026-11-25: 687 chunks in 4 documents.
+
 ## 1. Create the Vercel project
 
 1. On vercel.com (Hobby), choose **Add New → Project** and import the GitHub repo. The repo is owned by a personal account, which Hobby requires.

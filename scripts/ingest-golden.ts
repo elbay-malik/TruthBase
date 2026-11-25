@@ -8,6 +8,10 @@
 //                                    # chunk's offsets (after highlight-math changes;
 //                                    # no re-embedding, text must be unchanged;
 //                                    # chunk ids stay; docs/DEPLOYMENT.md §0)
+//   pnpm ingest:golden --reembed     # recomputes every chunk's bge-m3 vector from its
+//                                    # stored text and its contextual note (after a
+//                                    # change to the embedded string, ADR-0014; text
+//                                    # unchanged, chunk ids stay)
 //
 // Needs NUXT_SUPABASE_URL, NUXT_SUPABASE_SERVICE_KEY and (except for
 // --highlights-only) the NUXT_CLOUDFLARE_* values.
@@ -19,11 +23,13 @@ import { createClient } from '@supabase/supabase-js'
 import { cloudflareEmbedder } from '../server/ingest/embed'
 import { extractPages } from '../server/ingest/extract'
 import { chunkHighlight } from '../server/ingest/highlight'
+import { chunkNote } from '../server/ingest/notes'
 import { ingestPdf } from '../server/ingest/pipeline'
 import { DOCUMENTS_BUCKET, storeDocument } from '../server/ingest/store'
+import { embeddingText } from '../server/ingest/title'
 
 const PDFS = resolve(import.meta.dirname, '../docs/golden/pdfs')
-const { values } = parseArgs({ options: { 'replace': { type: 'boolean', default: false }, 'highlights-only': { type: 'boolean', default: false } } })
+const { values } = parseArgs({ options: { 'replace': { type: 'boolean', default: false }, 'highlights-only': { type: 'boolean', default: false }, 'reembed': { type: 'boolean', default: false } } })
 
 const env = (name: string) => {
   const value = process.env[name]
@@ -49,6 +55,11 @@ process.on('SIGINT', () => {
   abort.abort()
 })
 const embed = cloudflareEmbedder({ cloudflareAccountId: env('NUXT_CLOUDFLARE_ACCOUNT_ID'), cloudflareApiToken: env('NUXT_CLOUDFLARE_API_TOKEN') }, abort.signal)
+
+if (values.reembed) {
+  await reembed()
+  process.exit(0)
+}
 
 for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sort()) {
   const { data: existing, error } = await supabase.from('documents').select('id, storage_path').eq('filename', filename)
@@ -119,3 +130,44 @@ async function refreshHighlights() {
     console.log(`updated  ${label}: ${updates.length} chunk highlights`)
   }
 }
+
+async function reembed() {
+  // Like refreshHighlights: every vector is computed first, so a missing note or
+  // a failed embedding stops the run before anything is written. The writes are
+  // one update per chunk; re-running is idempotent and finishes a partial run.
+  const planned: { label: string, updates: { id: string, embedding: number[] }[] }[] = []
+  for (const filename of (await readdir(PDFS)).filter(f => f.endsWith('.pdf')).sort()) {
+    const { data: docs, error } = await supabase.from('documents').select('id').eq('filename', filename)
+    if (error) throw new Error(`lookup failed: ${error.message}`)
+    if (docs.length === 0) {
+      console.log(`skip     ${filename} (not ingested)`)
+      continue
+    }
+    for (const doc of docs) {
+      const { data: chunks, error: chunksError } = await supabase.from('chunks')
+        .select('id, page_number, content, context').eq('document_id', doc.id).order('id')
+      if (chunksError) throw new Error(`chunk read failed: ${chunksError.message}`)
+      const texts = chunks.map((chunk) => {
+        const note = chunkNote(filename, chunk.page_number, chunk.content)
+        if (!note) throw new Error(`${filename} (${doc.id}) chunk ${chunk.id}: no contextual note for its text (corpus-notes.json is stale; nothing written)`)
+        return embeddingText(filename, chunk.content, chunk.context, note)
+      })
+      const updates: { id: string, embedding: number[] }[] = []
+      for (let i = 0; i < texts.length; i += 50) {
+        const vectors = await embed(texts.slice(i, i + 50))
+        vectors.forEach((embedding, j) => updates.push({ id: chunks[i + j]!.id as string, embedding }))
+        process.stdout.write(`\rembed    ${filename} ${updates.length}/${texts.length}   `)
+      }
+      planned.push({ label: `${filename} (${doc.id})`, updates })
+    }
+  }
+  console.log(`\rembedded ${planned.reduce((n, p) => n + p.updates.length, 0)} chunks in ${planned.length} documents; writing`)
+  for (const { label, updates } of planned) {
+    for (const { id, embedding } of updates) {
+      const { error } = await supabase.from('chunks').update({ embedding_bge_m3: embedding }).eq('id', id)
+      if (error) throw new Error(`update failed for ${id} (${label}): ${error.message} — re-run to finish`)
+    }
+    console.log(`updated  ${label}: ${updates.length} chunk vectors`)
+  }
+}
+

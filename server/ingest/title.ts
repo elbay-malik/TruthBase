@@ -17,10 +17,12 @@ export function documentTitle(filename: string): string {
 }
 
 /**
- * The text embedded for a chunk: the title, then the opening of the run it
- * continues (chunk.ts `context`) if any, then the chunk. Without context the
- * string is unchanged, so the stored vectors of such chunks stay reproducible.
+ * The text embedded for a chunk: the title, then its contextual note
+ * (notes.ts, ADR-0014) and the opening of the run it continues (chunk.ts
+ * `context`) if any, then the chunk. Without either the string is unchanged,
+ * so the stored vectors of such chunks stay reproducible.
  */
-export function embeddingText(filename: string, content: string, context = ''): string {
-  return `${documentTitle(filename)}\n\n${context ? `${context}\n\n` : ''}${content}`
+export function embeddingText(filename: string, content: string, context = '', note = ''): string {
+  const lead = [note, context].filter(Boolean).join(' ')
+  return `${documentTitle(filename)}\n\n${lead ? `${lead}\n\n` : ''}${content}`
 }
