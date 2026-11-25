@@ -6,6 +6,8 @@
 //
 //   pnpm eval:retrieval --install                    # load the fixture, then check
 //   pnpm eval:retrieval --install --update-baseline  # accept the current numbers
+//   pnpm eval:retrieval --install --weights 0,1      # one arm only (keyword,semantic weights):
+//                                                    # reported, not gated; --json writes it
 //
 // --install replaces every document in the database, so it refuses a
 // non-local one unless --allow-remote is given.
@@ -35,8 +37,20 @@ const { values } = parseArgs({
     install: { type: 'boolean', default: false },
     'allow-remote': { type: 'boolean', default: false },
     'update-baseline': { type: 'boolean', default: false },
+    /** "<keyword>,<semantic>" RRF weights, e.g. 0,1 for dense-only; default: the function's own. */
+    'weights': { type: 'string' },
+    'json': { type: 'string' },
   },
 })
+const weights = values.weights?.split(',').map(Number)
+if (weights && (weights.length !== 2 || weights.some(w => !Number.isFinite(w) || w < 0) || weights.every(w => w === 0))) {
+  console.error('--weights takes "<keyword>,<semantic>", two non-negative numbers, not both 0 (e.g. 0,1 for dense-only)')
+  process.exit(1)
+}
+if (weights && values['update-baseline']) {
+  console.error('--weights is a comparison run; the baseline is the default weights')
+  process.exit(1)
+}
 
 const BASELINE_FILE = join(ROOT, 'docs/evals/retrieval-baseline.json')
 
@@ -65,7 +79,9 @@ async function search(record: GoldenRecord, filter: string | null): Promise<Sear
   if (!encoded) throw new Error(`${record.id}: no query embedding in the fixture (run pnpm fixtures:retrieval)`)
   const rows = await sql<{ id: string, document_id: string, page_number: number | null, content: string, context: string, score: number }[]>`
     select id, document_id, page_number, content, context, score
-    from hybrid_search_bge_m3(${record.question}, ${vectorLiteral(decodeVector(encoded))}::extensions.vector, 15, filter_document_id => ${filter}::uuid)`
+    from hybrid_search_bge_m3(${record.question}, ${vectorLiteral(decodeVector(encoded))}::extensions.vector, 15,
+      ${weights ? sql`full_text_weight => ${weights[0]!}, semantic_weight => ${weights[1]!},` : sql``}
+      filter_document_id => ${filter}::uuid)`
   return rows.map(r => ({ id: r.id, documentId: r.document_id, pageNumber: r.page_number, content: r.content, context: r.context, score: r.score }) as SearchHit)
 }
 
@@ -108,6 +124,15 @@ for (const [tag, s] of Object.entries(slices)) console.log(`  ${tag.padEnd(18)} 
 if (baseline) {
   const moved = Object.entries(ranks).filter(([id, rank]) => baseline.ranks[id] !== rank)
   if (moved.length) console.log(`\nmoved: ${moved.map(([id, rank]) => `${id} ${baseline.ranks[id] ?? '-'}→${rank ?? '-'}`).join(', ')}`)
+}
+
+if (values.json) {
+  await writeFile(values.json, `${JSON.stringify({ fixtureExportedAt: fixture.exportedAt, weights: weights ? { fullText: weights[0], semantic: weights[1] } : 'default', ...report, slices, ranks }, null, 1)}\n`)
+  console.log(`\nwrote ${values.json}`)
+}
+if (weights) {
+  console.log(`\nweights ${weights.join(',')}: compared with the default-weight baseline above, not gated`)
+  process.exit(0)
 }
 
 const failures = retrievalGateFailures(report, ranks, values['update-baseline'] ? undefined : baseline)

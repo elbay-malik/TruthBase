@@ -81,3 +81,16 @@ With only 45 questions, one question moves a metric by 2.2 points, so the best s
 The app now searches `hybrid_search_bge_m3` ([ADR-0013](./0013-leaving-gemini.md)): v2 with only the column and vector size changed, so the defaults above carried over unchanged. The tables above were measured on Gemini embeddings and were not re-run, and the dense-only comparison has no bge-m3 row.
 
 With bge-m3, question only, 45 answerable (`pnpm eval:retrieval`, [retrieval-baseline.json](../evals/retrieval-baseline.json)): recall@5 73%, recall@8 76%, recall@10 76%, recall@15 84%, MRR 0.548, nDCG@5 0.640 at the switch on 564 chunks; since the 2026-11-09 chunking change ([ADR-0003](./0003-chunking.md), 687 chunks) recall@5 73%, recall@8 82%, recall@10 87%, recall@15 91%, MRR 0.555, nDCG@5 0.615. The 87% recall@8 above doesn't describe the current system. In the full pipeline the final top 8 holds 39/45, the same as Gemini, because rewrites and reranking at 20 candidates reach evidence below rank 8.
+
+## Note (2026-11-25): dense-only on bge-m3
+
+The missing row, measured on the same fixture (687 chunks, 45 answerable): `pnpm eval:retrieval --install --weights 0,1` runs `hybrid_search_bge_m3` with the keyword arm's weight at 0 ([retrieval-dense-only.json](../evals/retrieval-dense-only.json)).
+
+| bge-m3, question only, n=45 | recall@5 | recall@8 | recall@10 | recall@15 | MRR | nDCG@5 |
+|---|---|---|---|---|---|---|
+| dense-only (weights 0,1) | 76% | 87% | 87% | 87% | 0.658 | 0.690 |
+| hybrid (defaults) | 73% | 82% | 87% | 91% | 0.555 | 0.615 |
+| keyword-only (weights 1,0) | 53% | 60% | 64% | 78% | 0.365 | 0.389 |
+
+On bge-m3, hybrid no longer beats dense-only at the top: dense-only ranks the evidence higher (recall@8 87% vs 82%, MRR 0.658 vs 0.555). Hybrid wins at depth, with the evidence of 41/45 questions in its top 15 against 39/45. The app passes the top 15 to the reranker (ADR-0007), which picks the 8 the answer model sees, so coverage at 15 is what hybrid buys. The Gemini-era claim that hybrid lifted recall@8 from 76% to 87% does not describe bge-m3. Re-tuning the weights for bge-m3 is open.
+
