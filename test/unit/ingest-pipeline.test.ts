@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { chunkNote } from '../../server/ingest/notes'
 import { ingestPdf, type IngestProgress } from '../../server/ingest/pipeline'
 import { storeDocument, type ChunkInsert } from '../../server/ingest/store'
 
@@ -29,13 +30,16 @@ describe('ingestPdf (offline: fake embedder and store)', () => {
     expect(result.pageCount).toBe(32)
     expect(result.chunkCount).toBe(stored.length)
     expect(embed).toHaveBeenCalledTimes(Math.ceil(stored.length / 40))
-    // Each chunk is embedded under its document's title; the stored text stays bare.
-    expect(embed.mock.calls[0]![0][0]).toBe(`The NIST Cybersecurity Framework (CSF) 2.0\n\n${stored[0]!.content}`)
-    // A chunk cut from an over-long run is embedded after the run's opening.
+    // Each chunk is embedded under its document's title and its contextual note
+    // (every corpus chunk has one, ADR-0014); the stored text stays bare.
+    const note = (c: ChunkInsert) => chunkNote('nist-csf-2.0.pdf', c.pageNumber, c.content)
+    expect(stored.every(c => note(c) !== '')).toBe(true)
+    expect(embed.mock.calls[0]![0][0]).toBe(`The NIST Cybersecurity Framework (CSF) 2.0\n\n${note(stored[0]!)}\n\n${stored[0]!.content}`)
+    // A chunk cut from an over-long run is embedded after its note and the run's opening.
     const texts = embed.mock.calls.flatMap(call => call[0])
     const continued = stored.findIndex(c => c.context !== '')
     expect(continued).toBeGreaterThanOrEqual(0)
-    expect(texts[continued]).toBe(`The NIST Cybersecurity Framework (CSF) 2.0\n\n${stored[continued]!.context}\n\n${stored[continued]!.content}`)
+    expect(texts[continued]).toBe(`The NIST Cybersecurity Framework (CSF) 2.0\n\n${note(stored[continued]!)} ${stored[continued]!.context}\n\n${stored[continued]!.content}`)
     expect(stored.filter(c => c.context === '').length).toBeGreaterThan(stored.length / 2)
     expect(new Set(progress.map(p => p.stage))).toEqual(new Set(['parse', 'chunk', 'embed', 'store']))
     expect(progress.at(-1)).toEqual({ stage: 'store', done: stored.length, total: stored.length })

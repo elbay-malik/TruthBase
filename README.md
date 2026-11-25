@@ -16,7 +16,7 @@ The highlight, retrieval and answer numbers below are on [`docs/golden/golden.js
 |---|---|---|---|
 | **Highlight placement** | **180/180** checks pass (60 golden spans × zoom 50/100/200%); placement error ≤ 0.03 px | Real viewer in headless Chromium on a local dev server against the hosted corpus (`pnpm check:viewer`, 2026-10-25) | [ROADMAP Phase 5](./ROADMAP.md) |
 | **Highlight edges vs an independent PDF engine** | within ±0.05 pt of MuPDF on every golden span (spike max: 0.001 pt) | Vitest, `ingest-glyphs.test.ts` | [ADR-0004](./docs/adr/0004-extraction-and-highlights.md) |
-| **Hybrid retrieval recall@8, question only** | **82%** (37/45), recall@15 91% (41/45); 76% and 84% before the 2026-11-09 chunking change | Hybrid v2 on bge-m3, 687 chunks (overlap 300, table context), no LLM steps, gated in CI | [ADR-0013](./docs/adr/0013-leaving-gemini.md), [retrieval-baseline.json](./docs/evals/retrieval-baseline.json), [retrieval-baseline-gemini.json](./docs/evals/retrieval-baseline-gemini.json) |
+| **Hybrid retrieval recall@8, question only** | **91%** (41/45), recall@15 93% (42/45); 82% and 91% before the 2026-11-25 contextual notes, 76% and 84% before the 2026-11-09 chunking change | Hybrid v2 on bge-m3, 687 chunks (overlap 300, table context, a contextual note embedded with each chunk), no LLM steps, gated in CI | [ADR-0014](./docs/adr/0014-contextual-retrieval.md), [ADR-0013](./docs/adr/0013-leaving-gemini.md), [retrieval-baseline.json](./docs/evals/retrieval-baseline.json), [retrieval-baseline-gemini.json](./docs/evals/retrieval-baseline-gemini.json) |
 | **Reranking and answers on bge-m3** | Not published: the switch to bge-m3 was checked once, in a one-off harness that is not in this repo, so those results can't be repeated from here | – | [ADR-0008](./docs/adr/0008-evals-and-ci-gate.md) |
 | **Multi-query on ambiguous questions** | recall@5 75% → **100%**; overall recall@5 76% → 80%, recall@8 unchanged (87%) | Gemini embeddings, not re-run on bge-m3 (2026-10-21): fused top 15 before reranking, self-gated rewriter on gpt-oss-20b | [ADR-0009](./docs/adr/0009-query-rewriting.md), [phase-8-groq-20b-gated.json](./docs/evals/phase-8-groq-20b-gated.json) |
 | **Accessibility** | Lighthouse 100 (mobile and desktop); axe-core 0 violations in 15 UI states (desktop and phone, light and dark) | Local production build (localhost), Lighthouse 13.5.0 with simulated throttling, median of 3, 2026-10-21 | [Quality](#quality) |
@@ -70,14 +70,14 @@ flowchart TD
   Query -.-> LF["Langfuse trace<br/>retrieval steps, tokens, TTFT"]
 ```
 
-**Embeddings.** Vectors come from `@cf/baai/bge-m3` on Cloudflare Workers AI (1024 dims), stored in `chunks.embedding_bge_m3`. Documents are embedded as `title\n\ncontent` (`server/ingest/title.ts`); questions are embedded bare. The project left `gemini-embedding-001` because Gemini's terms allow only Paid Services for users in the EEA, Switzerland or the UK ([ADR-0013](./docs/adr/0013-leaving-gemini.md)).
+**Embeddings.** Vectors come from `@cf/baai/bge-m3` on Cloudflare Workers AI (1024 dims), stored in `chunks.embedding_bge_m3`. Corpus chunks are embedded as `title\n\nnote\n\ncontent`, where the note is a one- or two-sentence contextual note written once offline ([ADR-0014](./docs/adr/0014-contextual-retrieval.md), `server/ingest/{title,notes}.ts`); other documents as `title\n\ncontent`. Questions are embedded bare. The project left `gemini-embedding-001` because Gemini's terms allow only Paid Services for users in the EEA, Switzerland or the UK ([ADR-0013](./docs/adr/0013-leaving-gemini.md)).
 
 **Data flow of one question.**
 
 1. `consume_quotas` checks the client's per-minute and daily counters and the demo's global daily budget in one all-or-nothing call. Over a cap, the route answers 429 before any model call.
 2. The bare question is embedded with bge-m3 and searched while the rewriter decides whether it is ambiguous or multi-part. Most questions get no rewrites (0.3 per question on the golden set, measured with gpt-oss-120b as the rewriter).
 3. `hybrid_search_bge_m3` (SQL RPC) fuses a full-text arm and an exact cosine arm with weighted Reciprocal Rank Fusion. Rewrites are searched too, and the lists are fused again with plain RRF.
-4. The reranker orders the top 20 against the original question. Its first 4 picks lead, and the rest follow in fused order up to 8 sources. Rewriting and reranking are optional at run time: any error or timeout (3 s and 4 s) falls back to the fused order. When the reranker's quota is spent, the answer still works from fused order, which has the evidence for 37/45 in the top 8 rather than 39.
+4. The reranker orders the top 20 against the original question. Its first 4 picks lead, and the rest follow in fused order up to 8 sources. Rewriting and reranking are optional at run time: any error or timeout (3 s and 4 s) falls back to the fused order. When the reranker's quota is spent, the answer still works from fused order, which has the evidence for 41/45 in the top 8.
 5. The 8 sources go to the model as delimited `<source id="n">` blocks, declared as quoted data rather than instructions. The model cites `[n]` or replies `NO_ANSWER`.
 6. The client gets the sources (with rects) first, then the streamed answer. A chip click opens the PDF (a static file from the CDN for the public corpus; a 12-minute signed Storage URL for anything else) and draws the overlay.
 
@@ -91,15 +91,16 @@ Metric definitions are in [SPEC](./docs/SPEC.md#acceptance-metrics), methodology
 
 | Embedding | recall@5 | recall@8 | recall@10 | recall@15 | MRR | nDCG@5 |
 |---|---|---|---|---|---|---|
-| **bge-m3** | **73%** (33) | **82%** (37) | **87%** (39) | **91%** (41) | **0.555** | **0.615** |
+| **bge-m3** | **73%** (33) | **91%** (41) | **91%** (41) | **93%** (42) | **0.564** | **0.609** |
+| bge-m3, no contextual notes (before 2026-11-25) | 73% (33) | 82% (37) | 87% (39) | 91% (41) | 0.555 | 0.615 |
 | bge-m3, 564 chunks (before 2026-11-09) | 73% (33) | 76% (34) | 76% (34) | 84% (38) | 0.548 | 0.640 |
 | Gemini | 76% (34) | 87% (39) | 87% (39) | 87% (39) | 0.515 | 0.633 |
 
-bge-m3 finds fewer questions in the fused top 8 than Gemini did. The chat route adds rewrites and a wider reranker pool on top.
+With the contextual notes ([ADR-0014](./docs/adr/0014-contextual-retrieval.md)), bge-m3 finds more questions in the fused top 8 than Gemini did. The chat route adds rewrites and a wider reranker pool on top. Dense-only on the same fixture is 82%/89%/91%/93% with MRR 0.650 ([ADR-0006](./docs/adr/0006-hybrid-search.md), [retrieval-dense-only.json](./docs/evals/retrieval-dense-only.json)).
 
 **The switch-over run.** The go/no-go for leaving Gemini ran the full pipeline once, 2026-11-02 to 2026-11-03, in a one-off harness that is not in this repo, so its results are not published here. `pnpm eval:llm` measures the same pipeline from here on, and its figures will be published once it has a run anyone can repeat.
 
-**Cost of the wider pool.** 20 candidates is about 4.2K reranker tokens per chat against 3.1K, which leaves about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b. Past that, the answer still works from fused order, which is 37/45 in the top 8 (34/45 before the 2026-11-09 chunking change).
+**Cost of the wider pool.** 20 candidates is about 4.2K reranker tokens per chat against 3.1K, which leaves about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b. Past that, the answer still works from fused order, which is 41/45 in the top 8 (37/45 before the 2026-11-25 contextual notes, 34/45 before the 2026-11-09 chunking change).
 
 ### Retrieval: hybrid search (Phase 6, Gemini embeddings)
 
@@ -212,7 +213,8 @@ Each ADR records context, the decision, measurements and rejected alternatives. 
 - **[ADR-0010](./docs/adr/0010-abuse-protection.md) Abuse protection (Accepted; BYO docs in Phase 11b).** Per-minute and daily caps per client plus a global daily budget, counted atomically in Postgres, clean 429 with `Retry-After`, client IP stored as an HMAC, fail open on an outage only (a misconfigured quota store closes the routes with a 503). Since 2026-11-08 every chat question also needs an invisible Cloudflare Turnstile token. *Rejected:* mandatory sign-in (kills the demo), CAPTCHA on every route (friction), a sliding-window limiter on KV, platform WAF rules as the only layer, counting tokens instead of requests.
 - **[ADR-0011](./docs/adr/0011-deployment-topology.md) Deployment (Accepted, live since 2026-10-21).** Vercel Hobby: one Node 24 function in `dub1` next to the database, static assets on the CDN, ingestion from the CLI, burst limits moved into Postgres, Langfuse spans flushed through `waitUntil`. *Rejected:* Cloudflare Workers Paid (card, `workerd` port), free Workers plus a Node host (10 ms CPU, two targets), Cloud Run (card, container), Render (1-minute cold starts), Hugging Face Spaces, an Oracle VM (ops).
 - **[ADR-0012](./docs/adr/0012-hermetic-e2e.md) Hermetic E2E (Accepted).** Playwright against the production build, `/api/*` answered from fixtures built by the real ingestion code, a local Supabase stub for Storage and PostgREST, plus one replayed real chat stream. *Rejected:* a live backend in CI (secrets, quota, flaky answers), a full local Supabase stack, mocking inside Nitro (test code in the bundle), component tests only.
-- **[ADR-0013](./docs/adr/0013-leaving-gemini.md) Leaving Gemini (Accepted).** Embeddings move to `@cf/baai/bge-m3` on Cloudflare Workers AI (1024 dims) in a new column and function, documents with their title in front, reranker pool 15 → 20. Question-only search drops to 34/45 (37/45 since the 2026-11-09 chunking change). *Rejected:* paying for Gemini, staying on its unpaid tier (terms), bge-m3 without the title (lost 5-8 golden records), keeping 15 candidates, replacing the column in place.
+- **[ADR-0013](./docs/adr/0013-leaving-gemini.md) Leaving Gemini (Accepted).** Embeddings move to `@cf/baai/bge-m3` on Cloudflare Workers AI (1024 dims) in a new column and function, documents with their title in front, reranker pool 15 → 20. Question-only search drops to 34/45 (37/45 since the 2026-11-09 chunking change, 41/45 since the 2026-11-25 contextual notes). *Rejected:* paying for Gemini, staying on its unpaid tier (terms), bge-m3 without the title (lost 5-8 golden records), keeping 15 candidates, replacing the column in place.
+- **[ADR-0014](./docs/adr/0014-contextual-retrieval.md) Contextual notes (Accepted).** A one- or two-sentence note per corpus chunk, written once offline by Claude agents and checked against the document, is embedded with the chunk (not keyword-indexed, stored or shown to the answer model). Question-only recall@8 82% → 91%, recall@15 91% → 93%. *Rejected:* notes from the demo's Groq models (five days of quota), notes in the keyword arm (lower recall), a new column.
 
 ## Quality
 
@@ -300,7 +302,7 @@ Before the first deploy, apply `supabase/migrations` to the hosted project, inge
 
 | Service | Binding limit | How TruthBase stays inside it |
 |---|---|---|
-| Groq (per model) | 8K tokens/min, 1K requests/day, 200K tokens/day | Answers on gpt-oss-120b (~100/day); rewriting and reranking on gpt-oss-20b (about 40 fully enhanced chats/day, then fused order, 37/45 in the top 8). Daily caps: chat 10 per client, 80 for the whole demo; search 30 / 300. Per-minute: 10 chats, 30 searches per client |
+| Groq (per model) | 8K tokens/min, 1K requests/day, 200K tokens/day | Answers on gpt-oss-120b (~100/day); rewriting and reranking on gpt-oss-20b (about 40 fully enhanced chats/day, then fused order, 41/45 in the top 8). Daily caps: chat 10 per client, 80 for the whole demo; search 30 / 300. Per-minute: 10 chats, 30 searches per client |
 | Cloudflare Workers AI | Free plan: 10,000 Neurons/day; over quota requests fail rather than bill | bge-m3 embeddings for every question and the corpus, and the answer fallback on gpt-oss-120b, about 68 Neurons an answer (~147/day if answers had the Neurons to themselves). Required: chat, search and ingest answer 503 without it |
 | Supabase | 500 MB, pauses after 7 idle days | 564 chunks at 1024 dims (~2.3 MB of vectors), plus the old 768-dim column (~1.7 MB) until it is dropped; daily keep-alive cron on Vercel |
 | Vercel Hobby | non-commercial; 1M invocations, 4 Active CPU-hours, 100 GB transfer per month; 4.5 MB bodies; one region | Waiting on models doesn't count as Active CPU; ingestion stays off the function |
@@ -317,14 +319,13 @@ Sources: [ADR-0007](./docs/adr/0007-reranking.md), [ADR-0013](./docs/adr/0013-le
 **Known gaps:**
 
 - **Big operators in fonts without usable outlines are covered only by the em box.** TeX sums that hang below the em box (e.g. the two `Σ` in g-035) get their own glyph rects from the font outline; a Type3 or non-embedded font has no outline to read ([ADR-0004](./docs/adr/0004-extraction-and-highlights.md)).
-- **Question-only search is weaker than it was.** `/api/search` has no rewrites or reranker, so it sees 37/45 in the top 8, where Gemini had 39/45. A chat over the reranker's daily quota sees the same.
 - **Tables are flattened into running text** by extraction, which causes refusals even when the evidence is retrieved.
 - **False refusals are above the SPEC target** (≤ 1): 4 in the first full promptfoo run (2026-10-23, on Gemini embeddings). Tables flattened by extraction are one cause: the evidence is retrieved, but the answer refuses ([ADR-0005](./docs/adr/0005-citations-and-grounding.md)).
 - **Prompt injection through document text** is reduced (delimited sources, a fused tail the reranker can't drop) but not prevented. It must be re-assessed before uploads open.
 - **Time to first token** can exceed the < 2 s p50 target when a question is rewritten.
 - Rotated pages, vertical text, RTL and Type3 fonts are absent from the golden set and unverified; scanned PDFs are rejected.
 
-**Next:** bring-your-own-docs uploads behind Supabase Auth (**Phase 11b**), with direct-to-Storage uploads, per-user quotas, an upload → highlight E2E and the prompt-injection review. Stretch goals: contextual retrieval, GraphRAG-lite, multi-document compare, an agentic query router.
+**Next:** bring-your-own-docs uploads behind Supabase Auth (**Phase 11b**), with direct-to-Storage uploads, per-user quotas, an upload → highlight E2E and the prompt-injection review. Stretch goals: GraphRAG-lite, multi-document compare, an agentic query router.
 
 **Further reading:** [EXECUTION_PLAN](./docs/EXECUTION_PLAN.md) (phase-by-phase plan), [SPEC](./docs/SPEC.md) (scope and acceptance metrics), [TECH_NOTES](./docs/TECH_NOTES.md) (verified API deltas and findings), [WIREFRAMES](./docs/WIREFRAMES.md).
 

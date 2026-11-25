@@ -84,7 +84,7 @@ With bge-m3, question only, 45 answerable (`pnpm eval:retrieval`, [retrieval-bas
 
 ## Note (2026-11-25): dense-only on bge-m3
 
-The missing row, measured on the same fixture (687 chunks, 45 answerable): `pnpm eval:retrieval --install --weights 0,1` runs `hybrid_search_bge_m3` with the keyword arm's weight at 0 ([retrieval-dense-only.json](../evals/retrieval-dense-only.json)).
+The missing row, measured on the same fixture (687 chunks, 45 answerable): `pnpm eval:retrieval --install --weights 0,1` runs `hybrid_search_bge_m3` with the keyword arm's weight at 0. The table below is from before the contextual notes; [retrieval-dense-only.json](../evals/retrieval-dense-only.json) holds the current run, in the update below.
 
 | bge-m3, question only, n=45 | recall@5 | recall@8 | recall@10 | recall@15 | MRR | nDCG@5 |
 |---|---|---|---|---|---|---|
@@ -93,4 +93,14 @@ The missing row, measured on the same fixture (687 chunks, 45 answerable): `pnpm
 | keyword-only (weights 1,0) | 53% | 60% | 64% | 78% | 0.365 | 0.389 |
 
 On bge-m3, hybrid no longer beats dense-only at the top: dense-only ranks the evidence higher (recall@8 87% vs 82%, MRR 0.658 vs 0.555). Hybrid wins at depth, with the evidence of 41/45 questions in its top 15 against 39/45. The app passes the top 15 to the reranker (ADR-0007), which picks the 8 the answer model sees, so coverage at 15 is what hybrid buys. The Gemini-era claim that hybrid lifted recall@8 from 76% to 87% does not describe bge-m3. Re-tuning the weights for bge-m3 is open.
+
+**Update (2026-11-25): with the contextual notes** ([ADR-0014](./0014-contextual-retrieval.md)), same fixture and command:
+
+| bge-m3 + notes, question only, n=45 | recall@5 | recall@8 | recall@10 | recall@15 | MRR | nDCG@5 |
+|---|---|---|---|---|---|---|
+| dense-only (weights 0,1) | 82% | 89% | 91% | 93% | 0.650 | 0.700 |
+| hybrid (defaults) | 73% | 91% | 91% | 93% | 0.564 | 0.609 |
+| keyword-only (weights 1,0) | 53% | 60% | 64% | 78% | 0.365 | 0.389 |
+
+Both gain from the notes. Hybrid now leads only at recall@8 (41 vs 40 of 45), the two tie at 10 and 15, and dense-only ranks the evidence higher (recall@5, MRR, nDCG@5). The keyword arm is unchanged, since the notes aren't in it. Re-tuning the weights, or dropping the keyword arm, is open. It needs the full pipeline's measurement (rewrites, reranker), not just this gate.
 
