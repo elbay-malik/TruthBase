@@ -1,6 +1,7 @@
 # ADR-0008: Eval methodology and CI gate
 
 - **Status:** Proposed. The retrieval gate runs in CI. The first full LLM eval ran on 2026-10-23 (`docs/evals/phase-9-llm.json`), and the judge scores faithfulness and citation precision above SPEC's 0.90. But the gate fails on 4 false refusals (target ≤ 1), so there is no `llm-baseline.json`, and a hand check found the judge lenient (see Consequences).
+- **Note (2026-11-25):** The first accepted LLM baseline, [llm-baseline.json](../evals/llm-baseline.json): CI run 45700985608 on bge-m3 with the contextual notes (ADR-0014), all 50 questions. Faithfulness 98.9%, citation precision 98.3%, 5/5 unanswerable refused, 1 false refusal (g-027). The judge's leniency (Consequences) hasn't been re-checked by hand on this run.
 - **Date:** 2026-10-20
 - **Note (2026-11-04):** Embeddings moved to bge-m3 ([ADR-0013](./0013-leaving-gemini.md)). The gate now runs `hybrid_search_bge_m3` on a 2.7 MB fixture with recall@8 76%, MRR 0.548, nDCG@5 0.640 and filtered recall@8 78% (`docs/evals/retrieval-baseline.json`); since the 2026-11-09 chunking change ([ADR-0003](./0003-chunking.md)) recall@8 82%, MRR 0.555, nDCG@5 0.615 and filtered recall@8 83%; since the 2026-11-25 contextual notes ([ADR-0014](./0014-contextual-retrieval.md)) recall@8 91%, MRR 0.564, nDCG@5 0.609 and filtered recall@8 90%. The figures below are from Gemini embeddings.
 
