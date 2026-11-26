@@ -98,7 +98,9 @@ Metric definitions are in [SPEC](./docs/SPEC.md#acceptance-metrics), methodology
 
 With the contextual notes ([ADR-0014](./docs/adr/0014-contextual-retrieval.md)), bge-m3 finds more questions in the fused top 8 than Gemini did. The chat route adds rewrites and a wider reranker pool on top. Dense-only on the same fixture is 82%/89%/91%/93% with MRR 0.650 ([ADR-0006](./docs/adr/0006-hybrid-search.md), [retrieval-dense-only.json](./docs/evals/retrieval-dense-only.json)).
 
-**The switch-over run.** The go/no-go for leaving Gemini ran the full pipeline once, 2026-11-02 to 2026-11-03, in a one-off harness that is not in this repo, so its results are not published here. `pnpm eval:llm` measures the same pipeline from here on, and its figures will be published once it has a run anyone can repeat.
+**The switch-over run.** The go/no-go for leaving Gemini ran the full pipeline once, 2026-11-02 to 2026-11-03, in a one-off harness that is not in this repo, so its results are not published here. `pnpm eval:llm` measures the same pipeline from here on.
+
+**LLM eval on bge-m3 (2026-11-25, [llm-baseline.json](./docs/evals/llm-baseline.json)).** The full pipeline (rewriting and reranking on gpt-oss-20b, answers on gpt-oss-120b) on all 50 golden questions, with the contextual notes ([ADR-0014](./docs/adr/0014-contextual-retrieval.md)), judged by qwen3.8-27b. **Faithfulness 98.9%** (95 of 96 claims supported by their own citations), **judged citation precision 98.3%** (120 of 122), answer relevance 100% (44 of 44 answered), and at least one cited source holding the golden evidence for 90.9% of answered questions. 5 of 5 unanswerable questions refused, and 1 false refusal (g-027, a Self-RAG table that the model refuses about 1 time in 5, [ADR-0005](./docs/adr/0005-citations-and-grounding.md)). It passes every SPEC target and is the eval's first accepted baseline. Repeat it with `pnpm eval:llm && pnpm eval:llm:summary` (Groq and Cloudflare keys) or the `llm-eval.yml` workflow: CI run 45700985608 on b55a10f. The baseline's counts come from re-judging that run's answers, which gave the same percentages as CI's summary (CI counted 94 claims and 120 citations).
 
 **Cost of the wider pool.** 20 candidates is about 4.2K reranker tokens per chat against 3.1K, which leaves about 40 fully enhanced chats a day on Groq's 200K tokens/day for gpt-oss-20b. Past that, the answer still works from fused order, which is 41/45 in the top 8 (37/45 before the 2026-11-25 contextual notes, 34/45 before the 2026-11-09 chunking change).
 
@@ -314,7 +316,7 @@ Sources: [ADR-0007](./docs/adr/0007-reranking.md), [ADR-0013](./docs/adr/0013-le
 
 **Pending measurement** (the reason Phase 9 is unticked in [ROADMAP](./ROADMAP.md)):
 
-- **An accepted LLM baseline** ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)). The first full promptfoo run (2026-10-23, on Gemini embeddings) measured faithfulness 95.2% and judged citation precision 92.5%, but it fails its gate on 4 false refusals. A hand check also found the qwen judge lenient: citation precision is about 88–90% once 5 answers are corrected. The judge needs claims and citations taken from the answer itself, plus a second hand check, before its numbers can gate. `pnpm eval:llm` measures the bge-m3 pipeline from here on.
+- **A hand check of the LLM judge on bge-m3** ([ADR-0008](./docs/adr/0008-evals-and-ci-gate.md)). The baseline was accepted on 2026-11-25 (above). The 2026-10-23 hand check, on Gemini embeddings, found the qwen judge lenient: citation precision was about 88–90% once 5 answers were corrected, against the judge's 92.5%. The bge-m3 run has not had a hand check, so its judged figures may be high by a similar margin.
 
 **Known gaps:**
 
